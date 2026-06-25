@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean };
+const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
   { to: "/courses", label: "Courses", icon: BookOpen, adminOnly: true },
@@ -13,7 +14,7 @@ const nav = [
   { to: "/sessions", label: "Sessions", icon: CalendarClock },
   { to: "/scan", label: "Scanner", icon: ScanLine },
   { to: "/reports", label: "Reports", icon: FileBarChart },
-] as const;
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
