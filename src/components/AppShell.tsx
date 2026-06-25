@@ -37,7 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {nav.filter((n) => !n.adminOnly || isAdmin).map((n) => (
             <Link
               key={n.to}
-              to={n.to}
+              to={n.to as string}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white whitespace-nowrap"
               activeProps={{ className: "bg-white/15 text-white" }}
             >
