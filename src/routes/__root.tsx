@@ -87,10 +87,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+    ],
+    meta: [
+      { charSet: "utf-8" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#006633" },
+      { title: "KNUST Attendance" },
+      { name: "description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
     ],
   }),
   shellComponent: RootShell,
