@@ -44,7 +44,7 @@ function Dashboard() {
         courses: courses.count ?? 0,
         sessions: sessions.count ?? 0,
         ...tally,
-      };
+      } as { students: number; courses: number; sessions: number; PRESENT: number; ABSENT: number; IN_PROGRESS: number; LATE_ARRIVAL: number; LEFT_EARLY: number };
     },
   });
 
