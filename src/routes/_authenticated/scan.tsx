@@ -213,7 +213,7 @@ function ScanPage() {
       await scannerRef.current.start(
         chosen,
         { fps: 12, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
-        (decoded) => {
+        (decoded: string) => {
           void processQr(decoded);
         },
         () => {
