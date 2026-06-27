@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import pesaLogo from "@/assets/pesa-logo.png.asset.json";
 
 function NotFoundComponent() {
   return (
@@ -92,6 +93,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: pesaLogo.url, type: "image/png" },
+      { rel: "apple-touch-icon", href: pesaLogo.url },
     ],
   }),
   shellComponent: RootShell,
