@@ -244,6 +244,12 @@ function ScanPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession, session]);
 
+  useEffect(() => {
+    if (!activeSession && openSessions?.length) {
+      setActiveSession(openSessions[0].id);
+    }
+  }, [activeSession, openSessions]);
+
   const submitManual = (e: React.FormEvent) => {
     e.preventDefault();
     if (manual.trim()) {
