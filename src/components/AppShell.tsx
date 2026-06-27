@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import pesaLogo from "@/assets/pesa-logo.png.asset.json";
 import {
   Sheet,
   SheetContent,
@@ -87,11 +88,13 @@ function SidebarBody({
   return (
     <div className="flex h-full flex-col bg-knust-gradient text-primary-foreground">
       <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
-        <div className="size-10 rounded-lg bg-gold grid place-items-center font-bold text-gold-foreground shrink-0">
-          K
-        </div>
+        <img
+          src={pesaLogo.url}
+          alt="Petroleum Engineering Students Association logo"
+          className="size-11 rounded-full bg-white object-contain p-0.5 shrink-0"
+        />
         <div className="leading-tight min-w-0">
-          <div className="text-sm font-semibold truncate">KNUST</div>
+          <div className="text-sm font-semibold truncate">PESA KNUST</div>
           <div className="text-xs opacity-80 truncate">Attendance System</div>
         </div>
       </div>
@@ -165,9 +168,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2 min-w-0">
-            <div className="size-7 rounded-md bg-knust-gradient grid place-items-center text-[10px] font-bold text-white shrink-0">
-              K
-            </div>
+            <img
+              src={pesaLogo.url}
+              alt="Petroleum Engineering Students Association logo"
+              className="size-8 rounded-full bg-white object-contain p-0.5 shrink-0"
+            />
             <div className="text-sm font-semibold truncate">KNUST Attendance</div>
           </div>
           <Button
