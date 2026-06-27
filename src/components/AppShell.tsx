@@ -1,11 +1,33 @@
-import { Link, useRouter } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { LogOut, LayoutDashboard, Users, BookOpen, CalendarClock, ScanLine, FileBarChart, Building2 } from "lucide-react";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
+import {
+  LogOut,
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  CalendarClock,
+  ScanLine,
+  FileBarChart,
+  Building2,
+  Menu,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
+};
 const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
@@ -16,49 +38,151 @@ const nav: NavItem[] = [
   { to: "/reports", label: "Reports", icon: FileBarChart },
 ];
 
+function NavLinks({
+  isAdmin,
+  onNavigate,
+}: {
+  isAdmin: boolean;
+  onNavigate?: () => void;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  return (
+    <nav className="flex flex-col gap-1 p-2">
+      {nav
+        .filter((n) => !n.adminOnly || isAdmin)
+        .map((n) => {
+          const active = pathname === n.to;
+          return (
+            <Link
+              key={n.to}
+              to={n.to as string}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-white/20 text-white"
+                  : "text-white/85 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <n.icon className="size-4 shrink-0" /> {n.label}
+            </Link>
+          );
+        })}
+    </nav>
+  );
+}
+
+function SidebarBody({
+  email,
+  role,
+  onSignOut,
+  isAdmin,
+  onNavigate,
+}: {
+  email?: string;
+  role: string;
+  onSignOut: () => void;
+  isAdmin: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col bg-knust-gradient text-primary-foreground">
+      <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
+        <div className="size-10 rounded-lg bg-gold grid place-items-center font-bold text-gold-foreground shrink-0">
+          K
+        </div>
+        <div className="leading-tight min-w-0">
+          <div className="text-sm font-semibold truncate">KNUST</div>
+          <div className="text-xs opacity-80 truncate">Attendance System</div>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <NavLinks isAdmin={isAdmin} onNavigate={onNavigate} />
+      </div>
+      <div className="p-3 border-t border-white/10">
+        <div className="text-xs opacity-80 truncate">{email}</div>
+        <div className="text-[10px] uppercase tracking-wider text-gold/90 mt-0.5">
+          {role}
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={onSignOut}
+        >
+          <LogOut className="size-4 mr-1" /> Sign out
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, isAdmin, roles } = useAuth();
+  const [open, setOpen] = useState(false);
+  const role = roles[0] ?? "no role";
+
   const signOut = async () => {
     await supabase.auth.signOut();
     router.navigate({ to: "/auth" });
   };
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      <aside className="md:w-64 md:min-h-screen md:border-r border-border bg-knust-gradient text-primary-foreground md:flex md:flex-col">
-        <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
-          <div className="size-10 rounded-lg bg-gold grid place-items-center font-bold text-gold-foreground">K</div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold">KNUST</div>
-            <div className="text-xs opacity-80">Attendance System</div>
-          </div>
-        </div>
-        <nav className="flex md:flex-col gap-1 p-2 overflow-x-auto md:overflow-visible">
-          {nav.filter((n) => !n.adminOnly || isAdmin).map((n) => (
-            <Link
-              key={n.to}
-              to={n.to as string}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white whitespace-nowrap"
-              activeProps={{ className: "bg-white/15 text-white" }}
-            >
-              <n.icon className="size-4" /> {n.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-auto p-3 border-t border-white/10 hidden md:block">
-          <div className="text-xs opacity-80 truncate">{user?.email}</div>
-          <div className="text-[10px] uppercase tracking-wider text-gold/90 mt-0.5">{roles[0] ?? "no role"}</div>
-          <Button variant="secondary" size="sm" className="mt-2 w-full" onClick={signOut}>
-            <LogOut className="size-4 mr-1" /> Sign out
-          </Button>
-        </div>
+    <div className="min-h-screen flex w-full">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border">
+        <SidebarBody
+          email={user?.email}
+          role={role}
+          onSignOut={signOut}
+          isAdmin={isAdmin}
+        />
       </aside>
-      <main className="flex-1 min-w-0 bg-background">
-        <div className="md:hidden flex items-center justify-between px-4 py-2 border-b">
-          <div className="text-xs text-muted-foreground">{user?.email}</div>
-          <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="size-4" /></Button>
+
+      <main className="flex-1 min-w-0 bg-background flex flex-col">
+        {/* Mobile top bar */}
+        <header className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 px-3 py-2 border-b bg-background/95 backdrop-blur">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Open menu">
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 max-w-[85vw]">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation</SheetTitle>
+              </SheetHeader>
+              <SidebarBody
+                email={user?.email}
+                role={role}
+                onSignOut={() => {
+                  setOpen(false);
+                  void signOut();
+                }}
+                isAdmin={isAdmin}
+                onNavigate={() => setOpen(false)}
+              />
+            </SheetContent>
+          </Sheet>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="size-7 rounded-md bg-knust-gradient grid place-items-center text-[10px] font-bold text-white shrink-0">
+              K
+            </div>
+            <div className="text-sm font-semibold truncate">KNUST Attendance</div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={signOut}
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" />
+          </Button>
+        </header>
+
+        <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+          {children}
         </div>
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
   );
