@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import pesaLogo from "@/assets/pesa-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — KNUST Attendance" }] }),
@@ -58,7 +59,11 @@ function AuthPage() {
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="size-10 rounded-lg bg-gold grid place-items-center font-bold text-gold-foreground">K</div>
+          <img
+            src={pesaLogo.url}
+            alt="Petroleum Engineering Students Association logo"
+            className="size-11 rounded-full bg-white object-contain p-0.5"
+          />
           <div className="font-semibold">KNUST Attendance</div>
         </Link>
         <div>

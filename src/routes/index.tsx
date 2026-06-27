@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { QrCode, ShieldCheck, BarChart3, GraduationCap } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import pesaLogo from "@/assets/pesa-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,9 +29,13 @@ function Landing() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-lg bg-knust-gradient grid place-items-center font-bold text-primary-foreground">K</div>
+            <img
+              src={pesaLogo.url}
+              alt="Petroleum Engineering Students Association logo"
+              className="size-11 rounded-full bg-white object-contain p-0.5 shadow-sm"
+            />
             <div className="leading-tight">
-              <div className="font-bold">KNUST</div>
+              <div className="font-bold">PESA KNUST</div>
               <div className="text-xs text-muted-foreground">Attendance System</div>
             </div>
           </div>
