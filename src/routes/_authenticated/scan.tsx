@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, LogOut, Camera, Square, AlertTriangle, RefreshCw } from "lucide-react";
+import { CheckCircle2, LogOut, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera } from "lucide-react";
 import { toast } from "sonner";
 
 type Search = { session?: string };
@@ -28,13 +28,13 @@ function ScanPage() {
   const qc = useQueryClient();
   const [activeSession, setActiveSession] = useState<string | undefined>(sessionId);
   const [scanning, setScanning] = useState(false);
+  const [status, setStatus] = useState<string>("Idle");
   const [camError, setCamError] = useState<string | null>(null);
-  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
-  const [cameraId, setCameraId] = useState<string | undefined>();
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [manual, setManual] = useState("");
+  const [lastScan, setLastScan] = useState<{ name: string; status: string } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  // Per-student dedupe so the same QR held in front of the camera doesn't bounce
-  // between check-in and check-out.
+  const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
   const processingRef = useRef(false);
 
@@ -63,6 +63,10 @@ function ScanPage() {
         : null,
     enabled: !!activeSession,
   });
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
   const { data: records } = useQuery({
     queryKey: ["records", activeSession],
     queryFn: async () =>
@@ -81,20 +85,23 @@ function ScanPage() {
 
   const processQr = async (raw: string) => {
     const uuid = raw.trim();
-    if (!uuid || !activeSession || !session) return;
+    const sess = sessionRef.current;
+    if (!uuid || !sess) return;
     if (processingRef.current) return;
     const now = Date.now();
     const last = recentScans.current.get(uuid) ?? 0;
-    if (now - last < 8000) return;
+    if (now - last < 6000) return;
     recentScans.current.set(uuid, now);
     processingRef.current = true;
     try {
+      // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
         .from("students")
         .select("id, full_name, index_number")
-        .eq("qr_uuid", uuid)
+        .or(`qr_uuid.eq.${uuid},index_number.eq.${uuid}`)
         .maybeSingle();
       if (!student) {
+        setStatus(`Unknown QR: ${uuid.slice(0, 12)}…`);
         toast.error("Unknown QR code");
         return;
       }
@@ -102,41 +109,50 @@ function ScanPage() {
       const { data: reg } = await supabase
         .from("course_registrations")
         .select("id")
-        .eq("course_id", session.course_id)
+        .eq("course_id", sess.course_id)
         .eq("student_id", student.id)
         .maybeSingle();
       if (!reg) {
         toast.error(`${student.full_name} is not registered for this course`);
+        setStatus(`Not registered: ${student.full_name}`);
         return;
       }
 
       const { data: existing } = await supabase
         .from("attendance_records")
         .select("*")
-        .eq("session_id", activeSession)
+        .eq("session_id", sess.id)
         .eq("student_id", student.id)
         .maybeSingle();
       const { data: me } = await supabase.auth.getUser();
 
       if (!existing) {
-        const sessionStart = new Date(session.starts_at).getTime();
+        const sessionStart = new Date(sess.starts_at).getTime();
         const lateMin = Math.max(
           0,
-          Math.floor((now - sessionStart) / 60000) - (session.grace_minutes ?? 0),
+          Math.floor((now - sessionStart) / 60000) - (sess.grace_minutes ?? 0),
         );
-        const status = lateMin > 0 ? "LATE_ARRIVAL" : "IN_PROGRESS";
+        const st = lateMin > 0 ? "LATE_ARRIVAL" : "IN_PROGRESS";
         const { error } = await supabase.from("attendance_records").insert({
-          session_id: activeSession,
+          session_id: sess.id,
           student_id: student.id,
           check_in_at: new Date().toISOString(),
           late_minutes: lateMin,
-          status,
+          status: st,
           scanned_by: me.user?.id,
         });
-        if (error) toast.error(error.message);
-        else toast.success(`✓ Checked in: ${student.full_name}`);
+        if (error) {
+          toast.error(error.message);
+          setStatus(`Error: ${error.message}`);
+        } else {
+          toast.success(`✓ Checked in: ${student.full_name}`);
+          setLastScan({ name: student.full_name, status: "CHECKED IN" });
+          setStatus(`Checked in: ${student.full_name}`);
+        }
       } else if (existing.status === "PRESENT" || existing.check_out_at) {
         toast.message(`Already completed: ${student.full_name}`);
+        setLastScan({ name: student.full_name, status: "ALREADY DONE" });
+        setStatus(`Already completed: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
         const duration = Math.max(1, Math.floor((now - checkIn) / 60000));
@@ -148,8 +164,14 @@ function ScanPage() {
             status: "PRESENT",
           })
           .eq("id", existing.id);
-        if (error) toast.error(error.message);
-        else toast.success(`✓ Checked out: ${student.full_name} (${duration}m)`);
+        if (error) {
+          toast.error(error.message);
+          setStatus(`Error: ${error.message}`);
+        } else {
+          toast.success(`✓ Checked out: ${student.full_name} (${duration}m)`);
+          setLastScan({ name: student.full_name, status: `CHECKED OUT (${duration}m)` });
+          setStatus(`Checked out: ${student.full_name}`);
+        }
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
     } finally {
@@ -161,7 +183,6 @@ function ScanPage() {
     try {
       if (scannerRef.current) {
         const state = scannerRef.current.getState?.();
-        // 2 = SCANNING in html5-qrcode enum
         if (state === 2) await scannerRef.current.stop();
         await scannerRef.current.clear();
       }
@@ -170,79 +191,88 @@ function ScanPage() {
     }
     scannerRef.current = null;
     setScanning(false);
+    setStatus("Stopped");
   };
 
-  const startCamera = async (preferredId?: string) => {
+  const startCamera = async (preferredFacing?: "environment" | "user") => {
     if (!activeSession) {
       toast.error("Select a session first");
       return;
     }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      const m = "This browser does not support camera access. Use Chrome/Safari on HTTPS.";
+      setCamError(m);
+      toast.error(m);
+      return;
+    }
     setCamError(null);
+    setStatus("Requesting camera…");
     try {
-      // Make sure any prior instance is fully torn down
       await stopCamera();
-
-      // Discover cameras (also triggers permission prompt)
-      let devices = cameras;
-      if (!devices.length) {
-        try {
-          devices = await Html5Qrcode.getCameras();
-          setCameras(devices);
-        } catch (e: any) {
-          throw new Error(
-            "Camera permission was blocked. Allow camera access in your browser and try again.",
-          );
-        }
-      }
-      if (!devices.length) throw new Error("No camera detected on this device.");
-
-      const chosen =
-        preferredId ??
-        cameraId ??
-        devices.find((d) => /back|rear|environment/i.test(d.label))?.id ??
-        devices[0].id;
-      setCameraId(chosen);
 
       const el = document.getElementById(QR_REGION_ID);
       if (!el) throw new Error("Scanner container missing");
+
+      const facing = preferredFacing ?? facingMode;
+      setFacingMode(facing);
 
       scannerRef.current = new Html5Qrcode(QR_REGION_ID, {
         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
         verbose: false,
       });
-      await scannerRef.current.start(
-        chosen,
-        { fps: 12, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
-        (decoded: string) => {
-          void processQr(decoded);
+
+      const config = {
+        fps: 15,
+        qrbox: (vw: number, vh: number) => {
+          const m = Math.floor(Math.min(vw, vh) * 0.75);
+          return { width: m, height: m };
         },
-        () => {
-          /* per-frame decode errors are noisy; ignore */
-        },
-      );
+        aspectRatio: 1,
+      };
+
+      try {
+        await scannerRef.current.start(
+          { facingMode: { exact: facing } } as MediaTrackConstraints,
+          config as any,
+          (decoded) => void processQr(decoded),
+          () => {},
+        );
+      } catch {
+        // Fallback: not all devices honor `exact`; retry without it
+        await scannerRef.current.start(
+          { facingMode } as MediaTrackConstraints,
+          config as any,
+          (decoded) => void processQr(decoded),
+          () => {},
+        );
+      }
       setScanning(true);
+      setStatus("Scanning… point a QR code at the camera");
     } catch (e: any) {
-      const msg = e?.message ?? String(e);
+      const msg =
+        e?.name === "NotAllowedError"
+          ? "Camera permission denied. Allow camera access in your browser settings."
+          : e?.name === "NotFoundError"
+          ? "No camera found on this device."
+          : e?.message ?? String(e);
       setCamError(msg);
       toast.error(msg);
+      setStatus("Camera error");
       setScanning(false);
     }
+  };
+
+  const flipCamera = async () => {
+    const next = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(next);
+    if (scanning) await startCamera(next);
   };
 
   useEffect(() => {
     return () => {
       void stopCamera();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Auto-start once a session is picked
-  useEffect(() => {
-    if (activeSession && session && !scanning && !camError) {
-      void startCamera();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession, session]);
 
   useEffect(() => {
     if (!activeSession && openSessions?.length) {
@@ -260,16 +290,16 @@ function ScanPage() {
 
   return (
     <AppShell>
-      <h1 className="text-3xl font-bold mb-2">Attendance Scanner</h1>
-      <p className="text-muted-foreground mb-6">
-        Hold a student's QR code in front of the camera. The first scan checks them in, the second
-        checks them out — no buttons needed. Press <strong>Stop scanning</strong> to end the session.
+      <h1 className="text-2xl md:text-3xl font-bold mb-2">Attendance Scanner</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera. The
+        first scan checks the student in; the second checks them out — fully automatic.
       </p>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Session</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Session</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Select
@@ -290,9 +320,10 @@ function ScanPage() {
                 ))}
               </SelectContent>
             </Select>
+
             {session && (
               <div className="rounded-lg border p-3 bg-muted/30">
-                <div className="font-semibold">
+                <div className="font-semibold text-sm">
                   {session.courses?.code} — {session.courses?.title}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -302,32 +333,21 @@ function ScanPage() {
               </div>
             )}
 
-            {cameras.length > 1 && (
-              <Select
-                value={cameraId}
-                onValueChange={(v) => {
-                  setCameraId(v);
-                  void startCamera(v);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose camera" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cameras.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.label || c.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
             <div
               id={QR_REGION_ID}
               className="rounded-lg overflow-hidden bg-black mx-auto w-full max-w-sm"
-              style={{ aspectRatio: "1 / 1", minHeight: 260 }}
+              style={{ aspectRatio: "1 / 1", minHeight: 280 }}
             />
+
+            <div className="text-xs text-center text-muted-foreground">
+              <span className={scanning ? "text-success font-medium" : ""}>{status}</span>
+            </div>
+
+            {lastScan && (
+              <div className="rounded-md border border-success/40 bg-success/10 p-2 text-sm text-center">
+                <span className="font-semibold">{lastScan.name}</span> — {lastScan.status}
+              </div>
+            )}
 
             {camError && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive text-xs p-3 flex gap-2">
@@ -352,15 +372,20 @@ function ScanPage() {
                 </Button>
               )}
               {scanning && (
-                <Button variant="outline" onClick={() => startCamera()} title="Restart camera">
-                  <RefreshCw className="size-4" />
-                </Button>
+                <>
+                  <Button variant="outline" onClick={flipCamera} title="Flip camera">
+                    <SwitchCamera className="size-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => startCamera()} title="Restart camera">
+                    <RefreshCw className="size-4" />
+                  </Button>
+                </>
               )}
             </div>
 
             <form onSubmit={submitManual} className="flex gap-2 pt-2 border-t">
               <Input
-                placeholder="Manual UUID entry (fallback)"
+                placeholder="Manual UUID / index # (fallback)"
                 value={manual}
                 onChange={(e) => setManual(e.target.value)}
               />
@@ -372,8 +397,8 @@ function ScanPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Recent scans ({records?.length ?? 0})</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Recent scans ({records?.length ?? 0})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y max-h-[600px] overflow-y-auto">
