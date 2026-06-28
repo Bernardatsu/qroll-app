@@ -113,9 +113,16 @@ function ScanPage() {
         .eq("student_id", student.id)
         .maybeSingle();
       if (!reg) {
-        toast.error(`${student.full_name} is not registered for this course`);
-        setStatus(`Not registered: ${student.full_name}`);
-        return;
+        // Auto-enroll the student in this course so the scan goes through
+        const { error: regErr } = await supabase
+          .from("course_registrations")
+          .insert({ course_id: sess.course_id, student_id: student.id });
+        if (regErr) {
+          toast.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
+          setStatus(`Registration failed: ${student.full_name}`);
+          return;
+        }
+        toast.message(`Auto-registered ${student.full_name} for this course`);
       }
 
       const { data: existing } = await supabase
