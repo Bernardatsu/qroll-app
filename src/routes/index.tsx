@@ -50,9 +50,10 @@ function Landing() {
           <img
             src={studentsBanner.url}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover object-center opacity-25 md:opacity-30"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-90"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/85 via-primary/60 to-primary/30" />
+          {/* very light tint so image stays clearly visible */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/40 via-primary/15 to-transparent" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-10 items-center">

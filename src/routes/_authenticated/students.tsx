@@ -67,20 +67,69 @@ function StudentsPage() {
   const onImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    const toastId = toast.loading(`Reading ${f.name}...`);
     try {
-      const rows = await parseExcelFile(f);
-      const payload = rows.map((r: any) => ({
-        full_name: String(r.full_name ?? r["Full Name"] ?? r.name ?? "").trim(),
-        index_number: String(r.index_number ?? r["Index Number"] ?? r.index ?? "").trim(),
-        email: r.email ? String(r.email).trim() : null,
-        program: r.program ? String(r.program).trim() : null,
-        level: String(r.level ?? "100").trim() as any,
-      })).filter((r) => r.full_name && r.index_number);
-      if (!payload.length) return toast.error("No valid rows");
-      const { error } = await supabase.from("students").insert(payload);
-      if (error) toast.error(error.message);
-      else { toast.success(`Imported ${payload.length} students`); qc.invalidateQueries({ queryKey: ["students"] }); }
-    } catch (err: any) { toast.error(err.message); }
+      const rawRows = await parseExcelFile(f);
+      console.log("[import] raw rows", rawRows.length, rawRows[0]);
+      if (!rawRows.length) {
+        toast.error("Excel file is empty", { id: toastId });
+        return;
+      }
+      // normalize headers: lowercase, strip spaces/underscores
+      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, "");
+      const pick = (row: any, keys: string[]) => {
+        const map: Record<string, any> = {};
+        for (const k of Object.keys(row)) map[norm(k)] = row[k];
+        for (const k of keys) {
+          const v = map[norm(k)];
+          if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+        }
+        return "";
+      };
+      const validLevels = new Set(["100", "200", "300", "400"]);
+      const payload = rawRows
+        .map((r: any) => {
+          const lvl = pick(r, ["level", "yearofstudy", "year"]).replace(/[^0-9]/g, "") || "100";
+          return {
+            full_name: pick(r, ["fullname", "name", "studentname"]),
+            index_number: pick(r, ["indexnumber", "index", "indexno", "studentid", "id"]),
+            email: pick(r, ["email", "emailaddress"]) || null,
+            program: pick(r, ["program", "programme", "course", "major"]) || null,
+            level: (validLevels.has(lvl) ? lvl : "100") as "100" | "200" | "300" | "400",
+          };
+        })
+        .filter((r) => r.full_name && r.index_number);
+
+      if (!payload.length) {
+        toast.error("No valid rows. Need columns: full_name, index_number", { id: toastId });
+        return;
+      }
+      toast.loading(`Importing ${payload.length} students...`, { id: toastId });
+      const BATCH = 200;
+      let inserted = 0;
+      const errors: string[] = [];
+      for (let i = 0; i < payload.length; i += BATCH) {
+        const chunk = payload.slice(i, i + BATCH);
+        const { error, count } = await supabase
+          .from("students")
+          .upsert(chunk, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
+        if (error) {
+          console.error("[import] batch error", error);
+          errors.push(error.message);
+        } else {
+          inserted += count ?? chunk.length;
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["students"] });
+      if (errors.length) {
+        toast.error(`Imported ${inserted}/${payload.length}. ${errors[0]}`, { id: toastId });
+      } else {
+        toast.success(`Imported ${inserted} students`, { id: toastId });
+      }
+    } catch (err: any) {
+      console.error("[import] fatal", err);
+      toast.error(err?.message ?? "Import failed", { id: toastId });
+    }
     if (fileRef.current) fileRef.current.value = "";
   };
 
