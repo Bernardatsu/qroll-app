@@ -87,8 +87,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "KNUST Attendance" },
       { name: "twitter:description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/fae4246c-3c78-4593-9b96-ec34686d4083" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/fae4246c-3c78-4593-9b96-ec34686d4083" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
