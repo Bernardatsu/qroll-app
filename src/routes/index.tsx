@@ -4,6 +4,7 @@ import { QrCode, ShieldCheck, BarChart3, GraduationCap } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import studentsBanner from "@/assets/students-banner.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
