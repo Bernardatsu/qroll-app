@@ -67,6 +67,15 @@ function SessionsPage() {
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
+  const projectQr = async (sessionId: string) => {
+    const url = `${window.location.origin}/check-in?session=${sessionId}`;
+    const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
+    const w = window.open("", "_blank");
+    if (!w) return toast.error("Allow popups to project");
+    w.document.write(`<html><head><title>Project Check-in QR</title><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:#006633}h1{margin:0 0 8px}p{color:#555;margin:4px 0 24px;font-size:18px}img{max-width:80vmin;max-height:80vmin}</style></head><body><h1>Scan to check in</h1><p>Open your camera, scan, then enter your index number & PIN.</p><img src="${dataUrl}" /><p style="margin-top:24px;font-size:14px">${url}</p></body></html>`);
+    w.document.close();
+  };
+
   return (
     <AppShell>
       <div className="flex justify-between mb-6">
