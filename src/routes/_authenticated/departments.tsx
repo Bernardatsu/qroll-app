@@ -32,7 +32,7 @@ function DeptPage() {
 
   const addDept = async () => {
     if (!name || !code) return;
-    const { error } = await supabase.from("departments").insert({ name, code });
+    const { error } = await supabase.from("departments").insert({ name, code } as any);
     if (error) toast.error(error.message);
     else { toast.success("Department added"); setName(""); setCode(""); qc.invalidateQueries({ queryKey: ["departments"] }); }
   };
@@ -43,7 +43,7 @@ function DeptPage() {
   };
   const addYear = async () => {
     if (!yName) return;
-    const { error } = await supabase.from("academic_years").insert({ name: yName });
+    const { error } = await supabase.from("academic_years").insert({ name: yName } as any);
     if (error) toast.error(error.message);
     else { toast.success("Year added"); setYName(""); qc.invalidateQueries({ queryKey: ["years"] }); }
   };

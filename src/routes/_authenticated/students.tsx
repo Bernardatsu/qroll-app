@@ -50,7 +50,7 @@ function StudentsPage() {
     const payload: any = { ...form };
     if (!payload.department_id) delete payload.department_id;
     if (!payload.email) delete payload.email;
-    const { error } = await supabase.from("students").insert(payload);
+    const { error } = await supabase.from("students").insert(payload as any);
     if (error) return toast.error(error.message);
     toast.success("Student added");
     setForm({ full_name: "", index_number: "", email: "", level: "100", program: "", department_id: "" });
@@ -112,7 +112,7 @@ function StudentsPage() {
         const chunk = payload.slice(i, i + BATCH);
         const { error, count } = await supabase
           .from("students")
-          .upsert(chunk, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
+          .upsert(chunk as any, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
         if (error) {
           console.error("[import] batch error", error);
           errors.push(error.message);

@@ -10,6 +10,7 @@ import {
   FileBarChart,
   Building2,
   Menu,
+  Share2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -36,6 +37,7 @@ const nav: NavItem[] = [
   { to: "/departments", label: "Departments", icon: Building2, adminOnly: true },
   { to: "/sessions", label: "Sessions", icon: CalendarClock },
   { to: "/scan", label: "Scanner", icon: ScanLine },
+  { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
   { to: "/reports", label: "Reports", icon: FileBarChart },
 ];
 

@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ScanLine, Lock, Unlock } from "lucide-react";
+import { Plus, ScanLine, Lock, Unlock, Projector } from "lucide-react";
+import QRCode from "qrcode";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sessions")({
@@ -37,7 +38,7 @@ function SessionsPage() {
     const { data, error } = await supabase.from("attendance_sessions").insert({
       course_id: form.course_id, title: form.title || null, grace_minutes: form.grace_minutes,
       created_by: me.user?.id,
-    }).select("id").single();
+    } as any).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Session created");
     setOpen(false);
@@ -64,6 +65,15 @@ function SessionsPage() {
       if (absents.length) await supabase.from("attendance_records").insert(absents);
     }
     qc.invalidateQueries({ queryKey: ["sessions"] });
+  };
+
+  const projectQr = async (sessionId: string) => {
+    const url = `${window.location.origin}/check-in?session=${sessionId}`;
+    const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
+    const w = window.open("", "_blank");
+    if (!w) return toast.error("Allow popups to project");
+    w.document.write(`<html><head><title>Project Check-in QR</title><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:#006633}h1{margin:0 0 8px}p{color:#555;margin:4px 0 24px;font-size:18px}img{max-width:80vmin;max-height:80vmin}</style></head><body><h1>Scan to check in</h1><p>Open your camera, scan, then enter your index number & PIN.</p><img src="${dataUrl}" /><p style="margin-top:24px;font-size:14px">${url}</p></body></html>`);
+    w.document.close();
   };
 
   return (
@@ -97,9 +107,10 @@ function SessionsPage() {
                 <div className="font-semibold">{s.courses?.code} · {s.courses?.title}</div>
                 <div className="text-xs text-muted-foreground">{s.title ?? "—"} · {new Date(s.starts_at).toLocaleString()} · grace {s.grace_minutes}m</div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-1 rounded font-medium ${s.status === "OPEN" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
+                {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
               </div>
             </CardContent>
