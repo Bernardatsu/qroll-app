@@ -37,7 +37,7 @@ function SessionsPage() {
     const { data, error } = await supabase.from("attendance_sessions").insert({
       course_id: form.course_id, title: form.title || null, grace_minutes: form.grace_minutes,
       created_by: me.user?.id,
-    }).select("id").single();
+    } as any).select("id").single();
     if (error) return toast.error(error.message);
     toast.success("Session created");
     setOpen(false);
