@@ -112,7 +112,7 @@ function StudentsPage() {
         const chunk = payload.slice(i, i + BATCH);
         const { error, count } = await supabase
           .from("students")
-          .upsert(chunk, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
+          .upsert(chunk as any, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
         if (error) {
           console.error("[import] batch error", error);
           errors.push(error.message);
