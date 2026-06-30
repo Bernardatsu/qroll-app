@@ -20,18 +20,21 @@ export type Database = {
           id: string
           is_current: boolean
           name: string
+          owner_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           is_current?: boolean
           name: string
+          owner_id: string
         }
         Update: {
           created_at?: string
           id?: string
           is_current?: boolean
           name?: string
+          owner_id?: string
         }
         Relationships: []
       }
@@ -46,6 +49,7 @@ export type Database = {
           late_minutes: number
           scanned_by: string | null
           session_id: string
+          source: string
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
           updated_at: string
@@ -60,6 +64,7 @@ export type Database = {
           late_minutes?: number
           scanned_by?: string | null
           session_id: string
+          source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id: string
           updated_at?: string
@@ -74,6 +79,7 @@ export type Database = {
           late_minutes?: number
           scanned_by?: string | null
           session_id?: string
+          source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id?: string
           updated_at?: string
@@ -103,6 +109,7 @@ export type Database = {
           ends_at: string | null
           grace_minutes: number
           id: string
+          owner_id: string
           starts_at: string
           status: Database["public"]["Enums"]["session_status"]
           title: string | null
@@ -114,6 +121,7 @@ export type Database = {
           ends_at?: string | null
           grace_minutes?: number
           id?: string
+          owner_id: string
           starts_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           title?: string | null
@@ -125,6 +133,7 @@ export type Database = {
           ends_at?: string | null
           grace_minutes?: number
           id?: string
+          owner_id?: string
           starts_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           title?: string | null
@@ -216,6 +225,7 @@ export type Database = {
           id: string
           lecturer_id: string | null
           level: Database["public"]["Enums"]["student_level"]
+          owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
           title: string
         }
@@ -229,6 +239,7 @@ export type Database = {
           id?: string
           lecturer_id?: string | null
           level: Database["public"]["Enums"]["student_level"]
+          owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
           title: string
         }
@@ -242,6 +253,7 @@ export type Database = {
           id?: string
           lecturer_id?: string | null
           level?: Database["public"]["Enums"]["student_level"]
+          owner_id?: string
           semester?: Database["public"]["Enums"]["semester_name"]
           title?: string
         }
@@ -268,18 +280,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_id: string
         }
         Insert: {
           code: string
           created_at?: string
           id?: string
           name: string
+          owner_id: string
         }
         Update: {
           code?: string
           created_at?: string
           id?: string
           name?: string
+          owner_id?: string
         }
         Relationships: []
       }
@@ -304,6 +319,41 @@ export type Database = {
         }
         Relationships: []
       }
+      student_portal_links: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          owner_id: string
+          token: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          owner_id: string
+          token?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          owner_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_portal_links_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           academic_year_id: string | null
@@ -314,6 +364,8 @@ export type Database = {
           id: string
           index_number: string
           level: Database["public"]["Enums"]["student_level"]
+          owner_id: string
+          pin: string
           program: string | null
           qr_uuid: string
           status: string
@@ -328,6 +380,8 @@ export type Database = {
           id?: string
           index_number: string
           level: Database["public"]["Enums"]["student_level"]
+          owner_id: string
+          pin: string
           program?: string | null
           qr_uuid?: string
           status?: string
@@ -342,6 +396,8 @@ export type Database = {
           id?: string
           index_number?: string
           level?: Database["public"]["Enums"]["student_level"]
+          owner_id?: string
+          pin?: string
           program?: string | null
           qr_uuid?: string
           status?: string
@@ -399,6 +455,25 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      portal_lookup: {
+        Args: { _email: string; _index: string; _token: string }
+        Returns: {
+          department: string
+          full_name: string
+          index_number: string
+          level: string
+          pin: string
+          qr_uuid: string
+        }[]
+      }
+      self_checkin: {
+        Args: { _index: string; _pin: string; _session_id: string }
+        Returns: {
+          message: string
+          ok: boolean
+          student_name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "lecturer" | "teaching_assistant"
