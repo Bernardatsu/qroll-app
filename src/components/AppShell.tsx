@@ -10,6 +10,7 @@ import {
   FileBarChart,
   Building2,
   Menu,
+  Share2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
