@@ -98,9 +98,10 @@ function SessionsPage() {
                 <div className="font-semibold">{s.courses?.code} · {s.courses?.title}</div>
                 <div className="text-xs text-muted-foreground">{s.title ?? "—"} · {new Date(s.starts_at).toLocaleString()} · grace {s.grace_minutes}m</div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-1 rounded font-medium ${s.status === "OPEN" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
+                {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
               </div>
             </CardContent>
