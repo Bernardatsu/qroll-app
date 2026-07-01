@@ -54,10 +54,8 @@ function PortalPage() {
     doc.text(`Index: ${student!.index_number}`, 105, 48, { align: "center" });
     doc.text(`Level ${student!.level} · ${student!.department}`, 105, 56, { align: "center" });
     doc.addImage(qrDataUrl, "PNG", 65, 70, 80, 80);
-    doc.setFontSize(14);
-    doc.text(`PIN: ${student!.pin}`, 105, 165, { align: "center" });
     doc.setFontSize(10);
-    doc.text("Keep your PIN private. You'll need it to mark attendance.", 105, 175, { align: "center" });
+    doc.text("Show this QR to your T.A. when attendance is being taken.", 105, 165, { align: "center" });
     doc.save(`${student!.index_number}-qr.pdf`);
   };
 
