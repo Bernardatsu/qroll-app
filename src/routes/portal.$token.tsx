@@ -54,10 +54,8 @@ function PortalPage() {
     doc.text(`Index: ${student!.index_number}`, 105, 48, { align: "center" });
     doc.text(`Level ${student!.level} · ${student!.department}`, 105, 56, { align: "center" });
     doc.addImage(qrDataUrl, "PNG", 65, 70, 80, 80);
-    doc.setFontSize(14);
-    doc.text(`PIN: ${student!.pin}`, 105, 165, { align: "center" });
     doc.setFontSize(10);
-    doc.text("Keep your PIN private. You'll need it to mark attendance.", 105, 175, { align: "center" });
+    doc.text("Show this QR to your T.A. when attendance is being taken.", 105, 165, { align: "center" });
     doc.save(`${student!.index_number}-qr.pdf`);
   };
 
@@ -90,10 +88,7 @@ function PortalPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-center">
             {qrDataUrl && <img src={qrDataUrl} alt="Your QR" className="mx-auto rounded-lg border" />}
-            <div className="bg-primary/10 rounded-lg p-3">
-              <div className="text-xs text-muted-foreground">Your PIN (keep private)</div>
-              <div className="text-3xl font-mono font-bold tracking-widest text-primary">{student.pin}</div>
-            </div>
+            <p className="text-xs text-muted-foreground">Save this QR. Show it to your T.A. or scan the classroom board QR to self check-in (location required).</p>
             <div className="grid grid-cols-2 gap-2">
               <Button onClick={downloadPng} variant="outline"><Download className="size-4 mr-1" />PNG</Button>
               <Button onClick={downloadPdf}><FileText className="size-4 mr-1" />PDF</Button>

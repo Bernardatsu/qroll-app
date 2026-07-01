@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, GraduationCap } from "lucide-react";
+import { CheckCircle2, GraduationCap, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
 const search = z.object({ session: z.string().uuid().optional() });
@@ -21,9 +21,8 @@ export const Route = createFileRoute("/check-in")({
 function CheckInPage() {
   const { session } = Route.useSearch();
   const [index, setIndex] = useState("");
-  const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState<{ name: string } | null>(null);
+  const [done, setDone] = useState<{ name: string; distance: number } | null>(null);
 
   if (!session) {
     return (
@@ -33,16 +32,30 @@ function CheckInPage() {
     );
   }
 
+  const getPos = () => new Promise<GeolocationPosition>((res, rej) => {
+    if (!navigator.geolocation) return rej(new Error("Geolocation not supported on this device"));
+    navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 15000 });
+  });
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^\d{4}$/.test(pin)) return toast.error("PIN must be 4 digits");
+    if (!index.trim()) return toast.error("Enter your index number");
     setLoading(true);
-    const { data, error } = await supabase.rpc("self_checkin", { _session_id: session, _index: index.trim(), _pin: pin.trim() });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    const row = (data as any[])?.[0];
-    if (!row?.ok) return toast.error(row?.message ?? "Failed");
-    setDone({ name: row.student_name });
+    try {
+      const pos = await getPos();
+      const { data, error } = await supabase.rpc("self_checkin_geo", {
+        _session_id: session, _index: index.trim(),
+        _lat: pos.coords.latitude, _lng: pos.coords.longitude,
+      });
+      if (error) throw error;
+      const row = (data as any[])?.[0];
+      if (!row?.ok) throw new Error(row?.message ?? "Failed");
+      setDone({ name: row.student_name, distance: row.distance_m });
+    } catch (err: any) {
+      toast.error(err.message ?? "Check-in failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,19 +71,19 @@ function CheckInPage() {
             <CheckCircle2 className="size-16 text-primary mx-auto" />
             <h2 className="text-2xl font-bold">You're marked present</h2>
             <p className="text-muted-foreground">{done.name}</p>
+            <p className="text-xs text-muted-foreground">Verified {done.distance} m from the classroom</p>
           </CardContent>
         </Card>
       ) : (
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Mark yourself present</CardTitle>
-            <CardDescription>Enter your index number and 4-digit PIN. The PIN is private — never share it.</CardDescription>
+            <CardDescription className="flex items-center gap-1"><MapPin className="size-3.5" />Location must be on. You have to be physically in class.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-3">
               <div><Label>Index number</Label><Input value={index} onChange={(e) => setIndex(e.target.value)} required autoFocus /></div>
-              <div><Label>PIN</Label><Input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} required className="text-2xl font-mono tracking-widest text-center" /></div>
-              <Button type="submit" className="w-full" disabled={loading}>{loading ? "Checking..." : "Check in"}</Button>
+              <Button type="submit" className="w-full" disabled={loading}>{loading ? "Verifying location..." : "Check in"}</Button>
             </form>
           </CardContent>
         </Card>

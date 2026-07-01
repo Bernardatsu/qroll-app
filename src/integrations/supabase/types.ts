@@ -109,7 +109,10 @@ export type Database = {
           ends_at: string | null
           grace_minutes: number
           id: string
+          latitude: number | null
+          longitude: number | null
           owner_id: string
+          radius_m: number
           starts_at: string
           status: Database["public"]["Enums"]["session_status"]
           title: string | null
@@ -121,7 +124,10 @@ export type Database = {
           ends_at?: string | null
           grace_minutes?: number
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           owner_id: string
+          radius_m?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           title?: string | null
@@ -133,7 +139,10 @@ export type Database = {
           ends_at?: string | null
           grace_minutes?: number
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           owner_id?: string
+          radius_m?: number
           starts_at?: string
           status?: Database["public"]["Enums"]["session_status"]
           title?: string | null
@@ -469,6 +478,20 @@ export type Database = {
       self_checkin: {
         Args: { _index: string; _pin: string; _session_id: string }
         Returns: {
+          message: string
+          ok: boolean
+          student_name: string
+        }[]
+      }
+      self_checkin_geo: {
+        Args: {
+          _index: string
+          _lat: number
+          _lng: number
+          _session_id: string
+        }
+        Returns: {
+          distance_m: number
           message: string
           ok: boolean
           student_name: string
