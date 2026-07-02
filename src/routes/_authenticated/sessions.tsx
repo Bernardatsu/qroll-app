@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ScanLine, Lock, Unlock, Projector, MapPin } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { getPublicOrigin } from "@/lib/public-origin";
 
 export const Route = createFileRoute("/_authenticated/sessions")({
   head: () => ({ meta: [{ title: "Sessions — KNUST" }] }),
