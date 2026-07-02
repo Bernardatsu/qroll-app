@@ -263,6 +263,23 @@ function StudentsPage() {
           <input ref={emailFileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={onImportEmails} />
           <Button variant="outline" onClick={() => emailFileRef.current?.click()}><Mail className="size-4 mr-1" />Import emails</Button>
           <Button variant="outline" onClick={exportAll}>Export</Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive hover:text-destructive"><Trash2 className="size-4 mr-1" />Delete all</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="size-5 text-destructive" />Delete every student?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove <b>all students you own</b>, along with their QR codes, course registrations and attendance records. This action <b>cannot be undone</b>. Are you sure you want to continue?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={deleteAll}>Yes, delete everything</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button><Plus className="size-4 mr-1" />Add</Button></DialogTrigger>
             <DialogContent>
