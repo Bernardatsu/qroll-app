@@ -63,7 +63,7 @@ function SessionsPage() {
     if (error) return toast.error(error.message);
     toast.success("Session created");
     setOpen(false);
-    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 150 });
+    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80 });
     qc.invalidateQueries({ queryKey: ["sessions"] });
     if (data) window.location.href = `/scan?session=${data.id}`;
   };
