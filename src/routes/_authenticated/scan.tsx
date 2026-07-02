@@ -69,16 +69,18 @@ function ScanPage() {
 
   const { data: records } = useQuery({
     queryKey: ["records", activeSession],
-    queryFn: async () =>
-      activeSession
-        ? (
-            await supabase
-              .from("attendance_records")
-              .select("*, students(full_name, index_number)")
-              .eq("session_id", activeSession)
-              .order("created_at", { ascending: false })
-          ).data ?? []
-        : [],
+    queryFn: async () => {
+      if (!activeSession) return [];
+      // Auto-reset: only show scans from the last 24 hours
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data } = await supabase
+        .from("attendance_records")
+        .select("*, students(full_name, index_number)")
+        .eq("session_id", activeSession)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
     enabled: !!activeSession,
     refetchInterval: 3000,
   });
@@ -162,7 +164,15 @@ function ScanPage() {
         setStatus(`Already completed: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
-        const duration = Math.max(1, Math.floor((now - checkIn) / 60000));
+        const minsSince = Math.floor((now - checkIn) / 60000);
+        if (minsSince < 30) {
+          const wait = 30 - minsSince;
+          toast.error(`Too soon to check out ${student.full_name} — wait ${wait} more minute${wait === 1 ? "" : "s"}`);
+          setLastScan({ name: student.full_name, status: `TOO EARLY (${minsSince}m in)` });
+          setStatus(`Checkout blocked for ${student.full_name} · ${minsSince}m since check-in`);
+          return;
+        }
+        const duration = Math.max(1, minsSince);
         const { error } = await supabase
           .from("attendance_records")
           .update({

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ScanLine, Lock, Unlock, Projector, MapPin } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { getPublicOrigin } from "@/lib/public-origin";
 
 export const Route = createFileRoute("/_authenticated/sessions")({
   head: () => ({ meta: [{ title: "Sessions — KNUST" }] }),
@@ -22,7 +23,7 @@ function SessionsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{ course_id: string; title: string; grace_minutes: number; latitude: number | null; longitude: number | null; radius_m: number; }>({
-    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 150,
+    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80,
   });
   const [locBusy, setLocBusy] = useState(false);
 
@@ -62,7 +63,7 @@ function SessionsPage() {
     if (error) return toast.error(error.message);
     toast.success("Session created");
     setOpen(false);
-    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 150 });
+    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80 });
     qc.invalidateQueries({ queryKey: ["sessions"] });
     if (data) window.location.href = `/scan?session=${data.id}`;
   };
@@ -87,7 +88,7 @@ function SessionsPage() {
   };
 
   const projectQr = async (sessionId: string) => {
-    const url = `${window.location.origin}/check-in?session=${sessionId}`;
+    const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
     const w = window.open("", "_blank");
     if (!w) return toast.error("Allow popups to project");
