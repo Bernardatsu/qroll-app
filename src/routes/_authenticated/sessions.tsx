@@ -88,7 +88,7 @@ function SessionsPage() {
   };
 
   const projectQr = async (sessionId: string) => {
-    const url = `${window.location.origin}/check-in?session=${sessionId}`;
+    const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
     const w = window.open("", "_blank");
     if (!w) return toast.error("Allow popups to project");
