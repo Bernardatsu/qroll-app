@@ -23,7 +23,7 @@ function SessionsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{ course_id: string; title: string; grace_minutes: number; latitude: number | null; longitude: number | null; radius_m: number; }>({
-    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 150,
+    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80,
   });
   const [locBusy, setLocBusy] = useState(false);
 
