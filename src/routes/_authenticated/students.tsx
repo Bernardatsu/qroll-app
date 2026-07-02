@@ -98,7 +98,7 @@ function StudentsPage() {
     try {
       const rawRows = await parseExcelFile(f);
       if (!rawRows.length) { toast.error("Excel file is empty", { id: toastId }); return; }
-      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, "");
+      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-\.]/g, "");
       const pick = (row: any, keys: string[]) => {
         const map: Record<string, any> = {};
         for (const k of Object.keys(row)) map[norm(k)] = row[k];
@@ -112,67 +112,81 @@ function StudentsPage() {
       const deptCache = new Map<string, string>();
       const prepared: any[] = [];
       for (const r of rawRows) {
-        const full_name = pick(r, ["fullname", "name", "studentname"]);
-        const index_number = pick(r, ["indexnumber", "index", "indexno", "studentid", "id"]);
+        const full_name = pick(r, ["fullname", "name", "studentname", "students", "student"]);
+        const index_number = pick(r, ["indexnumber", "index", "indexno", "studentid", "studentnumber", "id", "matric", "matricnumber"]);
         if (!full_name || !index_number) continue;
         const lvl = pick(r, ["level", "yearofstudy", "year"]).replace(/[^0-9]/g, "") || "100";
-        const deptName = pick(r, ["department", "dept"]);
+        // Take programme name as department if no department column
+        const programme = pick(r, ["program", "programme", "programmename", "programname", "course", "major"]);
+        const deptName = pick(r, ["department", "dept", "departmentname"]) || programme;
         let department_id: string | null = null;
         if (deptName) department_id = await ensureDept(deptName, deptCache);
         prepared.push({
           full_name, index_number,
           email: pick(r, ["email", "emailaddress", "gmail", "mail"]) || null,
-          program: pick(r, ["program", "programme", "course", "major"]) || null,
+          program: programme || null,
           level: (validLevels.has(lvl) ? lvl : "100") as "100" | "200" | "300" | "400",
           department_id,
         });
       }
-      if (!prepared.length) { toast.error("No valid rows. Need full_name + index_number", { id: toastId }); return; }
+      if (!prepared.length) { toast.error("No valid rows found. Need columns: name + index number", { id: toastId }); return; }
       toast.loading(`Importing ${prepared.length} students...`, { id: toastId });
-      const BATCH = 200;
+      const BATCH = 100;
       let inserted = 0;
       const errors: string[] = [];
       for (let i = 0; i < prepared.length; i += BATCH) {
         const chunk = prepared.slice(i, i + BATCH);
-        const { error, count } = await supabase.from("students").upsert(chunk as any, { onConflict: "index_number", ignoreDuplicates: false, count: "exact" });
+        // Insert-only with duplicate index_number ignored (RLS blocks UPDATE on rows owned by others)
+        const { error, data } = await supabase
+          .from("students")
+          .upsert(chunk as any, { onConflict: "index_number", ignoreDuplicates: true })
+          .select("id");
         if (error) errors.push(error.message);
-        else inserted += count ?? chunk.length;
+        else inserted += data?.length ?? 0;
       }
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["departments"] });
-      if (errors.length) toast.error(`Imported ${inserted}/${prepared.length}. ${errors[0]}`, { id: toastId });
-      else toast.success(`Imported ${inserted} students`, { id: toastId });
+      const dupes = prepared.length - inserted;
+      if (errors.length) toast.error(errors[0], { id: toastId });
+      else toast.success(`Imported ${inserted} · ${dupes} already existed`, { id: toastId });
     } catch (err: any) {
       toast.error(err?.message ?? "Import failed", { id: toastId });
     }
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // Import file with just names + emails — matches existing students by name and fills in missing emails
+  // Import file with just names + emails — matches existing students by name (order-insensitive) and fills in missing emails
   const onImportEmails = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const toastId = toast.loading(`Reading ${f.name}...`);
     try {
       const rawRows = await parseExcelFile(f);
-      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, "");
-      const pick = (row: any, keys: string[]) => {
-        const map: Record<string, any> = {};
-        for (const k of Object.keys(row)) map[norm(k)] = row[k];
-        for (const k of keys) {
-          const v = map[norm(k)];
-          if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      // Extract name+email from each row by scanning all cells (handles unordered/messy files)
+      const pairs = rawRows.map((r: any) => {
+        let name = "";
+        let email = "";
+        for (const [k, vRaw] of Object.entries(r)) {
+          const v = String(vRaw ?? "").trim();
+          if (!v) continue;
+          const kn = k.toLowerCase();
+          if (!email && emailRe.test(v)) email = v;
+          else if (!email && /mail|email|gmail/.test(kn) && emailRe.test(v)) email = v;
+          if (!name && /name|student/.test(kn) && !emailRe.test(v)) name = v;
         }
-        return "";
-      };
-      const pairs = rawRows
-        .map((r: any) => ({
-          name: pick(r, ["fullname", "name", "studentname"]),
-          email: pick(r, ["email", "emailaddress", "gmail", "mail"]),
-        }))
-        .filter((r) => r.name && r.email);
-      if (!pairs.length) { toast.error("Need columns: name + email", { id: toastId }); return; }
-      const nameKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+        // Fallback: pick longest non-email text as name
+        if (!name) {
+          const candidates = Object.values(r)
+            .map((v) => String(v ?? "").trim())
+            .filter((v) => v && !emailRe.test(v) && v.split(/\s+/).length >= 2 && /^[a-zA-Z]/.test(v));
+          if (candidates.length) name = candidates.sort((a, b) => b.length - a.length)[0];
+        }
+        return { name, email };
+      }).filter((r) => r.name && r.email);
+      if (!pairs.length) { toast.error("Couldn't find name+email pairs in the file", { id: toastId }); return; }
+      // Token-set key: "Firstname Lastname" == "Lastname Firstname", case/punctuation insensitive
+      const nameKey = (s: string) => s.trim().toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).filter(Boolean).sort().join(" ");
       const byName = new Map<string, any>();
       for (const s of students ?? []) byName.set(nameKey(s.full_name), s);
       let updated = 0, missing = 0, skipped = 0;
@@ -184,11 +198,21 @@ function StudentsPage() {
         if (!error) updated++;
       }
       qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success(`Updated ${updated} emails · ${skipped} already set · ${missing} name not found`, { id: toastId });
+      toast.success(`Updated ${updated} emails · ${skipped} already set · ${missing} name not in system`, { id: toastId });
     } catch (err: any) {
       toast.error(err?.message ?? "Import failed", { id: toastId });
     }
     if (emailFileRef.current) emailFileRef.current.value = "";
+  };
+
+  const deleteAll = async () => {
+    const toastId = toast.loading("Deleting all students...");
+    const { data: me } = await supabase.auth.getUser();
+    if (!me.user) { toast.error("Not signed in", { id: toastId }); return; }
+    const { error, count } = await supabase.from("students").delete({ count: "exact" }).eq("owner_id", me.user.id);
+    if (error) return toast.error(error.message, { id: toastId });
+    qc.invalidateQueries({ queryKey: ["students"] });
+    toast.success(`Deleted ${count ?? 0} students`, { id: toastId });
   };
 
   const downloadTemplate = () => {
