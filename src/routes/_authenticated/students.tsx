@@ -11,8 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Upload, QrCode, Printer, Trash2, Search, Mail } from "lucide-react";
+import { Plus, Upload, QrCode, Printer, Trash2, Search, Mail, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { parseExcelFile, exportToExcel } from "@/lib/exporters";
 
 export const Route = createFileRoute("/_authenticated/students")({
