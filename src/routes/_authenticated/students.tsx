@@ -257,6 +257,7 @@ function StudentsPage() {
               <td className="p-3 text-xs">{s.email ?? <span className="text-muted-foreground">—</span>}</td>
               <td className="p-3 text-right">
                 <QrButton student={s} />
+                <Button variant="ghost" size="icon" onClick={() => setEditing({ ...s, email: s.email ?? "", program: s.program ?? "", department_id: s.department_id ?? "" })} title="Edit"><Pencil className="size-4" /></Button>
                 <Button variant="ghost" size="icon" onClick={() => remove(s.id)}><Trash2 className="size-4 text-destructive" /></Button>
               </td>
             </tr>
