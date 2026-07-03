@@ -403,6 +403,7 @@ function ScanPage() {
                     <RefreshCw className="size-4" />
                   </Button>
                 </>
+              )}
               {activeSession && (
                 <Button variant="outline" onClick={closeSession} title="Close session" className="text-destructive">
                   <Lock className="size-4" />
