@@ -155,6 +155,7 @@ function SessionsPage() {
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
                 {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
+                <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
