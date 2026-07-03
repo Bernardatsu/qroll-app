@@ -50,6 +50,21 @@ function CoursesPage() {
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["courses"] });
   };
 
+  const saveEdit = async () => {
+    if (!editing) return;
+    const payload: any = {
+      code: editing.code, title: editing.title, level: editing.level,
+      semester: editing.semester, credit_hours: Number(editing.credit_hours),
+      department_id: editing.department_id || null,
+      academic_year_id: editing.academic_year_id || null,
+    };
+    const { error } = await supabase.from("courses").update(payload).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    toast.success("Updated");
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["courses"] });
+  };
+
   return (
     <AppShell>
       <div className="flex flex-wrap justify-between gap-3 mb-6">
