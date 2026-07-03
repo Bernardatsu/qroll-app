@@ -76,9 +76,25 @@ function DeptPage() {
             <Button onClick={addDept} className="w-full"><Plus className="size-4 mr-1" />Add department</Button>
             <div className="divide-y rounded-md border">
               {(depts ?? []).map((d) => (
-                <div key={d.id} className="flex items-center justify-between p-3">
-                  <div><div className="font-medium">{d.name}</div><div className="text-xs text-muted-foreground">{d.code}</div></div>
-                  <Button variant="ghost" size="icon" onClick={() => delDept(d.id)}><Trash2 className="size-4" /></Button>
+                <div key={d.id} className="flex items-center justify-between gap-2 p-3">
+                  {editing?.id === d.id ? (
+                    <>
+                      <div className="flex-1 grid grid-cols-3 gap-2">
+                        <Input className="col-span-2" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                        <Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={saveEdit}><Check className="size-4 text-success" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditing(null)}><X className="size-4" /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <div><div className="font-medium">{d.name}</div><div className="text-xs text-muted-foreground">{d.code}</div></div>
+                      <div className="flex">
+                        <Button variant="ghost" size="icon" onClick={() => setEditing({ id: d.id, name: d.name, code: d.code ?? "" })}><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => delDept(d.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {!depts?.length && <div className="p-4 text-sm text-muted-foreground">No departments yet.</div>}
