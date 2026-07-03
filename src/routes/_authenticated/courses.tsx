@@ -128,9 +128,10 @@ function CoursesPage() {
               <div>{c.academic_years?.name ?? "—"} · {c.credit_hours} credits</div>
               <div className="flex gap-2 pt-3">
                 <Link to={"/courses/$courseId" as string} params={{ courseId: c.id } as any} className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full"><Users className="size-3 mr-1" />Roster</Button>
+                  <Button variant="outline" size="sm" className="w-full" title="Manage students enrolled in this course"><Users className="size-3 mr-1" />Roster</Button>
                 </Link>
-                <Button variant="ghost" size="icon" onClick={() => remove(c.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => setEditing({ ...c, department_id: c.department_id ?? "", academic_year_id: c.academic_year_id ?? "" })} title="Edit course"><Pencil className="size-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => remove(c.id)} title="Delete course"><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
