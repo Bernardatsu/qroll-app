@@ -42,6 +42,14 @@ function DeptPage() {
     const { error } = await supabase.from("departments").delete().eq("id", id);
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["departments"] });
   };
+  const saveEdit = async () => {
+    if (!editing) return;
+    const { error } = await supabase.from("departments").update({ name: editing.name, code: editing.code }).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["departments"] });
+    toast.success("Updated");
+  };
   const addYear = async () => {
     if (!yName) return;
     const { error } = await supabase.from("academic_years").insert({ name: yName } as any);
