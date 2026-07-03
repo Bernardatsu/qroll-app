@@ -35,6 +35,7 @@ function StudentsPage() {
   const emailFileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({ full_name: "", index_number: "", email: "", level: "100", program: "", department_id: "" });
+  const [editing, setEditing] = useState<any | null>(null);
 
   const { data: students } = useQuery({
     queryKey: ["students"],
