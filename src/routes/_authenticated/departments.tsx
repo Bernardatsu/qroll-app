@@ -20,6 +20,7 @@ function DeptPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [yName, setYName] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; code: string } | null>(null);
 
   const { data: depts } = useQuery({
     queryKey: ["departments"],
