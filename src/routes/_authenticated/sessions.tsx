@@ -29,7 +29,12 @@ function SessionsPage() {
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
-    queryFn: async () => (await supabase.from("attendance_sessions").select("*, courses(code, title, level)").order("starts_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      // Auto-close sessions older than 12h
+      const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("status", "OPEN").lt("starts_at", cutoff);
+      return (await supabase.from("attendance_sessions").select("*, courses(code, title, level)").order("starts_at", { ascending: false })).data ?? [];
+    },
   });
   const { data: courses } = useQuery({
     queryKey: ["courses-active"],
