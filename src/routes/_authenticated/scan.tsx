@@ -136,17 +136,11 @@ function ScanPage() {
       const { data: me } = await supabase.auth.getUser();
 
       if (!existing) {
-        const sessionStart = new Date(sess.starts_at).getTime();
-        const lateMin = Math.max(
-          0,
-          Math.floor((now - sessionStart) / 60000) - (sess.grace_minutes ?? 0),
-        );
-        const st = lateMin > 0 ? "LATE_ARRIVAL" : "IN_PROGRESS";
+        const st = "IN_PROGRESS";
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
           check_in_at: new Date().toISOString(),
-          late_minutes: lateMin,
           status: st,
           scanned_by: me.user?.id,
         });
@@ -194,6 +188,18 @@ function ScanPage() {
     } finally {
       processingRef.current = false;
     }
+  };
+
+  const closeSession = async () => {
+    if (!activeSession) return;
+    if (!confirm("Close this session? Students will no longer be able to check in.")) return;
+    await stopCamera();
+    const { error } = await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("id", activeSession);
+    if (error) return toast.error(error.message);
+    toast.success("Session closed");
+    qc.invalidateQueries({ queryKey: ["open-sessions"] });
+    qc.invalidateQueries({ queryKey: ["session", activeSession] });
+    qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
   const stopCamera = async () => {
