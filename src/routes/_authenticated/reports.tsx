@@ -62,7 +62,7 @@ function ReportsPage() {
 
       const rows = Array.from(studentMap.values())
         .map((s: any) => {
-          const scans = activeSessions.map((sess: any) => (scannedByStudent.get(s.id)?.has(sess.id) ? 1 : 0));
+          const scans: number[] = activeSessions.map((sess: any) => (scannedByStudent.get(s.id)?.has(sess.id) ? 1 : 0));
           const total = scans.reduce((a, b) => a + b, 0);
           return { id: s.id, full_name: s.full_name, index_number: s.index_number, level: s.level, scans, total };
         })
