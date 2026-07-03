@@ -445,21 +445,6 @@ function ScanPage() {
                         IN CLASS
                       </span>
                     )}
-                    {r.status === "LATE_ARRIVAL" && (
-                      <span className="inline-flex items-center text-warning-foreground text-xs">
-                        <AlertTriangle className="size-3 mr-1" />
-                        LATE {r.late_minutes}m
-                      </span>
-                    )}
-                    {r.status === "ABSENT" && (
-                      <span className="text-xs text-destructive">ABSENT</span>
-                    )}
-                    {r.status === "LEFT_EARLY" && (
-                      <span className="inline-flex items-center text-xs">
-                        <LogOut className="size-3 mr-1" />
-                        EARLY
-                      </span>
-                    )}
                   </div>
                 </div>
               ))}
