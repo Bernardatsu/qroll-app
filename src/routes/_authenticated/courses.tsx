@@ -138,6 +138,42 @@ function CoursesPage() {
         ))}
         {!courses?.length && <Card><CardContent className="p-8 text-center text-muted-foreground">No courses yet</CardContent></Card>}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit course</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Code</Label><Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} /></div>
+                <div><Label>Credit hours</Label><Input type="number" value={editing.credit_hours} onChange={(e) => setEditing({ ...editing, credit_hours: Number(e.target.value) })} /></div>
+              </div>
+              <div><Label>Title</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Level</Label>
+                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Semester</Label>
+                  <Select value={editing.semester} onValueChange={(v) => setEditing({ ...editing, semester: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="First">First</SelectItem><SelectItem value="Second">Second</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label>Department</Label>
+                <Select value={editing.department_id} onValueChange={(v) => setEditing({ ...editing, department_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>{(depts ?? []).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button onClick={saveEdit} className="w-full">Save changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
