@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, LogOut, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera } from "lucide-react";
+import { CheckCircle2, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 type Search = { session?: string };
