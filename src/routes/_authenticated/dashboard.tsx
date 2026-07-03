@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, BookOpen, CalendarClock, CheckCircle2, XCircle, Clock, LogOut as LogOutIcon } from "lucide-react";
+import { Users, BookOpen, CalendarClock, CheckCircle2, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
