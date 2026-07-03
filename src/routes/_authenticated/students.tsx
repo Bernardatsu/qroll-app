@@ -355,6 +355,35 @@ function StudentsPage() {
           ) : renderTable(filtered)}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit student</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div><Label>Full name</Label><Input value={editing.full_name} onChange={(e) => setEditing({ ...editing, full_name: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Index number</Label><Input value={editing.index_number} onChange={(e) => setEditing({ ...editing, index_number: e.target.value })} /></div>
+                <div><Label>Level</Label>
+                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label>Email</Label><Input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
+              <div><Label>Program</Label><Input value={editing.program} onChange={(e) => setEditing({ ...editing, program: e.target.value })} /></div>
+              <div><Label>Department</Label>
+                <Select value={editing.department_id} onValueChange={(v) => setEditing({ ...editing, department_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>{(depts ?? []).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button onClick={saveEdit} className="w-full">Save changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
