@@ -23,6 +23,7 @@ function CoursesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", title: "", level: "100", semester: "First", credit_hours: 3, department_id: "", academic_year_id: "" });
+  const [editing, setEditing] = useState<any | null>(null);
 
   const { data: courses } = useQuery({
     queryKey: ["courses"],
