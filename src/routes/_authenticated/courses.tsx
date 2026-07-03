@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Users, Trash2 } from "lucide-react";
+import { Plus, Users, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/courses")({
@@ -23,6 +23,7 @@ function CoursesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", title: "", level: "100", semester: "First", credit_hours: 3, department_id: "", academic_year_id: "" });
+  const [editing, setEditing] = useState<any | null>(null);
 
   const { data: courses } = useQuery({
     queryKey: ["courses"],
@@ -47,6 +48,21 @@ function CoursesPage() {
     if (!confirm("Delete course? Registrations and sessions will also be deleted.")) return;
     const { error } = await supabase.from("courses").delete().eq("id", id);
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["courses"] });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const payload: any = {
+      code: editing.code, title: editing.title, level: editing.level,
+      semester: editing.semester, credit_hours: Number(editing.credit_hours),
+      department_id: editing.department_id || null,
+      academic_year_id: editing.academic_year_id || null,
+    };
+    const { error } = await supabase.from("courses").update(payload).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    toast.success("Updated");
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["courses"] });
   };
 
   return (
@@ -112,15 +128,52 @@ function CoursesPage() {
               <div>{c.academic_years?.name ?? "—"} · {c.credit_hours} credits</div>
               <div className="flex gap-2 pt-3">
                 <Link to={"/courses/$courseId" as string} params={{ courseId: c.id } as any} className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full"><Users className="size-3 mr-1" />Roster</Button>
+                  <Button variant="outline" size="sm" className="w-full" title="Manage students enrolled in this course"><Users className="size-3 mr-1" />Roster</Button>
                 </Link>
-                <Button variant="ghost" size="icon" onClick={() => remove(c.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => setEditing({ ...c, department_id: c.department_id ?? "", academic_year_id: c.academic_year_id ?? "" })} title="Edit course"><Pencil className="size-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => remove(c.id)} title="Delete course"><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
         ))}
         {!courses?.length && <Card><CardContent className="p-8 text-center text-muted-foreground">No courses yet</CardContent></Card>}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit course</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Code</Label><Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} /></div>
+                <div><Label>Credit hours</Label><Input type="number" value={editing.credit_hours} onChange={(e) => setEditing({ ...editing, credit_hours: Number(e.target.value) })} /></div>
+              </div>
+              <div><Label>Title</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Level</Label>
+                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Semester</Label>
+                  <Select value={editing.semester} onValueChange={(v) => setEditing({ ...editing, semester: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="First">First</SelectItem><SelectItem value="Second">Second</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label>Department</Label>
+                <Select value={editing.department_id} onValueChange={(v) => setEditing({ ...editing, department_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>{(depts ?? []).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button onClick={saveEdit} className="w-full">Save changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, LogOut, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera } from "lucide-react";
+import { CheckCircle2, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 type Search = { session?: string };
@@ -40,14 +40,18 @@ function ScanPage() {
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
-    queryFn: async () =>
-      (
+    queryFn: async () => {
+      // Auto-close sessions older than 12h
+      const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("status", "OPEN").lt("starts_at", cutoff);
+      return (
         await supabase
           .from("attendance_sessions")
           .select("id, title, starts_at, courses(code, title)")
           .eq("status", "OPEN")
           .order("starts_at", { ascending: false })
-      ).data ?? [],
+      ).data ?? [];
+    },
   });
   const { data: session } = useQuery({
     queryKey: ["session", activeSession],
@@ -136,17 +140,11 @@ function ScanPage() {
       const { data: me } = await supabase.auth.getUser();
 
       if (!existing) {
-        const sessionStart = new Date(sess.starts_at).getTime();
-        const lateMin = Math.max(
-          0,
-          Math.floor((now - sessionStart) / 60000) - (sess.grace_minutes ?? 0),
-        );
-        const st = lateMin > 0 ? "LATE_ARRIVAL" : "IN_PROGRESS";
+        const st = "IN_PROGRESS";
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
           check_in_at: new Date().toISOString(),
-          late_minutes: lateMin,
           status: st,
           scanned_by: me.user?.id,
         });
@@ -194,6 +192,18 @@ function ScanPage() {
     } finally {
       processingRef.current = false;
     }
+  };
+
+  const closeSession = async () => {
+    if (!activeSession) return;
+    if (!confirm("Close this session? Students will no longer be able to check in.")) return;
+    await stopCamera();
+    const { error } = await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("id", activeSession);
+    if (error) return toast.error(error.message);
+    toast.success("Session closed");
+    qc.invalidateQueries({ queryKey: ["open-sessions"] });
+    qc.invalidateQueries({ queryKey: ["session", activeSession] });
+    qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
   const stopCamera = async () => {
@@ -398,6 +408,11 @@ function ScanPage() {
                   </Button>
                 </>
               )}
+              {activeSession && (
+                <Button variant="outline" onClick={closeSession} title="Close session" className="text-destructive">
+                  <Lock className="size-4" />
+                </Button>
+              )}
             </div>
 
             <form onSubmit={submitManual} className="flex gap-2 pt-2 border-t">
@@ -437,21 +452,6 @@ function ScanPage() {
                     {r.status === "IN_PROGRESS" && (
                       <span className="text-xs text-warning-foreground bg-warning/30 px-2 py-0.5 rounded">
                         IN CLASS
-                      </span>
-                    )}
-                    {r.status === "LATE_ARRIVAL" && (
-                      <span className="inline-flex items-center text-warning-foreground text-xs">
-                        <AlertTriangle className="size-3 mr-1" />
-                        LATE {r.late_minutes}m
-                      </span>
-                    )}
-                    {r.status === "ABSENT" && (
-                      <span className="text-xs text-destructive">ABSENT</span>
-                    )}
-                    {r.status === "LEFT_EARLY" && (
-                      <span className="inline-flex items-center text-xs">
-                        <LogOut className="size-3 mr-1" />
-                        EARLY
                       </span>
                     )}
                   </div>

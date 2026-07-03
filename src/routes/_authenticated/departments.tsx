@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/departments")({
@@ -20,6 +20,7 @@ function DeptPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [yName, setYName] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string; code: string } | null>(null);
 
   const { data: depts } = useQuery({
     queryKey: ["departments"],
@@ -40,6 +41,14 @@ function DeptPage() {
     if (!confirm("Delete department?")) return;
     const { error } = await supabase.from("departments").delete().eq("id", id);
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["departments"] });
+  };
+  const saveEdit = async () => {
+    if (!editing) return;
+    const { error } = await supabase.from("departments").update({ name: editing.name, code: editing.code }).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["departments"] });
+    toast.success("Updated");
   };
   const addYear = async () => {
     if (!yName) return;
@@ -67,9 +76,25 @@ function DeptPage() {
             <Button onClick={addDept} className="w-full"><Plus className="size-4 mr-1" />Add department</Button>
             <div className="divide-y rounded-md border">
               {(depts ?? []).map((d) => (
-                <div key={d.id} className="flex items-center justify-between p-3">
-                  <div><div className="font-medium">{d.name}</div><div className="text-xs text-muted-foreground">{d.code}</div></div>
-                  <Button variant="ghost" size="icon" onClick={() => delDept(d.id)}><Trash2 className="size-4" /></Button>
+                <div key={d.id} className="flex items-center justify-between gap-2 p-3">
+                  {editing?.id === d.id ? (
+                    <>
+                      <div className="flex-1 grid grid-cols-3 gap-2">
+                        <Input className="col-span-2" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                        <Input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={saveEdit}><Check className="size-4 text-success" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditing(null)}><X className="size-4" /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <div><div className="font-medium">{d.name}</div><div className="text-xs text-muted-foreground">{d.code}</div></div>
+                      <div className="flex">
+                        <Button variant="ghost" size="icon" onClick={() => setEditing({ id: d.id, name: d.name, code: d.code ?? "" })}><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => delDept(d.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {!depts?.length && <div className="p-4 text-sm text-muted-foreground">No departments yet.</div>}

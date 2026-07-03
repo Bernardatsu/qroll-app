@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Upload, QrCode, Printer, Trash2, Search, Mail, AlertTriangle } from "lucide-react";
+import { Plus, Upload, QrCode, Printer, Trash2, Search, Mail, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -35,6 +35,7 @@ function StudentsPage() {
   const emailFileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({ full_name: "", index_number: "", email: "", level: "100", program: "", department_id: "" });
+  const [editing, setEditing] = useState<any | null>(null);
 
   const { data: students } = useQuery({
     queryKey: ["students"],
@@ -77,6 +78,20 @@ function StudentsPage() {
     if (!confirm("Delete student?")) return;
     const { error } = await supabase.from("students").delete().eq("id", id);
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["students"] });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const payload: any = {
+      full_name: editing.full_name, index_number: editing.index_number,
+      email: editing.email || null, level: editing.level, program: editing.program || null,
+      department_id: editing.department_id || null,
+    };
+    const { error } = await supabase.from("students").update(payload).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    toast.success("Updated");
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["students"] });
   };
 
   const ensureDept = async (name: string, cache: Map<string, string>): Promise<string | null> => {
@@ -242,6 +257,7 @@ function StudentsPage() {
               <td className="p-3 text-xs">{s.email ?? <span className="text-muted-foreground">—</span>}</td>
               <td className="p-3 text-right">
                 <QrButton student={s} />
+                <Button variant="ghost" size="icon" onClick={() => setEditing({ ...s, email: s.email ?? "", program: s.program ?? "", department_id: s.department_id ?? "" })} title="Edit"><Pencil className="size-4" /></Button>
                 <Button variant="ghost" size="icon" onClick={() => remove(s.id)}><Trash2 className="size-4 text-destructive" /></Button>
               </td>
             </tr>
@@ -339,6 +355,35 @@ function StudentsPage() {
           ) : renderTable(filtered)}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit student</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div><Label>Full name</Label><Input value={editing.full_name} onChange={(e) => setEditing({ ...editing, full_name: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Index number</Label><Input value={editing.index_number} onChange={(e) => setEditing({ ...editing, index_number: e.target.value })} /></div>
+                <div><Label>Level</Label>
+                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div><Label>Email</Label><Input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
+              <div><Label>Program</Label><Input value={editing.program} onChange={(e) => setEditing({ ...editing, program: e.target.value })} /></div>
+              <div><Label>Department</Label>
+                <Select value={editing.department_id} onValueChange={(v) => setEditing({ ...editing, department_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>{(depts ?? []).map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button onClick={saveEdit} className="w-full">Save changes</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

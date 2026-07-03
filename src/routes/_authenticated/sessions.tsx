@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ScanLine, Lock, Unlock, Projector, MapPin } from "lucide-react";
+import { Plus, ScanLine, Lock, Unlock, Projector, MapPin, Trash2 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { getPublicOrigin } from "@/lib/public-origin";
@@ -29,7 +29,12 @@ function SessionsPage() {
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
-    queryFn: async () => (await supabase.from("attendance_sessions").select("*, courses(code, title, level)").order("starts_at", { ascending: false })).data ?? [],
+    queryFn: async () => {
+      // Auto-close sessions older than 12h
+      const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("status", "OPEN").lt("starts_at", cutoff);
+      return (await supabase.from("attendance_sessions").select("*, courses(code, title, level)").order("starts_at", { ascending: false })).data ?? [];
+    },
   });
   const { data: courses } = useQuery({
     queryKey: ["courses-active"],
@@ -87,12 +92,20 @@ function SessionsPage() {
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
+  const removeSession = async (id: string) => {
+    if (!confirm("Delete this session and all its attendance records?")) return;
+    const { error } = await supabase.from("attendance_sessions").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Session deleted");
+    qc.invalidateQueries({ queryKey: ["sessions"] });
+  };
+
   const projectQr = async (sessionId: string) => {
     const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
     const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
     const w = window.open("", "_blank");
     if (!w) return toast.error("Allow popups to project");
-    w.document.write(`<html><head><title>Project Check-in QR</title><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:#006633}h1{margin:0 0 8px}p{color:#555;margin:4px 0 24px;font-size:18px}img{max-width:80vmin;max-height:80vmin}</style></head><body><h1>Scan to check in</h1><p>Open your camera, scan, allow location, then enter your index number.</p><img src="${dataUrl}" /><p style="margin-top:24px;font-size:14px">${url}</p></body></html>`);
+    w.document.write(`<html><head><title>Project Check-in QR</title><meta name="viewport" content="width=device-width,initial-scale=1" /><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;color:#006633;padding:16px;box-sizing:border-box}h1{margin:8px 0}p{color:#555;margin:4px 0 16px;font-size:16px;text-align:center}img{max-width:80vmin;max-height:70vmin}button{margin-top:20px;background:#006633;color:#fff;border:0;padding:14px 28px;font-size:16px;border-radius:10px;cursor:pointer}button.close-x{position:fixed;top:12px;right:12px;background:#c00;padding:10px 16px;margin:0;font-weight:bold}</style></head><body><button class="close-x" onclick="window.close()">✕ Close</button><h1>Scan to check in</h1><p>Open your camera, scan, allow location, then enter your index number.</p><img src="${dataUrl}" /><p style="margin-top:16px;font-size:13px;word-break:break-all">${url}</p><button onclick="window.close()">Close this page</button></body></html>`);
     w.document.close();
   };
 
@@ -142,6 +155,7 @@ function SessionsPage() {
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
                 {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
+                <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>

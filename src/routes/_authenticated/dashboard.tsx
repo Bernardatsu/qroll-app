@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, BookOpen, CalendarClock, CheckCircle2, XCircle, Clock, LogOut as LogOutIcon } from "lucide-react";
+import { Users, BookOpen, CalendarClock, CheckCircle2, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -37,14 +37,14 @@ function Dashboard() {
         supabase.from("attendance_records").select("status"),
       ]);
       const rows = attendance.data ?? [];
-      const tally = { PRESENT: 0, ABSENT: 0, IN_PROGRESS: 0, LATE_ARRIVAL: 0, LEFT_EARLY: 0 } as Record<string, number>;
+      const tally = { PRESENT: 0, IN_PROGRESS: 0 } as Record<string, number>;
       rows.forEach((r) => { tally[r.status] = (tally[r.status] ?? 0) + 1; });
       return {
         students: students.count ?? 0,
         courses: courses.count ?? 0,
         sessions: sessions.count ?? 0,
         ...tally,
-      } as { students: number; courses: number; sessions: number; PRESENT: number; ABSENT: number; IN_PROGRESS: number; LATE_ARRIVAL: number; LEFT_EARLY: number };
+      } as { students: number; courses: number; sessions: number; PRESENT: number; IN_PROGRESS: number };
     },
   });
 
@@ -59,10 +59,7 @@ function Dashboard() {
         <Stat icon={BookOpen} label="Courses" value={data?.courses ?? 0} tint="bg-gold/20 text-gold-foreground" />
         <Stat icon={CalendarClock} label="Sessions" value={data?.sessions ?? 0} tint="bg-accent text-accent-foreground" />
         <Stat icon={Clock} label="In progress" value={data?.IN_PROGRESS ?? 0} tint="bg-warning/30 text-warning-foreground" />
-        <Stat icon={CheckCircle2} label="Present" value={data?.PRESENT ?? 0} tint="bg-success/20 text-success" />
-        <Stat icon={XCircle} label="Absent" value={data?.ABSENT ?? 0} tint="bg-destructive/15 text-destructive" />
-        <Stat icon={Clock} label="Late" value={data?.LATE_ARRIVAL ?? 0} tint="bg-warning/30 text-warning-foreground" />
-        <Stat icon={LogOutIcon} label="Left early" value={data?.LEFT_EARLY ?? 0} tint="bg-muted text-muted-foreground" />
+        <Stat icon={CheckCircle2} label="Scans (present)" value={data?.PRESENT ?? 0} tint="bg-success/20 text-success" />
       </div>
       <Card className="mt-6">
         <CardHeader><CardTitle>Getting started</CardTitle></CardHeader>
