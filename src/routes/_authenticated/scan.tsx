@@ -40,14 +40,18 @@ function ScanPage() {
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
-    queryFn: async () =>
-      (
+    queryFn: async () => {
+      // Auto-close sessions older than 12h
+      const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("status", "OPEN").lt("starts_at", cutoff);
+      return (
         await supabase
           .from("attendance_sessions")
           .select("id, title, starts_at, courses(code, title)")
           .eq("status", "OPEN")
           .order("starts_at", { ascending: false })
-      ).data ?? [],
+      ).data ?? [];
+    },
   });
   const { data: session } = useQuery({
     queryKey: ["session", activeSession],
