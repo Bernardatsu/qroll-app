@@ -20,7 +20,6 @@ function ReportsPage() {
   const [courseId, setCourseId] = useState<string>("");
   const [mode, setMode] = useState<Mode>("semester");
   const [sessionId, setSessionId] = useState<string>("");
-  const [threshold] = useState(75);
 
   const { data: courses } = useQuery({
     queryKey: ["courses-active"],
@@ -30,54 +29,75 @@ function ReportsPage() {
   const { data: sessions } = useQuery({
     queryKey: ["sessions-for-course", courseId],
     enabled: !!courseId,
-    queryFn: async () => (await supabase.from("attendance_sessions").select("id, title, starts_at").eq("course_id", courseId).order("starts_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("attendance_sessions").select("id, title, starts_at").eq("course_id", courseId).order("starts_at", { ascending: true })).data ?? [],
   });
 
+  const activeSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (mode === "daily" && sessionId) return sessions.filter((s: any) => s.id === sessionId);
+    return sessions;
+  }, [sessions, mode, sessionId]);
+
   const { data: report } = useQuery({
-    queryKey: ["report", courseId, mode, sessionId],
+    queryKey: ["report", courseId, mode, sessionId, activeSessions.map((s: any) => s.id).join(",")],
     enabled: !!courseId && (mode === "semester" || !!sessionId),
     queryFn: async () => {
-      const sessQ = supabase.from("attendance_sessions").select("id").eq("course_id", courseId);
-      if (mode === "daily") sessQ.eq("id", sessionId);
-      const [{ data: regs }, { data: sessList }] = await Promise.all([
+      const sessionIds = activeSessions.map((s: any) => s.id);
+      // Union of registered students + any student who has scanned in these sessions
+      const [{ data: regs }, { data: records }] = await Promise.all([
         supabase.from("course_registrations").select("students(id, full_name, index_number, level)").eq("course_id", courseId),
-        sessQ,
+        sessionIds.length
+          ? supabase.from("attendance_records").select("student_id, session_id, students(id, full_name, index_number, level)").in("session_id", sessionIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
-      const sessionIds = (sessList ?? []).map((x) => x.id);
-      const totalSessions = sessionIds.length;
-      const { data: records } = sessionIds.length
-        ? await supabase.from("attendance_records").select("student_id, status, session_id, check_in_at").in("session_id", sessionIds)
-        : { data: [] as any[] };
-      const rows = (regs ?? []).map((r: any) => {
-        const s = r.students;
-        const mine = (records ?? []).filter((rec: any) => rec.student_id === s.id);
-        const present = mine.filter((m) => m.status === "PRESENT" || m.status === "LATE_ARRIVAL").length;
-        const absent = totalSessions - present;
-        const late = mine.filter((m) => m.status === "LATE_ARRIVAL").length;
-        const pct = totalSessions ? Math.round((present / totalSessions) * 1000) / 10 : 0;
-        return { full_name: s.full_name, index_number: s.index_number, level: s.level, present, absent, late, total: totalSessions, percentage: pct, flagged: pct < threshold };
-      }).sort((a, b) => a.full_name.localeCompare(b.full_name));
-      return { rows, totalSessions };
+      const studentMap = new Map<string, any>();
+      for (const r of regs ?? []) if (r.students) studentMap.set(r.students.id, r.students);
+      for (const rec of records ?? []) if (rec.students) studentMap.set(rec.students.id, rec.students);
+
+      const scannedByStudent = new Map<string, Set<string>>();
+      for (const rec of records ?? []) {
+        if (!scannedByStudent.has(rec.student_id)) scannedByStudent.set(rec.student_id, new Set());
+        scannedByStudent.get(rec.student_id)!.add(rec.session_id);
+      }
+
+      const rows = Array.from(studentMap.values())
+        .map((s: any) => {
+          const scans = activeSessions.map((sess: any) => (scannedByStudent.get(s.id)?.has(sess.id) ? 1 : 0));
+          const total = scans.reduce((a, b) => a + b, 0);
+          return { id: s.id, full_name: s.full_name, index_number: s.index_number, level: s.level, scans, total };
+        })
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+      return { rows, sessions: activeSessions, totalSessions: activeSessions.length };
     },
   });
 
   const courseLabel = useMemo(() => courses?.find((c: any) => c.id === courseId), [courses, courseId]);
   const modeLabel = mode === "semester" ? "semester" : `daily-${sessionId.slice(0, 8)}`;
 
+  const buildExportRows = () => {
+    if (!report) return { rows: [] as any[], headers: [] as string[] };
+    const sessionHeaders = report.sessions.map((s: any) => new Date(s.starts_at).toLocaleDateString() + (s.title ? ` (${s.title})` : ""));
+    const headers = ["Name", "Index", "Level", ...sessionHeaders, "Total"];
+    const rows = report.rows.map((r) => {
+      const base: Record<string, string | number> = { Name: r.full_name, Index: r.index_number, Level: r.level };
+      report.sessions.forEach((s: any, i: number) => { base[sessionHeaders[i]] = r.scans[i]; });
+      base["Total"] = r.total;
+      return base;
+    });
+    return { rows, headers };
+  };
+
   const exportFn = (fmt: "xlsx" | "csv" | "pdf") => {
-    if (!report) return;
-    const rows = report.rows.map((r) => ({
-      Name: r.full_name, Index: r.index_number, Level: r.level,
-      Present: r.present, Absent: r.absent, Late: r.late, Total: r.total,
-      "%": r.percentage, Flagged: r.flagged ? "YES" : "",
-    }));
+    const { rows, headers } = buildExportRows();
+    if (!rows.length) return;
     const filename = `${courseLabel?.code ?? "report"}-${modeLabel}`;
     if (fmt === "xlsx") exportToExcel(rows, filename);
     else if (fmt === "csv") exportToCSV(rows, filename);
     else exportToPDF(
       `${courseLabel?.code} — ${courseLabel?.title} (${mode})`,
-      ["Name", "Index", "Level", "Present", "Absent", "Late", "Total", "%"],
-      rows.map((r) => [r.Name, r.Index, r.Level, r.Present, r.Absent, r.Late, r.Total, r["%"] + "%"]),
+      headers,
+      rows.map((r) => headers.map((h) => r[h] ?? "")),
       filename,
     );
   };
@@ -123,26 +143,37 @@ function ReportsPage() {
 
       {report && (
         <Card>
-          <CardHeader><CardTitle>{courseLabel?.code} — {report.rows.length} students · {report.totalSessions} session{report.totalSessions === 1 ? "" : "s"} · threshold {threshold}%</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{courseLabel?.code} — {report.rows.length} students · {report.totalSessions} session{report.totalSessions === 1 ? "" : "s"}</CardTitle></CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left">
-                  <tr><th className="p-3">Name</th><th className="p-3">Index</th><th className="p-3">Level</th><th className="p-3">Present</th><th className="p-3">Absent</th><th className="p-3">Late</th><th className="p-3">%</th></tr>
+                  <tr>
+                    <th className="p-3 sticky left-0 bg-muted/50">Name</th>
+                    <th className="p-3">Index</th>
+                    <th className="p-3">Level</th>
+                    {report.sessions.map((s: any) => (
+                      <th key={s.id} className="p-3 text-center whitespace-nowrap text-xs">
+                        {new Date(s.starts_at).toLocaleDateString()}
+                        {s.title ? <div className="font-normal text-muted-foreground">{s.title}</div> : null}
+                      </th>
+                    ))}
+                    <th className="p-3 text-center">Total</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {report.rows.map((r) => (
-                    <tr key={r.index_number} className={`border-t ${r.flagged ? "bg-destructive/5" : ""}`}>
-                      <td className="p-3 font-medium">{r.full_name}</td>
+                    <tr key={r.id} className="border-t">
+                      <td className="p-3 font-medium sticky left-0 bg-background">{r.full_name}</td>
                       <td className="p-3 font-mono text-xs">{r.index_number}</td>
                       <td className="p-3">{r.level}</td>
-                      <td className="p-3">{r.present}</td>
-                      <td className="p-3">{r.absent}</td>
-                      <td className="p-3">{r.late}</td>
-                      <td className={`p-3 font-semibold ${r.flagged ? "text-destructive" : "text-success"}`}>{r.percentage}%</td>
+                      {r.scans.map((v, i) => (
+                        <td key={i} className={`p-3 text-center font-semibold ${v ? "text-success" : "text-muted-foreground"}`}>{v}</td>
+                      ))}
+                      <td className="p-3 text-center font-bold">{r.total}</td>
                     </tr>
                   ))}
-                  {!report.rows.length && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No registered students</td></tr>}
+                  {!report.rows.length && <tr><td colSpan={4 + report.sessions.length} className="p-6 text-center text-muted-foreground">No data</td></tr>}
                 </tbody>
               </table>
             </div>
