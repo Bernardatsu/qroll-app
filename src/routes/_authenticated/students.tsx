@@ -80,6 +80,20 @@ function StudentsPage() {
     if (error) toast.error(error.message); else qc.invalidateQueries({ queryKey: ["students"] });
   };
 
+  const saveEdit = async () => {
+    if (!editing) return;
+    const payload: any = {
+      full_name: editing.full_name, index_number: editing.index_number,
+      email: editing.email || null, level: editing.level, program: editing.program || null,
+      department_id: editing.department_id || null,
+    };
+    const { error } = await supabase.from("students").update(payload).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    toast.success("Updated");
+    setEditing(null);
+    qc.invalidateQueries({ queryKey: ["students"] });
+  };
+
   const ensureDept = async (name: string, cache: Map<string, string>): Promise<string | null> => {
     const key = name.trim().toLowerCase();
     if (!key) return null;
