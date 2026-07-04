@@ -125,9 +125,23 @@ function DeptPage() {
             </div>
             <div className="divide-y rounded-md border">
               {(years ?? []).map((y) => (
-                <div key={y.id} className="flex items-center justify-between p-3">
-                  <div className="font-medium">{y.name} {y.is_current && <span className="ml-2 text-xs bg-gold text-gold-foreground px-2 py-0.5 rounded">current</span>}</div>
-                  {!y.is_current && <Button variant="outline" size="sm" onClick={() => setCurrent(y.id)}>Set current</Button>}
+                <div key={y.id} className="flex items-center justify-between gap-2 p-3">
+                  {editYear?.id === y.id ? (
+                    <>
+                      <Input className="flex-1" value={editYear.name} onChange={(e) => setEditYear({ ...editYear, name: e.target.value })} />
+                      <Button variant="ghost" size="icon" onClick={saveYear}><Check className="size-4 text-success" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditYear(null)}><X className="size-4" /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-medium">{y.name} {y.is_current && <span className="ml-2 text-xs bg-gold text-gold-foreground px-2 py-0.5 rounded">current</span>}</div>
+                      <div className="flex items-center gap-1">
+                        {!y.is_current && <Button variant="outline" size="sm" onClick={() => setCurrent(y.id)}>Set current</Button>}
+                        <Button variant="ghost" size="icon" onClick={() => setEditYear({ id: y.id, name: y.name })}><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => delYear(y.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {!years?.length && <div className="p-4 text-sm text-muted-foreground">No academic years yet.</div>}
