@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as CheckInRouteImport } from './routes/check-in'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -28,6 +29,11 @@ import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_auth
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckInRoute = CheckInRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/check-in'
+    | '/privacy'
     | '/terms'
     | '/courses'
     | '/dashboard'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/check-in'
+    | '/privacy'
     | '/terms'
     | '/courses'
     | '/dashboard'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/check-in'
+    | '/privacy'
     | '/terms'
     | '/_authenticated/courses'
     | '/_authenticated/dashboard'
@@ -210,6 +222,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   CheckInRoute: typeof CheckInRoute
+  PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   PortalTokenRoute: typeof PortalTokenRoute
 }
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/check-in': {
@@ -365,6 +385,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   CheckInRoute: CheckInRoute,
+  PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   PortalTokenRoute: PortalTokenRoute,
 }
