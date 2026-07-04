@@ -76,10 +76,6 @@ function DeptPage() {
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["years"] });
   };
-    await supabase.from("academic_years").update({ is_current: false }).neq("id", "00000000-0000-0000-0000-000000000000");
-    await supabase.from("academic_years").update({ is_current: true }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["years"] });
-  };
 
   return (
     <AppShell>
