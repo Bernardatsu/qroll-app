@@ -62,6 +62,24 @@ function DeptPage() {
     await supabase.from("academic_years").update({ is_current: true }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["years"] });
   };
+  const saveYear = async () => {
+    if (!editYear || !editYear.name.trim()) return;
+    const { error } = await supabase.from("academic_years").update({ name: editYear.name.trim() }).eq("id", editYear.id);
+    if (error) return toast.error(error.message);
+    setEditYear(null);
+    qc.invalidateQueries({ queryKey: ["years"] });
+    toast.success("Year updated");
+  };
+  const delYear = async (id: string) => {
+    if (!confirm("Delete this academic year? Courses linked to it will lose the year label.")) return;
+    const { error } = await supabase.from("academic_years").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["years"] });
+  };
+    await supabase.from("academic_years").update({ is_current: false }).neq("id", "00000000-0000-0000-0000-000000000000");
+    await supabase.from("academic_years").update({ is_current: true }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["years"] });
+  };
 
   return (
     <AppShell>
