@@ -84,9 +84,13 @@ function Landing() {
       </section>
 
       <footer className="border-t mt-auto">
-        <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-muted-foreground flex justify-between flex-wrap">
-          <div>© {new Date().getFullYear()} KNUST Attendance</div>
-          <div>Built with security and accuracy in mind</div>
+        <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-muted-foreground flex flex-wrap gap-3 justify-between">
+          <div>© {new Date().getFullYear()} KNUST Attendance · Built for PESA KNUST</div>
+          <div className="flex gap-4">
+            <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="hover:text-primary underline-offset-4 hover:underline">App Manual (PDF)</a>
+            <Link to={"/terms" as string} className="hover:text-primary">Terms</Link>
+            <Link to={"/privacy" as string} className="hover:text-primary">Privacy</Link>
+          </div>
         </div>
       </footer>
     </div>

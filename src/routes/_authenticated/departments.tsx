@@ -21,6 +21,7 @@ function DeptPage() {
   const [code, setCode] = useState("");
   const [yName, setYName] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [editYear, setEditYear] = useState<{ id: string; name: string } | null>(null);
 
   const { data: depts } = useQuery({
     queryKey: ["departments"],
@@ -59,6 +60,20 @@ function DeptPage() {
   const setCurrent = async (id: string) => {
     await supabase.from("academic_years").update({ is_current: false }).neq("id", "00000000-0000-0000-0000-000000000000");
     await supabase.from("academic_years").update({ is_current: true }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["years"] });
+  };
+  const saveYear = async () => {
+    if (!editYear || !editYear.name.trim()) return;
+    const { error } = await supabase.from("academic_years").update({ name: editYear.name.trim() }).eq("id", editYear.id);
+    if (error) return toast.error(error.message);
+    setEditYear(null);
+    qc.invalidateQueries({ queryKey: ["years"] });
+    toast.success("Year updated");
+  };
+  const delYear = async (id: string) => {
+    if (!confirm("Delete this academic year? Courses linked to it will lose the year label.")) return;
+    const { error } = await supabase.from("academic_years").delete().eq("id", id);
+    if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["years"] });
   };
 
@@ -110,9 +125,23 @@ function DeptPage() {
             </div>
             <div className="divide-y rounded-md border">
               {(years ?? []).map((y) => (
-                <div key={y.id} className="flex items-center justify-between p-3">
-                  <div className="font-medium">{y.name} {y.is_current && <span className="ml-2 text-xs bg-gold text-gold-foreground px-2 py-0.5 rounded">current</span>}</div>
-                  {!y.is_current && <Button variant="outline" size="sm" onClick={() => setCurrent(y.id)}>Set current</Button>}
+                <div key={y.id} className="flex items-center justify-between gap-2 p-3">
+                  {editYear?.id === y.id ? (
+                    <>
+                      <Input className="flex-1" value={editYear.name} onChange={(e) => setEditYear({ ...editYear, name: e.target.value })} />
+                      <Button variant="ghost" size="icon" onClick={saveYear}><Check className="size-4 text-success" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditYear(null)}><X className="size-4" /></Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-medium">{y.name} {y.is_current && <span className="ml-2 text-xs bg-gold text-gold-foreground px-2 py-0.5 rounded">current</span>}</div>
+                      <div className="flex items-center gap-1">
+                        {!y.is_current && <Button variant="outline" size="sm" onClick={() => setCurrent(y.id)}>Set current</Button>}
+                        <Button variant="ghost" size="icon" onClick={() => setEditYear({ id: y.id, name: y.name })}><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => delYear(y.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {!years?.length && <div className="p-4 text-sm text-muted-foreground">No academic years yet.</div>}

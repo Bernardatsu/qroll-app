@@ -464,6 +464,15 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      portal_courses: {
+        Args: { _token: string }
+        Returns: {
+          code: string
+          id: string
+          level: string
+          title: string
+        }[]
+      }
       portal_lookup: {
         Args: { _email: string; _index: string; _token: string }
         Returns: {
