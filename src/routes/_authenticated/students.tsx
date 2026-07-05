@@ -157,7 +157,7 @@ function StudentsPage() {
           full_name, index_number,
           email: pick(r, ["email", "emailaddress", "gmail", "mail"]) || null,
           program: programme || null,
-          level: (validLevels.has(lvl) ? lvl : "100") as "100" | "200" | "300" | "400",
+          level: lvl || "100",
           department_id,
         });
       }
