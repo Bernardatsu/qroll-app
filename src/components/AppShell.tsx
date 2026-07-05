@@ -103,6 +103,13 @@ function SidebarBody({
       <div className="flex-1 overflow-y-auto">
         <NavLinks isAdmin={isAdmin} onNavigate={onNavigate} />
       </div>
+      <div className="px-3 pt-2 pb-1 border-t border-white/10 text-[11px] space-y-1">
+        <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="block text-white/80 hover:text-white underline underline-offset-2">📘 Download App Manual (PDF)</a>
+        <div className="flex gap-3 text-white/70">
+          <Link to="/terms" onClick={onNavigate} className="hover:text-white">Terms</Link>
+          <Link to="/privacy" onClick={onNavigate} className="hover:text-white">Privacy</Link>
+        </div>
+      </div>
       <div className="p-3 border-t border-white/10">
         <div className="text-xs opacity-80 truncate">{email}</div>
         <div className="text-[10px] uppercase tracking-wider text-gold/90 mt-0.5">
@@ -117,6 +124,7 @@ function SidebarBody({
           <LogOut className="size-4 mr-1" /> Sign out
         </Button>
       </div>
+
     </div>
   );
 }

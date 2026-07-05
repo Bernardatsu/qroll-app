@@ -80,12 +80,13 @@ function CoursesPage() {
               </div>
               <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Level</Label>
-                  <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div><Label>Level (class)</Label>
+                  <Input list="course-level-suggestions" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value.trim() })} placeholder="e.g. 100, 500" />
+                  <datalist id="course-level-suggestions">
+                    {LEVELS.map((l) => <option key={l} value={l} />)}
+                  </datalist>
                 </div>
+
                 <div><Label>Semester</Label>
                   <Select value={form.semester} onValueChange={(v) => setForm({ ...form, semester: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -150,12 +151,13 @@ function CoursesPage() {
               </div>
               <div><Label>Title</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Level</Label>
-                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div><Label>Level (class)</Label>
+                  <Input list="course-level-suggestions-edit" value={editing.level ?? ""} onChange={(e) => setEditing({ ...editing, level: e.target.value.trim() })} />
+                  <datalist id="course-level-suggestions-edit">
+                    {LEVELS.map((l) => <option key={l} value={l} />)}
+                  </datalist>
                 </div>
+
                 <div><Label>Semester</Label>
                   <Select value={editing.semester} onValueChange={(v) => setEditing({ ...editing, semester: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

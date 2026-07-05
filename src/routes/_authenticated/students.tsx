@@ -24,12 +24,12 @@ export const Route = createFileRoute("/_authenticated/students")({
   component: StudentsPage,
 });
 
-const LEVELS = ["100", "200", "300", "400"] as const;
+const DEFAULT_LEVELS = ["100", "200", "300", "400"] as const;
 
 function StudentsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"all" | "100" | "200" | "300" | "400">("all");
+  const [tab, setTab] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const emailFileRef = useRef<HTMLInputElement>(null);
@@ -46,6 +46,17 @@ function StudentsPage() {
     queryFn: async () => (await supabase.from("departments").select("*").order("name")).data ?? [],
   });
 
+  // Union of default levels and any custom levels that already exist in the data
+  const levels = useMemo(() => {
+    const set = new Set<string>(DEFAULT_LEVELS);
+    for (const s of students ?? []) if (s.level) set.add(String(s.level));
+    return Array.from(set).sort((a, b) => {
+      const an = parseInt(a, 10), bn = parseInt(b, 10);
+      if (!isNaN(an) && !isNaN(bn)) return an - bn;
+      return a.localeCompare(b);
+    });
+  }, [students]);
+
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
     return (students ?? []).filter((st: any) => {
@@ -56,10 +67,16 @@ function StudentsPage() {
   }, [students, q, tab]);
 
   const grouped = useMemo(() => {
-    const g: Record<string, any[]> = { "100": [], "200": [], "300": [], "400": [] };
-    for (const s of filtered) if (g[String(s.level)]) g[String(s.level)].push(s);
+    const g: Record<string, any[]> = {};
+    for (const l of levels) g[l] = [];
+    for (const s of filtered) {
+      const l = String(s.level);
+      if (!g[l]) g[l] = [];
+      g[l].push(s);
+    }
     return g;
-  }, [filtered]);
+  }, [filtered, levels]);
+
 
   const add = async () => {
     if (!form.full_name || !form.index_number) return toast.error("Name and index required");
@@ -123,7 +140,7 @@ function StudentsPage() {
         }
         return "";
       };
-      const validLevels = new Set(["100", "200", "300", "400"]);
+      // Level is free-form text now; any digits (or the raw value) accepted
       const deptCache = new Map<string, string>();
       const prepared: any[] = [];
       for (const r of rawRows) {
@@ -140,7 +157,7 @@ function StudentsPage() {
           full_name, index_number,
           email: pick(r, ["email", "emailaddress", "gmail", "mail"]) || null,
           program: programme || null,
-          level: (validLevels.has(lvl) ? lvl : "100") as "100" | "200" | "300" | "400",
+          level: lvl || "100",
           department_id,
         });
       }
@@ -304,12 +321,13 @@ function StudentsPage() {
                 <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Index number</Label><Input value={form.index_number} onChange={(e) => setForm({ ...form, index_number: e.target.value })} /></div>
-                  <div><Label>Level</Label>
-                    <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                    </Select>
+                  <div><Label>Level (class)</Label>
+                    <Input list="level-suggestions" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value.trim() })} placeholder="e.g. 100, 500, 600" />
+                    <datalist id="level-suggestions">
+                      {levels.map((l: string) => <option key={l} value={l} />)}
+                    </datalist>
                   </div>
+
                 </div>
                 <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div><Label>Program</Label><Input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} /></div>
@@ -333,7 +351,7 @@ function StudentsPage() {
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
-                {LEVELS.map((l) => <TabsTrigger key={l} value={l}>L{l}</TabsTrigger>)}
+                {levels.map((l: string) => <TabsTrigger key={l} value={l}>L{l}</TabsTrigger>)}
               </TabsList>
             </Tabs>
           </div>
@@ -345,7 +363,7 @@ function StudentsPage() {
         <CardContent className="p-0">
           {tab === "all" ? (
             <div className="divide-y">
-              {LEVELS.map((l) => (
+              {levels.map((l: string) => (
                 <div key={l}>
                   <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide bg-muted/30 text-muted-foreground">Level {l} · {grouped[l].length}</div>
                   {renderTable(grouped[l])}
@@ -364,12 +382,13 @@ function StudentsPage() {
               <div><Label>Full name</Label><Input value={editing.full_name} onChange={(e) => setEditing({ ...editing, full_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Index number</Label><Input value={editing.index_number} onChange={(e) => setEditing({ ...editing, index_number: e.target.value })} /></div>
-                <div><Label>Level</Label>
-                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div><Label>Level (class)</Label>
+                  <Input list="level-suggestions-edit" value={editing.level ?? ""} onChange={(e) => setEditing({ ...editing, level: e.target.value.trim() })} />
+                  <datalist id="level-suggestions-edit">
+                    {levels.map((l: string) => <option key={l} value={l} />)}
+                  </datalist>
                 </div>
+
               </div>
               <div><Label>Email</Label><Input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
               <div><Label>Program</Label><Input value={editing.program} onChange={(e) => setEditing({ ...editing, program: e.target.value })} /></div>

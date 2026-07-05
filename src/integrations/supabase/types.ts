@@ -233,7 +233,7 @@ export type Database = {
           department_id: string | null
           id: string
           lecturer_id: string | null
-          level: Database["public"]["Enums"]["student_level"]
+          level: string
           owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
           title: string
@@ -247,7 +247,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           lecturer_id?: string | null
-          level: Database["public"]["Enums"]["student_level"]
+          level: string
           owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
           title: string
@@ -261,7 +261,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           lecturer_id?: string | null
-          level?: Database["public"]["Enums"]["student_level"]
+          level?: string
           owner_id?: string
           semester?: Database["public"]["Enums"]["semester_name"]
           title?: string
@@ -372,7 +372,7 @@ export type Database = {
           full_name: string
           id: string
           index_number: string
-          level: Database["public"]["Enums"]["student_level"]
+          level: string
           owner_id: string
           pin: string
           program: string | null
@@ -388,7 +388,7 @@ export type Database = {
           full_name: string
           id?: string
           index_number: string
-          level: Database["public"]["Enums"]["student_level"]
+          level: string
           owner_id: string
           pin: string
           program?: string | null
@@ -404,7 +404,7 @@ export type Database = {
           full_name?: string
           id?: string
           index_number?: string
-          level?: Database["public"]["Enums"]["student_level"]
+          level?: string
           owner_id?: string
           pin?: string
           program?: string | null
@@ -517,7 +517,6 @@ export type Database = {
         | "LEFT_EARLY"
       semester_name: "First" | "Second"
       session_status: "OPEN" | "CLOSED"
-      student_level: "100" | "200" | "300" | "400"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -655,7 +654,6 @@ export const Constants = {
       ],
       semester_name: ["First", "Second"],
       session_status: ["OPEN", "CLOSED"],
-      student_level: ["100", "200", "300", "400"],
     },
   },
 } as const
