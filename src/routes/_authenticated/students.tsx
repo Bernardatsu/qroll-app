@@ -321,12 +321,13 @@ function StudentsPage() {
                 <div><Label>Full name</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Index number</Label><Input value={form.index_number} onChange={(e) => setForm({ ...form, index_number: e.target.value })} /></div>
-                  <div><Label>Level</Label>
-                    <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{levels.map((l: string) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                    </Select>
+                  <div><Label>Level (class)</Label>
+                    <Input list="level-suggestions" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value.trim() })} placeholder="e.g. 100, 500, 600" />
+                    <datalist id="level-suggestions">
+                      {levels.map((l: string) => <option key={l} value={l} />)}
+                    </datalist>
                   </div>
+
                 </div>
                 <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                 <div><Label>Program</Label><Input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} /></div>
