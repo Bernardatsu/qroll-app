@@ -140,7 +140,7 @@ function StudentsPage() {
         }
         return "";
       };
-      const validLevels = new Set(["100", "200", "300", "400"]);
+      // Level is free-form text now; any digits (or the raw value) accepted
       const deptCache = new Map<string, string>();
       const prepared: any[] = [];
       for (const r of rawRows) {
