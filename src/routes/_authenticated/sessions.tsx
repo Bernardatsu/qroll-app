@@ -76,7 +76,13 @@ function SessionsPage() {
   const toggle = async (s: any) => {
     const status = s.status === "OPEN" ? "CLOSED" : "OPEN";
     const updates: any = { status };
-    if (status === "CLOSED") updates.ends_at = new Date().toISOString();
+    if (status === "CLOSED") {
+      updates.ends_at = new Date().toISOString();
+    } else {
+      // Reopening: reset starts_at so the 12h auto-close doesn't immediately close it again
+      updates.starts_at = new Date().toISOString();
+      updates.ends_at = null;
+    }
     const { error } = await supabase.from("attendance_sessions").update(updates).eq("id", s.id);
     if (error) return toast.error(error.message);
 
