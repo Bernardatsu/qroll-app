@@ -382,12 +382,13 @@ function StudentsPage() {
               <div><Label>Full name</Label><Input value={editing.full_name} onChange={(e) => setEditing({ ...editing, full_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Index number</Label><Input value={editing.index_number} onChange={(e) => setEditing({ ...editing, index_number: e.target.value })} /></div>
-                <div><Label>Level</Label>
-                  <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{levels.map((l: string) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div><Label>Level (class)</Label>
+                  <Input list="level-suggestions-edit" value={editing.level ?? ""} onChange={(e) => setEditing({ ...editing, level: e.target.value.trim() })} />
+                  <datalist id="level-suggestions-edit">
+                    {levels.map((l: string) => <option key={l} value={l} />)}
+                  </datalist>
                 </div>
+
               </div>
               <div><Label>Email</Label><Input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
               <div><Label>Program</Label><Input value={editing.program} onChange={(e) => setEditing({ ...editing, program: e.target.value })} /></div>
