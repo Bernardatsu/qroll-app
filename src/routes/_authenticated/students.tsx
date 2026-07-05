@@ -324,7 +324,7 @@ function StudentsPage() {
                   <div><Label>Level</Label>
                     <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                      <SelectContent>{levels.map((l: string) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -350,7 +350,7 @@ function StudentsPage() {
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
-                {LEVELS.map((l) => <TabsTrigger key={l} value={l}>L{l}</TabsTrigger>)}
+                {levels.map((l: string) => <TabsTrigger key={l} value={l}>L{l}</TabsTrigger>)}
               </TabsList>
             </Tabs>
           </div>
@@ -362,7 +362,7 @@ function StudentsPage() {
         <CardContent className="p-0">
           {tab === "all" ? (
             <div className="divide-y">
-              {LEVELS.map((l) => (
+              {levels.map((l: string) => (
                 <div key={l}>
                   <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide bg-muted/30 text-muted-foreground">Level {l} · {grouped[l].length}</div>
                   {renderTable(grouped[l])}
@@ -384,7 +384,7 @@ function StudentsPage() {
                 <div><Label>Level</Label>
                   <Select value={editing.level} onValueChange={(v) => setEditing({ ...editing, level: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
+                    <SelectContent>{levels.map((l: string) => <SelectItem key={l} value={l}>Level {l}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
