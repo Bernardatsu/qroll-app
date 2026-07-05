@@ -24,12 +24,12 @@ export const Route = createFileRoute("/_authenticated/students")({
   component: StudentsPage,
 });
 
-const LEVELS = ["100", "200", "300", "400"] as const;
+const DEFAULT_LEVELS = ["100", "200", "300", "400"] as const;
 
 function StudentsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"all" | "100" | "200" | "300" | "400">("all");
+  const [tab, setTab] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const emailFileRef = useRef<HTMLInputElement>(null);
@@ -46,6 +46,17 @@ function StudentsPage() {
     queryFn: async () => (await supabase.from("departments").select("*").order("name")).data ?? [],
   });
 
+  // Union of default levels and any custom levels that already exist in the data
+  const levels = useMemo(() => {
+    const set = new Set<string>(DEFAULT_LEVELS);
+    for (const s of students ?? []) if (s.level) set.add(String(s.level));
+    return Array.from(set).sort((a, b) => {
+      const an = parseInt(a, 10), bn = parseInt(b, 10);
+      if (!isNaN(an) && !isNaN(bn)) return an - bn;
+      return a.localeCompare(b);
+    });
+  }, [students]);
+
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
     return (students ?? []).filter((st: any) => {
@@ -56,10 +67,16 @@ function StudentsPage() {
   }, [students, q, tab]);
 
   const grouped = useMemo(() => {
-    const g: Record<string, any[]> = { "100": [], "200": [], "300": [], "400": [] };
-    for (const s of filtered) if (g[String(s.level)]) g[String(s.level)].push(s);
+    const g: Record<string, any[]> = {};
+    for (const l of levels) g[l] = [];
+    for (const s of filtered) {
+      const l = String(s.level);
+      if (!g[l]) g[l] = [];
+      g[l].push(s);
+    }
     return g;
-  }, [filtered]);
+  }, [filtered, levels]);
+
 
   const add = async () => {
     if (!form.full_name || !form.index_number) return toast.error("Name and index required");
