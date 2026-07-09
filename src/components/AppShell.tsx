@@ -11,6 +11,10 @@ import {
   Building2,
   Menu,
   Share2,
+  Settings,
+  BookOpen,
+  FileText,
+  Shield,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -39,6 +43,7 @@ const nav: NavItem[] = [
   { to: "/scan", label: "Scanner", icon: ScanLine },
   { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
   { to: "/reports", label: "Reports", icon: FileBarChart },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 function NavLinks({
@@ -103,12 +108,32 @@ function SidebarBody({
       <div className="flex-1 overflow-y-auto">
         <NavLinks isAdmin={isAdmin} onNavigate={onNavigate} />
       </div>
-      <div className="px-3 pt-2 pb-1 border-t border-white/10 text-[11px] space-y-1">
-        <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="block text-white/80 hover:text-white underline underline-offset-2">📘 Download App Manual (PDF)</a>
-        <div className="flex gap-3 text-white/70">
-          <Link to="/terms" onClick={onNavigate} className="hover:text-white">Terms</Link>
-          <Link to="/privacy" onClick={onNavigate} className="hover:text-white">Privacy</Link>
+      <div className="px-2 pt-3 pb-2 border-t border-white/10">
+        <div className="px-2 pb-1.5 text-[10px] uppercase tracking-wider text-white/50 font-semibold">
+          Help & Legal
         </div>
+        <a
+          href="/app-manual.pdf"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <BookOpen className="size-4 shrink-0" /> App Manual (PDF)
+        </a>
+        <Link
+          to={"/terms" as string}
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <FileText className="size-4 shrink-0" /> Terms of Service
+        </Link>
+        <Link
+          to={"/privacy" as string}
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <Shield className="size-4 shrink-0" /> Privacy Policy
+        </Link>
       </div>
       <div className="p-3 border-t border-white/10">
         <div className="text-xs opacity-80 truncate">{email}</div>
