@@ -11,6 +11,7 @@ import {
   Building2,
   Menu,
   Share2,
+  CreditCard,
   Settings,
   FileText,
   Shield,
