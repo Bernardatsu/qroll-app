@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, GraduationCap, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const search = z.object({ session: z.string().uuid().optional() });
 
@@ -59,7 +60,8 @@ function CheckInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col items-center p-6">
+    <div className="min-h-screen bg-muted/30 flex flex-col">
+      <div className="flex-1 flex flex-col items-center p-6">
       <div className="flex items-center gap-2 mb-6 mt-4">
         <GraduationCap className="size-7 text-primary" />
         <h1 className="text-2xl font-bold">KNUST Self Check-in</h1>
@@ -88,6 +90,8 @@ function CheckInPage() {
           </CardContent>
         </Card>
       )}
+      </div>
+      <PublicFooter />
     </div>
   );
 }

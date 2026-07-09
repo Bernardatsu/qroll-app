@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import pesaLogo from "@/assets/pesa-logo.png.asset.json";
 import studentsBanner from "@/assets/students-banner.png.asset.json";
+import { PublicFooter } from "@/components/PublicFooter";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -83,16 +84,7 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t mt-auto">
-        <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-muted-foreground flex flex-wrap gap-3 justify-between">
-          <div>© {new Date().getFullYear()} KNUST Attendance · Built for PESA KNUST</div>
-          <div className="flex gap-4">
-            <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="hover:text-primary underline-offset-4 hover:underline">App Manual (PDF)</a>
-            <Link to={"/terms" as string} className="hover:text-primary">Terms</Link>
-            <Link to={"/privacy" as string} className="hover:text-primary">Privacy</Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
