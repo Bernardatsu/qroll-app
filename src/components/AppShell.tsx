@@ -12,7 +12,6 @@ import {
   Menu,
   Share2,
   Settings,
-  BookOpen,
   FileText,
   Shield,
 } from "lucide-react";
