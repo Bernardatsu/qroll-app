@@ -92,6 +92,9 @@ function AuthPage() {
                 </form>
                 <div className="relative my-3 text-center text-xs text-muted-foreground"><span className="bg-card px-2 relative z-10">or</span><div className="absolute inset-x-0 top-1/2 border-t" /></div>
                 <Button type="button" variant="outline" className="w-full" onClick={google}>Continue with Google</Button>
+                <p className="text-[11px] text-muted-foreground text-center leading-relaxed pt-1">
+                  Already have a password account with this Gmail? <b>Sign in with your password first</b>, then go to <b>Settings → Connected sign-in methods</b> to link Google — no duplicate account.
+                </p>
               </TabsContent>
               <TabsContent value="signup" className="space-y-3 mt-4">
                 <form onSubmit={signUp} className="space-y-3">
