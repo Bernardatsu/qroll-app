@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Download, FileText, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import { PublicFooter } from "@/components/PublicFooter";
 
 export const Route = createFileRoute("/portal/$token")({
   ssr: false,
@@ -61,7 +62,8 @@ function PortalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col items-center p-6">
+    <div className="min-h-screen bg-muted/30 flex flex-col">
+      <div className="flex-1 flex flex-col items-center p-6">
       <div className="flex items-center gap-2 mb-6 mt-4">
         <GraduationCap className="size-7 text-primary" />
         <h1 className="text-2xl font-bold">KNUST Student QR Portal</h1>
@@ -100,6 +102,8 @@ function PortalPage() {
           </CardContent>
         </Card>
       )}
+      </div>
+      <PublicFooter />
     </div>
   );
 }
