@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, BookOpen, CalendarClock, CheckCircle2, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { TrialBanner } from "@/components/TrialBanner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — KNUST Attendance" }] }),
@@ -51,7 +50,6 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <TrialBanner />
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Welcome back</h1>
         <p className="text-muted-foreground">Signed in as {user?.email} · {roles.join(", ") || "no role"}</p>
