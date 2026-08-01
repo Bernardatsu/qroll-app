@@ -126,10 +126,21 @@ function SessionsPage() {
                 </Select>
               </div>
               <div><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Week 4 lecture" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Grace (min)</Label><Input type="number" value={form.grace_minutes} onChange={(e) => setForm({ ...form, grace_minutes: Number(e.target.value) })} /></div>
-                <div><Label>Radius (m)</Label><Input type="number" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: Number(e.target.value) })} /></div>
+              <div>
+                <Label>Attendance method</Label>
+                <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Scan once = present</SelectItem>
+                    <SelectItem value="inout">Sign in + sign out (two scans)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This session is reusable — reopen it every class day and each day is reported separately.
+                </p>
               </div>
+              <div><Label>Geofence radius (m)</Label><Input type="number" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: Number(e.target.value) })} /></div>
+
               <div>
                 <Label>Classroom location (GPS anti-cheat)</Label>
                 <Button type="button" variant="outline" className="w-full mt-1" onClick={useMyLocation} disabled={locBusy}>
