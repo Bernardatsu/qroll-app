@@ -159,15 +159,20 @@ function SessionsPage() {
           <Card key={s.id}>
             <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <div className="font-semibold">{s.courses?.code} · {s.courses?.title}</div>
-                <div className="text-xs text-muted-foreground">{s.title ?? "—"} · {new Date(s.starts_at).toLocaleString()} · grace {s.grace_minutes}m {s.latitude != null && `· geofence ${s.radius_m}m`}</div>
+                <div className="font-semibold">{s.courses?.code} · {s.courses?.title}{s.courses?.level ? ` · L${s.courses.level}` : ""}</div>
+                <div className="text-xs text-muted-foreground">
+                  {s.title ?? "—"} · last opened {new Date(s.starts_at).toLocaleString()} ·{" "}
+                  {s.mode === "inout" ? "sign in + sign out" : "single scan"}
+                  {s.latitude != null ? ` · geofence ${s.radius_m}m` : ""}
+                </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-1 rounded font-medium ${s.status === "OPEN" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
                 {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
-                <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => setDeleting(s)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
+
               </div>
             </CardContent>
           </Card>
