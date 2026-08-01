@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ScanLine, Lock, Unlock, Projector, MapPin, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, ScanLine, Lock, Unlock, Projector, MapPin, Trash2, AlertTriangle } from "lucide-react";
+
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { getPublicOrigin } from "@/lib/public-origin";
