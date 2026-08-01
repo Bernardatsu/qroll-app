@@ -31,6 +31,10 @@ function StudentsPage() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<string>("all");
   const [open, setOpen] = useState(false);
+  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [newLevel, setNewLevel] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportLevel, setExportLevel] = useState<string>("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const emailFileRef = useRef<HTMLInputElement>(null);
 
@@ -45,17 +49,52 @@ function StudentsPage() {
     queryKey: ["departments"],
     queryFn: async () => (await supabase.from("departments").select("*").order("name")).data ?? [],
   });
+  const { data: classLevels } = useQuery({
+    queryKey: ["class-levels"],
+    queryFn: async () => {
+      const { data } = await supabase.from("class_levels").select("id, name").order("name");
+      if (data && data.length === 0) {
+        await supabase.from("class_levels").insert(DEFAULT_LEVELS.map((name) => ({ name })) as any);
+        const seeded = await supabase.from("class_levels").select("id, name").order("name");
+        return seeded.data ?? [];
+      }
+      return data ?? [];
+    },
+  });
 
-  // Union of default levels and any custom levels that already exist in the data
+  // Levels the user manages, plus any level already present in the data
   const levels = useMemo(() => {
-    const set = new Set<string>(DEFAULT_LEVELS);
+    const set = new Set<string>((classLevels ?? []).map((l: any) => String(l.name)));
     for (const s of students ?? []) if (s.level) set.add(String(s.level));
     return Array.from(set).sort((a, b) => {
       const an = parseInt(a, 10), bn = parseInt(b, 10);
       if (!isNaN(an) && !isNaN(bn)) return an - bn;
       return a.localeCompare(b);
     });
-  }, [students]);
+  }, [students, classLevels]);
+
+  const addLevel = async () => {
+    const name = newLevel.trim();
+    if (!name) return toast.error("Enter a level name");
+    if (levels.includes(name)) return toast.error("That level already exists");
+    const { error } = await supabase.from("class_levels").insert({ name } as any);
+    if (error) return toast.error(error.message);
+    setNewLevel("");
+    toast.success(`Level ${name} added`);
+    qc.invalidateQueries({ queryKey: ["class-levels"] });
+  };
+
+  const removeLevel = async (name: string) => {
+    const count = (students ?? []).filter((s: any) => String(s.level) === name).length;
+    if (count > 0) return toast.error(`Level ${name} still has ${count} student${count === 1 ? "" : "s"}. Move or delete them first.`);
+    if (!confirm(`Remove level ${name}?`)) return;
+    const { error } = await supabase.from("class_levels").delete().eq("name", name);
+    if (error) return toast.error(error.message);
+    if (tab === name) setTab("all");
+    toast.success(`Level ${name} removed`);
+    qc.invalidateQueries({ queryKey: ["class-levels"] });
+  };
+
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
