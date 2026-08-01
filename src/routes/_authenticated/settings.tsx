@@ -133,6 +133,8 @@ function SettingsPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AppShell>
   );
+
 }
