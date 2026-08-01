@@ -339,7 +339,57 @@ function StudentsPage() {
           <Button variant="outline" onClick={() => fileRef.current?.click()}><Upload className="size-4 mr-1" />Import</Button>
           <input ref={emailFileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={onImportEmails} />
           <Button variant="outline" onClick={() => emailFileRef.current?.click()}><Mail className="size-4 mr-1" />Import emails</Button>
-          <Button variant="outline" onClick={exportAll}>Export</Button>
+          <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+            <DialogTrigger asChild><Button variant="outline">Export</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Export students</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label>Which class do you want to export?</Label>
+                  <Select value={exportLevel} onValueChange={setExportLevel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All classes</SelectItem>
+                      {levels.map((l: string) => (
+                        <SelectItem key={l} value={l}>
+                          Level {l} ({(students ?? []).filter((s: any) => String(s.level) === l).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full" onClick={runExport}>Export to Excel</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={levelsOpen} onOpenChange={setLevelsOpen}>
+            <DialogTrigger asChild><Button variant="outline">Classes</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Manage classes (levels)</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="e.g. 500" />
+                  <Button onClick={addLevel}><Plus className="size-4 mr-1" />Add</Button>
+                </div>
+                <div className="divide-y rounded-md border">
+                  {levels.map((l: string) => {
+                    const count = (students ?? []).filter((s: any) => String(s.level) === l).length;
+                    return (
+                      <div key={l} className="flex items-center justify-between p-2 text-sm">
+                        <span>Level {l} · <span className="text-muted-foreground">{count} student{count === 1 ? "" : "s"}</span></span>
+                        <Button variant="ghost" size="icon" onClick={() => removeLevel(l)} title="Remove level">
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {!levels.length && <div className="p-3 text-sm text-muted-foreground">No classes yet</div>}
+                </div>
+                <p className="text-xs text-muted-foreground">A class can only be removed when it has no students.</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="text-destructive hover:text-destructive"><Trash2 className="size-4 mr-1" />Delete all</Button>
