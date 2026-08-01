@@ -451,7 +451,7 @@ function ScanPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recent scans ({records?.length ?? 0})</CardTitle>
+            <CardTitle className="text-base">Today's scans ({records?.length ?? 0})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y max-h-[600px] overflow-y-auto">
@@ -467,14 +467,15 @@ function ScanPage() {
                     {r.status === "PRESENT" && (
                       <span className="inline-flex items-center text-success text-xs">
                         <CheckCircle2 className="size-3 mr-1" />
-                        PRESENT · {r.duration_minutes}m
+                        SCANNED{r.duration_minutes ? ` · ${r.duration_minutes}m` : ""}
                       </span>
                     )}
                     {r.status === "IN_PROGRESS" && (
                       <span className="text-xs text-warning-foreground bg-warning/30 px-2 py-0.5 rounded">
-                        IN CLASS
+                        SIGNED IN
                       </span>
                     )}
+
                   </div>
                 </div>
               ))}
