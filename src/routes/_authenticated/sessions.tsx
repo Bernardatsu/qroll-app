@@ -22,10 +22,12 @@ export const Route = createFileRoute("/_authenticated/sessions")({
 function SessionsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ course_id: string; title: string; grace_minutes: number; latitude: number | null; longitude: number | null; radius_m: number; }>({
-    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80,
+  const [deleting, setDeleting] = useState<any | null>(null);
+  const [form, setForm] = useState<{ course_id: string; title: string; mode: string; latitude: number | null; longitude: number | null; radius_m: number; }>({
+    course_id: "", title: "", mode: "single", latitude: null, longitude: null, radius_m: 80,
   });
   const [locBusy, setLocBusy] = useState(false);
+
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
