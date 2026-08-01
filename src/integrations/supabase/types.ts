@@ -48,6 +48,7 @@ export type Database = {
           id: string
           late_minutes: number
           scanned_by: string | null
+          session_date: string
           session_id: string
           source: string
           status: Database["public"]["Enums"]["attendance_status"]
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           late_minutes?: number
           scanned_by?: string | null
+          session_date?: string
           session_id: string
           source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
@@ -78,6 +80,7 @@ export type Database = {
           id?: string
           late_minutes?: number
           scanned_by?: string | null
+          session_date?: string
           session_id?: string
           source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
@@ -111,6 +114,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          mode: string
           owner_id: string
           radius_m: number
           starts_at: string
@@ -126,6 +130,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          mode?: string
           owner_id: string
           radius_m?: number
           starts_at?: string
@@ -141,6 +146,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          mode?: string
           owner_id?: string
           radius_m?: number
           starts_at?: string
@@ -184,6 +190,30 @@ export type Database = {
           entity_id?: string | null
           id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      class_levels: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -307,6 +337,50 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_events: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          event_type: string
+          id: string
+          owner_id: string | null
+          provider: string
+          raw: Json | null
+          subscription_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type: string
+          id?: string
+          owner_id?: string | null
+          provider: string
+          raw?: Json | null
+          subscription_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type?: string
+          id?: string
+          owner_id?: string | null
+          provider?: string
+          raw?: Json | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -429,6 +503,104 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          features: Json
+          interval: string
+          is_active: boolean
+          name: string
+          price_ghs: number
+          price_usd: number
+          sort_order: number
+          trial_days: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          features?: Json
+          interval: string
+          is_active?: boolean
+          name: string
+          price_ghs?: number
+          price_usd?: number
+          sort_order?: number
+          trial_days?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          features?: Json
+          interval?: string
+          is_active?: boolean
+          name?: string
+          price_ghs?: number
+          price_usd?: number
+          sort_order?: number
+          trial_days?: number
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          id: string
+          owner_id: string
+          plan_code: string
+          provider: string | null
+          provider_customer: string | null
+          provider_ref: string | null
+          status: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          id?: string
+          owner_id: string
+          plan_code: string
+          provider?: string | null
+          provider_customer?: string | null
+          provider_ref?: string | null
+          status: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          id?: string
+          owner_id?: string
+          plan_code?: string
+          provider?: string | null
+          provider_customer?: string | null
+          provider_ref?: string | null
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -464,6 +636,20 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      my_subscription: {
+        Args: never
+        Returns: {
+          cancel_at_period_end: boolean
+          currency: string
+          current_period_end: string
+          days_remaining: number
+          is_active: boolean
+          plan_code: string
+          provider: string
+          status: string
+          trial_ends_at: string
+        }[]
+      }
       portal_courses: {
         Args: { _token: string }
         Returns: {

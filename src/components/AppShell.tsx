@@ -14,6 +14,8 @@ import {
   Settings,
   FileText,
   Shield,
+  Home,
+
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -34,6 +36,7 @@ type NavItem = {
   adminOnly?: boolean;
 };
 const nav: NavItem[] = [
+  { to: "/", label: "Home", icon: Home },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
   { to: "/courses", label: "Courses", icon: BookOpen, adminOnly: true },
@@ -44,6 +47,7 @@ const nav: NavItem[] = [
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
+
 
 function NavLinks({
   isAdmin,
@@ -209,14 +213,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <div className="text-sm font-semibold truncate">KNUST Attendance</div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={signOut}
-            aria-label="Sign out"
-          >
-            <LogOut className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Link to={"/" as string} aria-label="Home">
+              <Button variant="ghost" size="icon"><Home className="size-4" /></Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={signOut}
+              aria-label="Sign out"
+            >
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+
         </header>
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">

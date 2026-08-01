@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ScanLine, Lock, Unlock, Projector, MapPin, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, ScanLine, Lock, Unlock, Projector, MapPin, Trash2, AlertTriangle } from "lucide-react";
+
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { getPublicOrigin } from "@/lib/public-origin";
@@ -22,10 +27,12 @@ export const Route = createFileRoute("/_authenticated/sessions")({
 function SessionsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ course_id: string; title: string; grace_minutes: number; latitude: number | null; longitude: number | null; radius_m: number; }>({
-    course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80,
+  const [deleting, setDeleting] = useState<any | null>(null);
+  const [form, setForm] = useState<{ course_id: string; title: string; mode: string; latitude: number | null; longitude: number | null; radius_m: number; }>({
+    course_id: "", title: "", mode: "single", latitude: null, longitude: null, radius_m: 80,
   });
   const [locBusy, setLocBusy] = useState(false);
+
 
   const { data: sessions } = useQuery({
     queryKey: ["sessions"],
@@ -61,14 +68,14 @@ function SessionsPage() {
       return toast.error("Capture your current classroom location first");
     const { data: me } = await supabase.auth.getUser();
     const { data, error } = await supabase.from("attendance_sessions").insert({
-      course_id: form.course_id, title: form.title || null, grace_minutes: form.grace_minutes,
+      course_id: form.course_id, title: form.title || null, mode: form.mode,
       latitude: form.latitude, longitude: form.longitude, radius_m: form.radius_m,
       created_by: me.user?.id,
     } as any).select("id").single();
     if (error) return toast.error(error.message);
-    toast.success("Session created");
+    toast.success("Session created — reuse it every class day");
     setOpen(false);
-    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80 });
+    setForm({ course_id: "", title: "", mode: "single", latitude: null, longitude: null, radius_m: 80 });
     qc.invalidateQueries({ queryKey: ["sessions"] });
     if (data) window.location.href = `/scan?session=${data.id}`;
   };
@@ -79,32 +86,25 @@ function SessionsPage() {
     if (status === "CLOSED") {
       updates.ends_at = new Date().toISOString();
     } else {
-      // Reopening: reset starts_at so the 12h auto-close doesn't immediately close it again
+      // Reopening for a new class day: reset starts_at so the 12h auto-close doesn't fire immediately
       updates.starts_at = new Date().toISOString();
       updates.ends_at = null;
     }
     const { error } = await supabase.from("attendance_sessions").update(updates).eq("id", s.id);
     if (error) return toast.error(error.message);
-
-    if (status === "CLOSED") {
-      const { data: regs } = await supabase.from("course_registrations").select("student_id").eq("course_id", s.course_id);
-      const { data: existing } = await supabase.from("attendance_records").select("student_id").eq("session_id", s.id);
-      const has = new Set((existing ?? []).map((r) => r.student_id));
-      const absents = (regs ?? []).filter((r) => !has.has(r.student_id)).map((r) => ({
-        session_id: s.id, student_id: r.student_id, status: "ABSENT" as const,
-      }));
-      if (absents.length) await supabase.from("attendance_records").insert(absents);
-    }
+    toast.success(status === "OPEN" ? "Session reopened for today" : "Session closed");
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
-  const removeSession = async (id: string) => {
-    if (!confirm("Delete this session and all its attendance records?")) return;
-    const { error } = await supabase.from("attendance_sessions").delete().eq("id", id);
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const { error } = await supabase.from("attendance_sessions").delete().eq("id", deleting.id);
+    setDeleting(null);
     if (error) return toast.error(error.message);
     toast.success("Session deleted");
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
+
 
   const projectQr = async (sessionId: string) => {
     const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
@@ -131,10 +131,21 @@ function SessionsPage() {
                 </Select>
               </div>
               <div><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Week 4 lecture" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Grace (min)</Label><Input type="number" value={form.grace_minutes} onChange={(e) => setForm({ ...form, grace_minutes: Number(e.target.value) })} /></div>
-                <div><Label>Radius (m)</Label><Input type="number" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: Number(e.target.value) })} /></div>
+              <div>
+                <Label>Attendance method</Label>
+                <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Scan once = present</SelectItem>
+                    <SelectItem value="inout">Sign in + sign out (two scans)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This session is reusable — reopen it every class day and each day is reported separately.
+                </p>
               </div>
+              <div><Label>Geofence radius (m)</Label><Input type="number" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: Number(e.target.value) })} /></div>
+
               <div>
                 <Label>Classroom location (GPS anti-cheat)</Label>
                 <Button type="button" variant="outline" className="w-full mt-1" onClick={useMyLocation} disabled={locBusy}>
@@ -153,21 +164,48 @@ function SessionsPage() {
           <Card key={s.id}>
             <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <div className="font-semibold">{s.courses?.code} · {s.courses?.title}</div>
-                <div className="text-xs text-muted-foreground">{s.title ?? "—"} · {new Date(s.starts_at).toLocaleString()} · grace {s.grace_minutes}m {s.latitude != null && `· geofence ${s.radius_m}m`}</div>
+                <div className="font-semibold">{s.courses?.code} · {s.courses?.title}{s.courses?.level ? ` · L${s.courses.level}` : ""}</div>
+                <div className="text-xs text-muted-foreground">
+                  {s.title ?? "—"} · last opened {new Date(s.starts_at).toLocaleString()} ·{" "}
+                  {s.mode === "inout" ? "sign in + sign out" : "single scan"}
+                  {s.latitude != null ? ` · geofence ${s.radius_m}m` : ""}
+                </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-1 rounded font-medium ${s.status === "OPEN" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 <Button size="sm" variant="outline" onClick={() => toggle(s)}>{s.status === "OPEN" ? <><Lock className="size-3 mr-1" />Close</> : <><Unlock className="size-3 mr-1" />Reopen</>}</Button>
                 {s.status === "OPEN" && <Button size="sm" variant="outline" onClick={() => projectQr(s.id)}><Projector className="size-3 mr-1" />Project</Button>}
                 {s.status === "OPEN" && <Link to={"/scan" as string} search={{ session: s.id } as any}><Button size="sm"><ScanLine className="size-3 mr-1" />Scan</Button></Link>}
-                <Button size="sm" variant="ghost" onClick={() => removeSession(s.id)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => setDeleting(s)} title="Delete session"><Trash2 className="size-4 text-destructive" /></Button>
+
               </div>
             </CardContent>
           </Card>
         ))}
         {!sessions?.length && <Card><CardContent className="p-8 text-center text-muted-foreground">No sessions yet</CardContent></Card>}
       </div>
+
+      <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />Delete this session?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes <b>every class day recorded under this session</b> —
+              all weeks of attendance for {deleting?.courses?.code}. Please open <b>Reports</b> and export
+              (Excel / CSV / PDF) the overall and daily reports first. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel — let me save the reports</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              Delete without saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
+

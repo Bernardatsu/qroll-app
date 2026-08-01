@@ -31,6 +31,10 @@ function StudentsPage() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<string>("all");
   const [open, setOpen] = useState(false);
+  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [newLevel, setNewLevel] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportLevel, setExportLevel] = useState<string>("all");
   const fileRef = useRef<HTMLInputElement>(null);
   const emailFileRef = useRef<HTMLInputElement>(null);
 
@@ -45,17 +49,52 @@ function StudentsPage() {
     queryKey: ["departments"],
     queryFn: async () => (await supabase.from("departments").select("*").order("name")).data ?? [],
   });
+  const { data: classLevels } = useQuery({
+    queryKey: ["class-levels"],
+    queryFn: async () => {
+      const { data } = await supabase.from("class_levels").select("id, name").order("name");
+      if (data && data.length === 0) {
+        await supabase.from("class_levels").insert(DEFAULT_LEVELS.map((name) => ({ name })) as any);
+        const seeded = await supabase.from("class_levels").select("id, name").order("name");
+        return seeded.data ?? [];
+      }
+      return data ?? [];
+    },
+  });
 
-  // Union of default levels and any custom levels that already exist in the data
+  // Levels the user manages, plus any level already present in the data
   const levels = useMemo(() => {
-    const set = new Set<string>(DEFAULT_LEVELS);
+    const set = new Set<string>((classLevels ?? []).map((l: any) => String(l.name)));
     for (const s of students ?? []) if (s.level) set.add(String(s.level));
     return Array.from(set).sort((a, b) => {
       const an = parseInt(a, 10), bn = parseInt(b, 10);
       if (!isNaN(an) && !isNaN(bn)) return an - bn;
       return a.localeCompare(b);
     });
-  }, [students]);
+  }, [students, classLevels]);
+
+  const addLevel = async () => {
+    const name = newLevel.trim();
+    if (!name) return toast.error("Enter a level name");
+    if (levels.includes(name)) return toast.error("That level already exists");
+    const { error } = await supabase.from("class_levels").insert({ name } as any);
+    if (error) return toast.error(error.message);
+    setNewLevel("");
+    toast.success(`Level ${name} added`);
+    qc.invalidateQueries({ queryKey: ["class-levels"] });
+  };
+
+  const removeLevel = async (name: string) => {
+    const count = (students ?? []).filter((s: any) => String(s.level) === name).length;
+    if (count > 0) return toast.error(`Level ${name} still has ${count} student${count === 1 ? "" : "s"}. Move or delete them first.`);
+    if (!confirm(`Remove level ${name}?`)) return;
+    const { error } = await supabase.from("class_levels").delete().eq("name", name);
+    if (error) return toast.error(error.message);
+    if (tab === name) setTab("all");
+    toast.success(`Level ${name} removed`);
+    qc.invalidateQueries({ queryKey: ["class-levels"] });
+  };
+
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
@@ -251,12 +290,17 @@ function StudentsPage() {
     exportToExcel([{ full_name: "Kwame Mensah", index_number: "1234567", email: "k@knust.edu.gh", department: "Computer Science", program: "BSc Computer Science", level: "100" }], "students-template");
   };
 
-  const exportAll = () => {
-    exportToExcel((students ?? []).map((s: any) => ({
+  const runExport = () => {
+    const rows = (students ?? []).filter((s: any) => exportLevel === "all" || String(s.level) === exportLevel);
+    if (!rows.length) return toast.error("No students in that class");
+    exportToExcel(rows.map((s: any) => ({
       full_name: s.full_name, index_number: s.index_number, email: s.email,
       department: s.departments?.name, program: s.program, level: s.level, qr_uuid: s.qr_uuid,
-    })), "students");
+    })), exportLevel === "all" ? "students-all" : `students-level-${exportLevel}`);
+    setExportOpen(false);
+    toast.success(`Exported ${rows.length} student${rows.length === 1 ? "" : "s"}`);
   };
+
 
   const renderTable = (rows: any[]) => (
     <div className="overflow-x-auto">
@@ -295,7 +339,57 @@ function StudentsPage() {
           <Button variant="outline" onClick={() => fileRef.current?.click()}><Upload className="size-4 mr-1" />Import</Button>
           <input ref={emailFileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={onImportEmails} />
           <Button variant="outline" onClick={() => emailFileRef.current?.click()}><Mail className="size-4 mr-1" />Import emails</Button>
-          <Button variant="outline" onClick={exportAll}>Export</Button>
+          <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+            <DialogTrigger asChild><Button variant="outline">Export</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Export students</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label>Which class do you want to export?</Label>
+                  <Select value={exportLevel} onValueChange={setExportLevel}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All classes</SelectItem>
+                      {levels.map((l: string) => (
+                        <SelectItem key={l} value={l}>
+                          Level {l} ({(students ?? []).filter((s: any) => String(s.level) === l).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full" onClick={runExport}>Export to Excel</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={levelsOpen} onOpenChange={setLevelsOpen}>
+            <DialogTrigger asChild><Button variant="outline">Classes</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Manage classes (levels)</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="e.g. 500" />
+                  <Button onClick={addLevel}><Plus className="size-4 mr-1" />Add</Button>
+                </div>
+                <div className="divide-y rounded-md border">
+                  {levels.map((l: string) => {
+                    const count = (students ?? []).filter((s: any) => String(s.level) === l).length;
+                    return (
+                      <div key={l} className="flex items-center justify-between p-2 text-sm">
+                        <span>Level {l} · <span className="text-muted-foreground">{count} student{count === 1 ? "" : "s"}</span></span>
+                        <Button variant="ghost" size="icon" onClick={() => removeLevel(l)} title="Remove level">
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {!levels.length && <div className="p-3 text-sm text-muted-foreground">No classes yet</div>}
+                </div>
+                <p className="text-xs text-muted-foreground">A class can only be removed when it has no students.</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="text-destructive hover:text-destructive"><Trash2 className="size-4 mr-1" />Delete all</Button>

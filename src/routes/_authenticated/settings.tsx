@@ -1,13 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle2, Link2, Mail, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Link2, Mail, ShieldCheck, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Account Settings — KNUST Attendance" }] }),
@@ -58,11 +60,23 @@ function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Account Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage how you sign in to your KNUST Attendance account.</p>
+    <AppShell>
+      <div className="space-y-6 max-w-3xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold">Account Settings</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage how you sign in to your KNUST Attendance account.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link to={"/" as string} className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full"><HomeIcon className="size-4 mr-1" />Home</Button>
+          </Link>
+          <Link to={"/dashboard" as string} className="w-full sm:w-auto">
+            <Button className="w-full">Dashboard</Button>
+          </Link>
+        </div>
       </div>
+
 
       <Card>
         <CardHeader>
@@ -121,6 +135,8 @@ function SettingsPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AppShell>
   );
+
 }

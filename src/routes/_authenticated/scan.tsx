@@ -60,7 +60,7 @@ function ScanPage() {
         ? (
             await supabase
               .from("attendance_sessions")
-              .select("*, courses(code, title)")
+              .select("*, courses(code, title, level)")
               .eq("id", activeSession)
               .maybeSingle()
           ).data
@@ -75,16 +75,17 @@ function ScanPage() {
     queryKey: ["records", activeSession],
     queryFn: async () => {
       if (!activeSession) return [];
-      // Auto-reset: only show scans from the last 24 hours
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // Auto-resets daily: only today's scans are listed
+      const today = new Date().toISOString().slice(0, 10);
       const { data } = await supabase
         .from("attendance_records")
         .select("*, students(full_name, index_number)")
         .eq("session_id", activeSession)
-        .gte("created_at", since)
+        .eq("session_date", today)
         .order("created_at", { ascending: false });
       return data ?? [];
     },
+
     enabled: !!activeSession,
     refetchInterval: 3000,
   });
@@ -103,7 +104,7 @@ function ScanPage() {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
         .from("students")
-        .select("id, full_name, index_number")
+        .select("id, full_name, index_number, level")
         .or(`qr_uuid.eq.${uuid},index_number.eq.${uuid}`)
         .maybeSingle();
       if (!student) {
@@ -111,6 +112,17 @@ function ScanPage() {
         toast.error("Unknown QR code");
         return;
       }
+
+      // A course created for one class/level cannot be used by another level
+      const courseLevel = String(sess.courses?.level ?? "").trim();
+      const studentLevel = String((student as any).level ?? "").trim();
+      if (courseLevel && studentLevel && courseLevel !== studentLevel) {
+        toast.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
+        setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
+        setStatus(`Wrong level: ${student.full_name}`);
+        return;
+      }
+
 
       const { data: reg } = await supabase
         .from("course_registrations")
@@ -131,43 +143,48 @@ function ScanPage() {
         toast.message(`Auto-registered ${student.full_name} for this course`);
       }
 
+      const today = new Date().toISOString().slice(0, 10);
+      const singleScanMode = (sess.mode ?? "single") === "single";
+
       const { data: existing } = await supabase
         .from("attendance_records")
         .select("*")
         .eq("session_id", sess.id)
         .eq("student_id", student.id)
+        .eq("session_date", today)
         .maybeSingle();
       const { data: me } = await supabase.auth.getUser();
 
       if (!existing) {
-        const st = "IN_PROGRESS";
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
+          session_date: today,
           check_in_at: new Date().toISOString(),
-          status: st,
+          status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
           scanned_by: me.user?.id,
-        });
+        } as any);
         if (error) {
           toast.error(error.message);
           setStatus(`Error: ${error.message}`);
         } else {
-          toast.success(`✓ Checked in: ${student.full_name}`);
-          setLastScan({ name: student.full_name, status: "CHECKED IN" });
-          setStatus(`Checked in: ${student.full_name}`);
+          const label = singleScanMode ? "Recorded" : "Checked in";
+          toast.success(`✓ ${label}: ${student.full_name}`);
+          setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
+          setStatus(`${label}: ${student.full_name}`);
         }
-      } else if (existing.status === "PRESENT" || existing.check_out_at) {
-        toast.message(`Already completed: ${student.full_name}`);
-        setLastScan({ name: student.full_name, status: "ALREADY DONE" });
-        setStatus(`Already completed: ${student.full_name}`);
+      } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
+        toast.message(`Already recorded today: ${student.full_name}`);
+        setLastScan({ name: student.full_name, status: "ALREADY RECORDED" });
+        setStatus(`Already recorded today: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
         const minsSince = Math.floor((now - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          toast.error(`Too soon to check out ${student.full_name} — wait ${wait} more minute${wait === 1 ? "" : "s"}`);
-          setLastScan({ name: student.full_name, status: `TOO EARLY (${minsSince}m in)` });
-          setStatus(`Checkout blocked for ${student.full_name} · ${minsSince}m since check-in`);
+          toast.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
+          setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
+          setStatus(`Sign-out locked for ${student.full_name}`);
           return;
         }
         const duration = Math.max(1, minsSince);
@@ -183,9 +200,9 @@ function ScanPage() {
           toast.error(error.message);
           setStatus(`Error: ${error.message}`);
         } else {
-          toast.success(`✓ Checked out: ${student.full_name} (${duration}m)`);
-          setLastScan({ name: student.full_name, status: `CHECKED OUT (${duration}m)` });
-          setStatus(`Checked out: ${student.full_name}`);
+          toast.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
+          setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
+          setStatus(`Signed out: ${student.full_name}`);
         }
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
@@ -193,6 +210,7 @@ function ScanPage() {
       processingRef.current = false;
     }
   };
+
 
   const closeSession = async () => {
     if (!activeSession) return;
@@ -319,9 +337,10 @@ function ScanPage() {
     <AppShell>
       <h1 className="text-2xl md:text-3xl font-bold mb-2">Attendance Scanner</h1>
       <p className="text-sm text-muted-foreground mb-4">
-        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera. The
-        first scan checks the student in; the second checks them out — fully automatic.
+        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera —
+        scans are recorded automatically for today's date.
       </p>
+
 
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
@@ -352,13 +371,15 @@ function ScanPage() {
               <div className="rounded-lg border p-3 bg-muted/30">
                 <div className="font-semibold text-sm">
                   {session.courses?.code} — {session.courses?.title}
+                  {session.courses?.level ? ` · Level ${session.courses.level}` : ""}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Started {new Date(session.starts_at).toLocaleString()} · grace{" "}
-                  {session.grace_minutes}m
+                  {new Date().toLocaleDateString()} ·{" "}
+                  {(session as any).mode === "inout" ? "Sign in + sign out" : "Single scan = present"}
                 </div>
               </div>
             )}
+
 
             <div
               id={QR_REGION_ID}
@@ -430,7 +451,7 @@ function ScanPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recent scans ({records?.length ?? 0})</CardTitle>
+            <CardTitle className="text-base">Today's scans ({records?.length ?? 0})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y max-h-[600px] overflow-y-auto">
@@ -446,14 +467,15 @@ function ScanPage() {
                     {r.status === "PRESENT" && (
                       <span className="inline-flex items-center text-success text-xs">
                         <CheckCircle2 className="size-3 mr-1" />
-                        PRESENT · {r.duration_minutes}m
+                        SCANNED{r.duration_minutes ? ` · ${r.duration_minutes}m` : ""}
                       </span>
                     )}
                     {r.status === "IN_PROGRESS" && (
                       <span className="text-xs text-warning-foreground bg-warning/30 px-2 py-0.5 rounded">
-                        IN CLASS
+                        SIGNED IN
                       </span>
                     )}
+
                   </div>
                 </div>
               ))}
