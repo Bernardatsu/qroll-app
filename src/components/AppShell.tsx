@@ -34,6 +34,7 @@ type NavItem = {
   adminOnly?: boolean;
 };
 const nav: NavItem[] = [
+  { to: "/", label: "Home", icon: Home },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
   { to: "/courses", label: "Courses", icon: BookOpen, adminOnly: true },
@@ -44,6 +45,7 @@ const nav: NavItem[] = [
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
+
 
 function NavLinks({
   isAdmin,
