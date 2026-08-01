@@ -63,14 +63,14 @@ function SessionsPage() {
       return toast.error("Capture your current classroom location first");
     const { data: me } = await supabase.auth.getUser();
     const { data, error } = await supabase.from("attendance_sessions").insert({
-      course_id: form.course_id, title: form.title || null, grace_minutes: form.grace_minutes,
+      course_id: form.course_id, title: form.title || null, mode: form.mode,
       latitude: form.latitude, longitude: form.longitude, radius_m: form.radius_m,
       created_by: me.user?.id,
     } as any).select("id").single();
     if (error) return toast.error(error.message);
-    toast.success("Session created");
+    toast.success("Session created — reuse it every class day");
     setOpen(false);
-    setForm({ course_id: "", title: "", grace_minutes: 15, latitude: null, longitude: null, radius_m: 80 });
+    setForm({ course_id: "", title: "", mode: "single", latitude: null, longitude: null, radius_m: 80 });
     qc.invalidateQueries({ queryKey: ["sessions"] });
     if (data) window.location.href = `/scan?session=${data.id}`;
   };
@@ -81,32 +81,25 @@ function SessionsPage() {
     if (status === "CLOSED") {
       updates.ends_at = new Date().toISOString();
     } else {
-      // Reopening: reset starts_at so the 12h auto-close doesn't immediately close it again
+      // Reopening for a new class day: reset starts_at so the 12h auto-close doesn't fire immediately
       updates.starts_at = new Date().toISOString();
       updates.ends_at = null;
     }
     const { error } = await supabase.from("attendance_sessions").update(updates).eq("id", s.id);
     if (error) return toast.error(error.message);
-
-    if (status === "CLOSED") {
-      const { data: regs } = await supabase.from("course_registrations").select("student_id").eq("course_id", s.course_id);
-      const { data: existing } = await supabase.from("attendance_records").select("student_id").eq("session_id", s.id);
-      const has = new Set((existing ?? []).map((r) => r.student_id));
-      const absents = (regs ?? []).filter((r) => !has.has(r.student_id)).map((r) => ({
-        session_id: s.id, student_id: r.student_id, status: "ABSENT" as const,
-      }));
-      if (absents.length) await supabase.from("attendance_records").insert(absents);
-    }
+    toast.success(status === "OPEN" ? "Session reopened for today" : "Session closed");
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
 
-  const removeSession = async (id: string) => {
-    if (!confirm("Delete this session and all its attendance records?")) return;
-    const { error } = await supabase.from("attendance_sessions").delete().eq("id", id);
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const { error } = await supabase.from("attendance_sessions").delete().eq("id", deleting.id);
+    setDeleting(null);
     if (error) return toast.error(error.message);
     toast.success("Session deleted");
     qc.invalidateQueries({ queryKey: ["sessions"] });
   };
+
 
   const projectQr = async (sessionId: string) => {
     const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
