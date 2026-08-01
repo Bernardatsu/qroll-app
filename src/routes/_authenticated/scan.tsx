@@ -75,16 +75,17 @@ function ScanPage() {
     queryKey: ["records", activeSession],
     queryFn: async () => {
       if (!activeSession) return [];
-      // Auto-reset: only show scans from the last 24 hours
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // Auto-resets daily: only today's scans are listed
+      const today = new Date().toISOString().slice(0, 10);
       const { data } = await supabase
         .from("attendance_records")
         .select("*, students(full_name, index_number)")
         .eq("session_id", activeSession)
-        .gte("created_at", since)
+        .eq("session_date", today)
         .order("created_at", { ascending: false });
       return data ?? [];
     },
+
     enabled: !!activeSession,
     refetchInterval: 3000,
   });
