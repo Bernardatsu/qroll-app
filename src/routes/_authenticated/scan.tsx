@@ -60,7 +60,7 @@ function ScanPage() {
         ? (
             await supabase
               .from("attendance_sessions")
-              .select("*, courses(code, title)")
+              .select("*, courses(code, title, level)")
               .eq("id", activeSession)
               .maybeSingle()
           ).data
