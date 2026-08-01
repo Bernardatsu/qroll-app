@@ -370,13 +370,15 @@ function ScanPage() {
               <div className="rounded-lg border p-3 bg-muted/30">
                 <div className="font-semibold text-sm">
                   {session.courses?.code} — {session.courses?.title}
+                  {session.courses?.level ? ` · Level ${session.courses.level}` : ""}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Started {new Date(session.starts_at).toLocaleString()} · grace{" "}
-                  {session.grace_minutes}m
+                  {new Date().toLocaleDateString()} ·{" "}
+                  {(session as any).mode === "inout" ? "Sign in + sign out" : "Single scan = present"}
                 </div>
               </div>
             )}
+
 
             <div
               id={QR_REGION_ID}
