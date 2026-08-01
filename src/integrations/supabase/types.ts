@@ -48,6 +48,7 @@ export type Database = {
           id: string
           late_minutes: number
           scanned_by: string | null
+          session_date: string
           session_id: string
           source: string
           status: Database["public"]["Enums"]["attendance_status"]
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           late_minutes?: number
           scanned_by?: string | null
+          session_date?: string
           session_id: string
           source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
@@ -78,6 +80,7 @@ export type Database = {
           id?: string
           late_minutes?: number
           scanned_by?: string | null
+          session_date?: string
           session_id?: string
           source?: string
           status?: Database["public"]["Enums"]["attendance_status"]
