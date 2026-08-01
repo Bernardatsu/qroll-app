@@ -103,7 +103,7 @@ function ScanPage() {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
         .from("students")
-        .select("id, full_name, index_number")
+        .select("id, full_name, index_number, level")
         .or(`qr_uuid.eq.${uuid},index_number.eq.${uuid}`)
         .maybeSingle();
       if (!student) {
@@ -111,6 +111,17 @@ function ScanPage() {
         toast.error("Unknown QR code");
         return;
       }
+
+      // A course created for one class/level cannot be used by another level
+      const courseLevel = String(sess.courses?.level ?? "").trim();
+      const studentLevel = String((student as any).level ?? "").trim();
+      if (courseLevel && studentLevel && courseLevel !== studentLevel) {
+        toast.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
+        setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
+        setStatus(`Wrong level: ${student.full_name}`);
+        return;
+      }
+
 
       const { data: reg } = await supabase
         .from("course_registrations")
