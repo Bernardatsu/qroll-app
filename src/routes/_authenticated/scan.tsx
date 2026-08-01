@@ -131,43 +131,48 @@ function ScanPage() {
         toast.message(`Auto-registered ${student.full_name} for this course`);
       }
 
+      const today = new Date().toISOString().slice(0, 10);
+      const singleScanMode = (sess.mode ?? "single") === "single";
+
       const { data: existing } = await supabase
         .from("attendance_records")
         .select("*")
         .eq("session_id", sess.id)
         .eq("student_id", student.id)
+        .eq("session_date", today)
         .maybeSingle();
       const { data: me } = await supabase.auth.getUser();
 
       if (!existing) {
-        const st = "IN_PROGRESS";
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
+          session_date: today,
           check_in_at: new Date().toISOString(),
-          status: st,
+          status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
           scanned_by: me.user?.id,
-        });
+        } as any);
         if (error) {
           toast.error(error.message);
           setStatus(`Error: ${error.message}`);
         } else {
-          toast.success(`✓ Checked in: ${student.full_name}`);
-          setLastScan({ name: student.full_name, status: "CHECKED IN" });
-          setStatus(`Checked in: ${student.full_name}`);
+          const label = singleScanMode ? "Recorded" : "Checked in";
+          toast.success(`✓ ${label}: ${student.full_name}`);
+          setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
+          setStatus(`${label}: ${student.full_name}`);
         }
-      } else if (existing.status === "PRESENT" || existing.check_out_at) {
-        toast.message(`Already completed: ${student.full_name}`);
-        setLastScan({ name: student.full_name, status: "ALREADY DONE" });
-        setStatus(`Already completed: ${student.full_name}`);
+      } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
+        toast.message(`Already recorded today: ${student.full_name}`);
+        setLastScan({ name: student.full_name, status: "ALREADY RECORDED" });
+        setStatus(`Already recorded today: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
         const minsSince = Math.floor((now - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          toast.error(`Too soon to check out ${student.full_name} — wait ${wait} more minute${wait === 1 ? "" : "s"}`);
-          setLastScan({ name: student.full_name, status: `TOO EARLY (${minsSince}m in)` });
-          setStatus(`Checkout blocked for ${student.full_name} · ${minsSince}m since check-in`);
+          toast.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
+          setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
+          setStatus(`Sign-out locked for ${student.full_name}`);
           return;
         }
         const duration = Math.max(1, minsSince);
@@ -183,9 +188,9 @@ function ScanPage() {
           toast.error(error.message);
           setStatus(`Error: ${error.message}`);
         } else {
-          toast.success(`✓ Checked out: ${student.full_name} (${duration}m)`);
-          setLastScan({ name: student.full_name, status: `CHECKED OUT (${duration}m)` });
-          setStatus(`Checked out: ${student.full_name}`);
+          toast.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
+          setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
+          setStatus(`Signed out: ${student.full_name}`);
         }
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
@@ -193,6 +198,7 @@ function ScanPage() {
       processingRef.current = false;
     }
   };
+
 
   const closeSession = async () => {
     if (!activeSession) return;
