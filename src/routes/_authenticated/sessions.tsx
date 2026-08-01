@@ -179,6 +179,28 @@ function SessionsPage() {
         ))}
         {!sessions?.length && <Card><CardContent className="p-8 text-center text-muted-foreground">No sessions yet</CardContent></Card>}
       </div>
+
+      <AlertDialog open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />Delete this session?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes <b>every class day recorded under this session</b> —
+              all weeks of attendance for {deleting?.courses?.code}. Please open <b>Reports</b> and export
+              (Excel / CSV / PDF) the overall and daily reports first. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel — let me save the reports</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              Delete without saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
+
