@@ -336,9 +336,10 @@ function ScanPage() {
     <AppShell>
       <h1 className="text-2xl md:text-3xl font-bold mb-2">Attendance Scanner</h1>
       <p className="text-sm text-muted-foreground mb-4">
-        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera. The
-        first scan checks the student in; the second checks them out — fully automatic.
+        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera —
+        scans are recorded automatically for today's date.
       </p>
+
 
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
