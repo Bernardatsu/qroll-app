@@ -290,12 +290,17 @@ function StudentsPage() {
     exportToExcel([{ full_name: "Kwame Mensah", index_number: "1234567", email: "k@knust.edu.gh", department: "Computer Science", program: "BSc Computer Science", level: "100" }], "students-template");
   };
 
-  const exportAll = () => {
-    exportToExcel((students ?? []).map((s: any) => ({
+  const runExport = () => {
+    const rows = (students ?? []).filter((s: any) => exportLevel === "all" || String(s.level) === exportLevel);
+    if (!rows.length) return toast.error("No students in that class");
+    exportToExcel(rows.map((s: any) => ({
       full_name: s.full_name, index_number: s.index_number, email: s.email,
       department: s.departments?.name, program: s.program, level: s.level, qr_uuid: s.qr_uuid,
-    })), "students");
+    })), exportLevel === "all" ? "students-all" : `students-level-${exportLevel}`);
+    setExportOpen(false);
+    toast.success(`Exported ${rows.length} student${rows.length === 1 ? "" : "s"}`);
   };
+
 
   const renderTable = (rows: any[]) => (
     <div className="overflow-x-auto">
