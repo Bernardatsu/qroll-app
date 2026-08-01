@@ -213,14 +213,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <div className="text-sm font-semibold truncate">KNUST Attendance</div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={signOut}
-            aria-label="Sign out"
-          >
-            <LogOut className="size-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Link to={"/" as string} aria-label="Home">
+              <Button variant="ghost" size="icon"><Home className="size-4" /></Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={signOut}
+              aria-label="Sign out"
+            >
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+
         </header>
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
