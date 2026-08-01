@@ -111,6 +111,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          mode: string
           owner_id: string
           radius_m: number
           starts_at: string
@@ -126,6 +127,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          mode?: string
           owner_id: string
           radius_m?: number
           starts_at?: string
@@ -141,6 +143,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          mode?: string
           owner_id?: string
           radius_m?: number
           starts_at?: string
@@ -184,6 +187,30 @@ export type Database = {
           entity_id?: string | null
           id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      class_levels: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
