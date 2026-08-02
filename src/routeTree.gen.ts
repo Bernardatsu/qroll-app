@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ManualRouteImport } from './routes/manual'
 import { Route as CheckInRouteImport } from './routes/check-in'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -35,6 +36,11 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManualRoute = ManualRouteImport.update({
+  id: '/manual',
+  path: '/manual',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckInRoute = CheckInRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/check-in': typeof CheckInRoute
+  '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/check-in'
+    | '/manual'
     | '/privacy'
     | '/terms'
     | '/courses'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/check-in'
+    | '/manual'
     | '/privacy'
     | '/terms'
     | '/courses'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/check-in'
+    | '/manual'
     | '/privacy'
     | '/terms'
     | '/_authenticated/courses'
@@ -234,6 +246,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   CheckInRoute: typeof CheckInRoute
+  ManualRoute: typeof ManualRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   PortalTokenRoute: typeof PortalTokenRoute
@@ -253,6 +266,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manual': {
+      id: '/manual'
+      path: '/manual'
+      fullPath: '/manual'
+      preLoaderRoute: typeof ManualRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/check-in': {
@@ -406,6 +426,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   CheckInRoute: CheckInRoute,
+  ManualRoute: ManualRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   PortalTokenRoute: PortalTokenRoute,
