@@ -112,3 +112,8 @@
 @utility bg-gold { background-color: var(--gold); color: var(--gold-foreground); }
 @utility ring-knust { box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 25%, transparent); }
 
+
+@keyframes splashbar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
