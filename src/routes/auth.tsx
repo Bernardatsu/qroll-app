@@ -59,7 +59,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="relative hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between overflow-hidden">
-        <img src={qrollLogin.url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+        <img src={qrollLogin.url} alt="" aria-hidden="true" className="absolute inset-x-0 top-0 h-[125%] w-full object-cover object-top opacity-45" />
         <div className="absolute inset-0 bg-linear-to-t from-primary/85 via-primary/50 to-primary/70" aria-hidden="true" />
         <Link to="/" className="relative flex items-center gap-3">
           <img src={qrollLogo.url} alt="QRoll logo" className="h-10 w-auto object-contain" />
