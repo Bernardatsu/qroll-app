@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 
 function NotFoundComponent() {
   return (
@@ -79,13 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#006633" },
-      { title: "KNUST Attendance" },
+      { title: "QRoll" },
       { name: "description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
-      { property: "og:title", content: "KNUST Attendance" },
+      { property: "og:title", content: "QRoll" },
       { property: "og:description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "KNUST Attendance" },
+      { name: "twitter:title", content: "QRoll" },
       { name: "twitter:description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
@@ -93,8 +93,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", href: pesaLogo.url, type: "image/png" },
-      { rel: "apple-touch-icon", href: pesaLogo.url },
+      { rel: "icon", href: qrollLogo.url, type: "image/png" },
+      { rel: "apple-touch-icon", href: qrollLogo.url },
     ],
   }),
   shellComponent: RootShell,

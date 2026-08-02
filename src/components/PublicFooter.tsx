@@ -6,7 +6,7 @@ export function PublicFooter() {
     <footer className="border-t bg-muted/30 mt-auto">
       <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
         <div className="text-muted-foreground text-center sm:text-left">
-          © {new Date().getFullYear()} PESA KNUST · Attendance System
+          © {new Date().getFullYear()} QRoll · Attendance Made Easy
         </div>
         <nav className="flex items-center gap-1 flex-wrap justify-center">
           <a

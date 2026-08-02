@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — KNUST Attendance" }] }),
+  head: () => ({ meta: [{ title: "Sign in — QRoll" }] }),
   component: AuthPage,
 });
 
@@ -60,11 +60,11 @@ function AuthPage() {
       <div className="hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between">
         <Link to="/" className="flex items-center gap-3">
           <img
-            src={pesaLogo.url}
-            alt="Petroleum Engineering Students Association logo"
+            src={qrollLogo.url}
+            alt="QRoll logo"
             className="size-11 rounded-full bg-white object-contain p-0.5"
           />
-          <div className="font-semibold">KNUST Attendance</div>
+          <div className="font-semibold">QRoll</div>
         </Link>
         <div>
           <h1 className="text-4xl font-bold leading-tight">Kwame Nkrumah University<br/>of Science and Technology</h1>

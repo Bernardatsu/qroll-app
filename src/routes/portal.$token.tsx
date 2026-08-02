@@ -49,7 +49,7 @@ function PortalPage() {
   const downloadPdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.text("KNUST Attendance — Student QR", 105, 25, { align: "center" });
+    doc.text("QRoll — Student QR", 105, 25, { align: "center" });
     doc.setFontSize(12);
     doc.text(student!.full_name, 105, 40, { align: "center" });
     doc.text(`Index: ${student!.index_number}`, 105, 48, { align: "center" });

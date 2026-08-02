@@ -3,16 +3,16 @@ import { Button } from "@/components/ui/button";
 import { QrCode, ShieldCheck, BarChart3, GraduationCap } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 import studentsBanner from "@/assets/students-banner.png.asset.json";
 import { PublicFooter } from "@/components/PublicFooter";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "KNUST Attendance — QR-based Attendance for Lectures" },
+      { title: "QRoll — QR Attendance Made Easy" },
       { name: "description", content: "Official QR attendance management system for Kwame Nkrumah University of Science and Technology. Secure, instant, exportable." },
-      { property: "og:title", content: "KNUST Attendance Management" },
+      { property: "og:title", content: "QRoll Attendance" },
       { property: "og:description", content: "Secure QR attendance for KNUST lectures, labs, and tutorials." },
     ],
   }),
@@ -32,12 +32,12 @@ function Landing() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src={pesaLogo.url}
-              alt="Petroleum Engineering Students Association logo"
+              src={qrollLogo.url}
+              alt="QRoll logo"
               className="size-11 rounded-full bg-white object-contain p-0.5 shadow-sm"
             />
             <div className="leading-tight">
-              <div className="font-bold">PESA KNUST</div>
+              <div className="font-bold">QRoll</div>
               <div className="text-xs text-muted-foreground">Attendance System</div>
             </div>
           </div>

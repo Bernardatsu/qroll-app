@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth";
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: () => ({ meta: [{ title: "Account Settings — KNUST Attendance" }] }),
+  head: () => ({ meta: [{ title: "Account Settings — QRoll" }] }),
   component: SettingsPage,
 });
 
@@ -65,7 +65,7 @@ function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Account Settings</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage how you sign in to your KNUST Attendance account.</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage how you sign in to your QRoll account.</p>
         </div>
         <div className="flex gap-2">
           <Link to={"/" as string} className="w-full sm:w-auto">

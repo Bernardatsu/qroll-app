@@ -512,7 +512,7 @@ function QrButton({ student }: { student: any }) {
   const print = () => {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<html><head><title>${student.index_number}</title></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>KNUST Attendance</h2><img src="${dataUrl}" /><h3>${student.full_name}</h3><p>${student.index_number} · Level ${student.level}</p></body></html>`);
+    w.document.write(`<html><head><title>${student.index_number}</title></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>QRoll</h2><img src="${dataUrl}" /><h3>${student.full_name}</h3><p>${student.index_number} · Level ${student.level}</p></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

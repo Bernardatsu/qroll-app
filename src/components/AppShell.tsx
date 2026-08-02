@@ -20,7 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 import {
   Sheet,
   SheetContent,
@@ -99,12 +99,12 @@ function SidebarBody({
     <div className="flex h-full flex-col bg-knust-gradient text-primary-foreground">
       <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
         <img
-          src={pesaLogo.url}
-          alt="Petroleum Engineering Students Association logo"
+          src={qrollLogo.url}
+          alt="QRoll logo"
           className="size-11 rounded-full bg-white object-contain p-0.5 shrink-0"
         />
         <div className="leading-tight min-w-0">
-          <div className="text-sm font-semibold truncate">PESA KNUST</div>
+          <div className="text-sm font-semibold truncate">QRoll</div>
           <div className="text-xs opacity-80 truncate">Attendance System</div>
         </div>
       </div>
@@ -116,9 +116,7 @@ function SidebarBody({
           Help & Legal
         </div>
         <a
-          href="/app-manual.pdf"
-          target="_blank"
-          rel="noreferrer"
+          href="/manual"
           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white transition-colors"
         >
           <BookOpen className="size-4 shrink-0" /> App Manual (PDF)
@@ -207,11 +205,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Sheet>
           <div className="flex items-center gap-2 min-w-0">
             <img
-              src={pesaLogo.url}
-              alt="Petroleum Engineering Students Association logo"
+              src={qrollLogo.url}
+              alt="QRoll logo"
               className="size-8 rounded-full bg-white object-contain p-0.5 shrink-0"
             />
-            <div className="text-sm font-semibold truncate">KNUST Attendance</div>
+            <div className="text-sm font-semibold truncate">QRoll</div>
           </div>
           <div className="flex items-center gap-1">
             <Link to={"/" as string} aria-label="Home">
