@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import qrollLogo from "@/assets/qroll-logo.png.asset.json";
+import qrollLogin from "@/assets/qroll-login.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — QRoll" }] }),
@@ -57,20 +58,19 @@ function AuthPage() {
 
   return (
     <div className="min-h-screen grid md:grid-cols-2">
-      <div className="hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <img
-            src={qrollLogo.url}
-            alt="QRoll logo"
-            className="size-11 rounded-full bg-white object-contain p-0.5"
-          />
+      <div className="relative hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between overflow-hidden">
+        <img src={qrollLogin.url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+        <div className="absolute inset-0 bg-linear-to-t from-primary/85 via-primary/50 to-primary/70" aria-hidden="true" />
+        <Link to="/" className="relative flex items-center gap-3">
+          <img src={qrollLogo.url} alt="QRoll logo" className="h-10 w-auto object-contain" />
           <div className="font-semibold">QRoll</div>
         </Link>
-        <div>
-          <h1 className="text-4xl font-bold leading-tight">Kwame Nkrumah University<br/>of Science and Technology</h1>
-          <p className="mt-4 text-white/80 max-w-md">Secure QR-based attendance for lectures, labs, and tutorials across all faculties.</p>
+        <div className="relative">
+          <div className="text-gold uppercase tracking-widest text-xs font-semibold mb-3">Scan. Verify. Attend.</div>
+          <h1 className="text-4xl font-bold leading-tight drop-shadow">Attendance made easy.</h1>
+          <p className="mt-4 text-primary-foreground/85 max-w-md">Secure QR-based attendance for lectures, labs, and tutorials — built for KNUST.</p>
         </div>
-        <div className="text-xs text-white/60">© KNUST · Built for academic excellence</div>
+        <div className="relative text-xs text-primary-foreground/60">© {new Date().getFullYear()} QRoll</div>
       </div>
       <div className="flex items-center justify-center p-6 md:p-12">
         <Card className="w-full max-w-md">
