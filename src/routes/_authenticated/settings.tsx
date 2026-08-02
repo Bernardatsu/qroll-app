@@ -68,11 +68,8 @@ function SettingsPage() {
           <p className="text-muted-foreground text-sm mt-1">Manage how you sign in to your QRoll account.</p>
         </div>
         <div className="flex gap-2">
-          <Link to={"/" as string} className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full"><HomeIcon className="size-4 mr-1" />Home</Button>
-          </Link>
           <Link to={"/dashboard" as string} className="w-full sm:w-auto">
-            <Button className="w-full">Dashboard</Button>
+            <Button className="w-full"><HomeIcon className="size-4 mr-1" />Dashboard</Button>
           </Link>
         </div>
       </div>

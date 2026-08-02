@@ -14,7 +14,6 @@ import {
   Settings,
   FileText,
   Shield,
-  Home,
 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +35,6 @@ type NavItem = {
   adminOnly?: boolean;
 };
 const nav: NavItem[] = [
-  { to: "/", label: "Home", icon: Home },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
   { to: "/courses", label: "Courses", icon: BookOpen, adminOnly: true },
@@ -213,8 +211,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="text-sm font-semibold truncate">QRoll</div>
           </div>
           <div className="flex items-center gap-1">
-            <Link to={"/" as string} aria-label="Home">
-              <Button variant="ghost" size="icon"><Home className="size-4" /></Button>
+            <Link to={"/dashboard" as string} aria-label="Dashboard">
+              <Button variant="ghost" size="icon"><LayoutDashboard className="size-4" /></Button>
             </Link>
             <Button
               variant="ghost"
