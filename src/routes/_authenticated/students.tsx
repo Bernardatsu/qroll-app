@@ -84,10 +84,16 @@ function StudentsPage() {
     qc.invalidateQueries({ queryKey: ["class-levels"] });
   };
 
-  const removeLevel = async (name: string) => {
+  const [levelToDelete, setLevelToDelete] = useState<string | null>(null);
+
+  const requestRemoveLevel = (name: string) => {
     const count = (students ?? []).filter((s: any) => String(s.level) === name).length;
     if (count > 0) return toast.error(`Level ${name} still has ${count} student${count === 1 ? "" : "s"}. Move or delete them first.`);
-    if (!confirm(`Remove level ${name}?`)) return;
+    setLevelToDelete(name);
+  };
+
+  const removeLevel = async (name: string) => {
+    setLevelToDelete(null);
     const { error } = await supabase.from("class_levels").delete().eq("name", name);
     if (error) return toast.error(error.message);
     if (tab === name) setTab("all");
@@ -377,7 +383,7 @@ function StudentsPage() {
                     return (
                       <div key={l} className="flex items-center justify-between p-2 text-sm">
                         <span>Level {l} · <span className="text-muted-foreground">{count} student{count === 1 ? "" : "s"}</span></span>
-                        <Button variant="ghost" size="icon" onClick={() => removeLevel(l)} title="Remove level">
+                        <Button variant="ghost" size="icon" onClick={() => requestRemoveLevel(l)} title="Remove level">
                           <Trash2 className="size-4 text-destructive" />
                         </Button>
                       </div>
@@ -386,6 +392,31 @@ function StudentsPage() {
                   {!levels.length && <div className="p-3 text-sm text-muted-foreground">No classes yet</div>}
                 </div>
                 <p className="text-xs text-muted-foreground">A class can only be removed when it has no students.</p>
+                <AlertDialog open={!!levelToDelete} onOpenChange={(o) => !o && setLevelToDelete(null)}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="size-5 text-destructive" />
+                        Delete class (level {levelToDelete})?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This permanently removes the class <b>Level {levelToDelete}</b> from your account.
+                        It will disappear from the class tabs, the add/edit student pickers, and the export
+                        chooser. Any past attendance already recorded stays untouched, but you will have to
+                        re-create the class if you need it again. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => levelToDelete && removeLevel(levelToDelete)}
+                      >
+                        Yes, delete this class
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </DialogContent>
           </Dialog>
