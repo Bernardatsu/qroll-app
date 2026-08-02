@@ -16,7 +16,7 @@ function TermsPage() {
           <Link to={"/" as string} className="font-bold text-primary">QRoll</Link>
           <div className="flex gap-4 text-sm">
             <Link to={"/privacy" as string} className="hover:text-primary">Privacy</Link>
-            <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="hover:text-primary">Manual</a>
+            <Link to={"/manual" as string} className="hover:text-primary">Manual</Link>
           </div>
         </div>
       </header>

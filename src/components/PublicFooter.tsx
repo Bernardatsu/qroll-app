@@ -10,10 +10,7 @@ export function PublicFooter() {
         </div>
         <nav className="flex items-center gap-1 flex-wrap justify-center">
           <a
-            href="/app-manual.pdf"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-background hover:text-primary transition-colors font-medium"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-background hover:text-primary transition-colors font-medium"
           >
             <BookOpen className="size-4" /> App Manual
           </a>
