@@ -1,11 +1,23 @@
 {
-  "name": "KNUST Attendance",
-  "short_name": "KNUST",
+  "name": "QRoll \u2014 Attendance Made Easy",
+  "short_name": "QRoll",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fcfbf8",
-  "theme_color": "#006633",
+  "background_color": "#0f2544",
+  "theme_color": "#0f2544",
   "icons": [
-    { "src": "/__l5e/assets-v1/ed14c5bd-a27a-4bf7-850c-92c143c562a8/pesa-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/__l5e/assets-v1/99f7cb5c-9a8a-4122-87e7-c2953e2576e8/qroll-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "description": "Scan. Verify. Attend."
 }
