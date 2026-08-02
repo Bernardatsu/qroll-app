@@ -7,7 +7,7 @@ import { Users, BookOpen, CalendarClock, CheckCircle2, Clock } from "lucide-reac
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — KNUST Attendance" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — QRoll" }] }),
   component: Dashboard,
 });
 

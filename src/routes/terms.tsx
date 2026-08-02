@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({ meta: [
-    { title: "Terms of Service — KNUST Attendance" },
-    { name: "description", content: "Terms of Service for the KNUST Attendance QR system." },
+    { title: "Terms of Service — QRoll" },
+    { name: "description", content: "Terms of Service for the QRoll QR system." },
   ]}),
   component: TermsPage,
 });
@@ -13,10 +13,10 @@ function TermsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="max-w-3xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link to={"/" as string} className="font-bold text-primary">KNUST Attendance</Link>
+          <Link to={"/" as string} className="font-bold text-primary">QRoll</Link>
           <div className="flex gap-4 text-sm">
             <Link to={"/privacy" as string} className="hover:text-primary">Privacy</Link>
-            <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="hover:text-primary">Manual</a>
+            <Link to={"/manual" as string} className="hover:text-primary">Manual</Link>
           </div>
         </div>
       </header>
@@ -25,7 +25,7 @@ function TermsPage() {
         <p className="text-muted-foreground text-sm">Last updated: 4 July 2026</p>
 
         <h2 className="text-xl font-semibold mt-8">1. Acceptance</h2>
-        <p>By creating an account or using the KNUST Attendance application ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
+        <p>By creating an account or using the QRoll application ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
 
         <h2 className="text-xl font-semibold mt-8">2. Eligibility</h2>
         <p>The Service is intended for staff and students of Kwame Nkrumah University of Science and Technology, and other tertiary institutions using it for attendance tracking. You must be at least 16 years old to create an account.</p>
@@ -54,7 +54,7 @@ function TermsPage() {
         <p>We may update these Terms as the Service evolves. Material changes will be surfaced in-app. Continued use after the change constitutes acceptance.</p>
 
         <h2 className="text-xl font-semibold mt-8">9. Contact</h2>
-        <p>Questions about these Terms should be directed to your Master Admin or to the maintainers via the PESA KNUST executive.</p>
+        <p>Questions about these Terms should be directed to your Master Admin or to the maintainers via the QRoll executive.</p>
 
         <p className="mt-10 text-sm"><Link to={"/" as string} className="text-primary hover:underline">← Back to home</Link></p>
       </main>

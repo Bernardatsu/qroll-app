@@ -10,8 +10,9 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { SplashScreen } from "@/components/SplashScreen";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import pesaLogo from "@/assets/pesa-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 
 function NotFoundComponent() {
   return (
@@ -78,23 +79,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "theme-color", content: "#006633" },
-      { title: "KNUST Attendance" },
-      { name: "description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
-      { property: "og:title", content: "KNUST Attendance" },
-      { property: "og:description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
+      { name: "theme-color", content: "#0f2544" },
+      { title: "QRoll" },
+      { name: "description", content: "QRoll — scan, verify, attend. QR attendance for lectures, labs, and tutorials at KNUST." },
+      { property: "og:title", content: "QRoll" },
+      { property: "og:description", content: "QRoll — scan, verify, attend. QR attendance for lectures, labs, and tutorials at KNUST." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "KNUST Attendance" },
-      { name: "twitter:description", content: "QR-based attendance for Kwame Nkrumah University of Science and Technology." },
+      { name: "twitter:title", content: "QRoll" },
+      { name: "twitter:description", content: "QRoll — scan, verify, attend. QR attendance for lectures, labs, and tutorials at KNUST." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1782695359473-Screenshot_29-6-2026_1215_knust-qr-scan.lovable.app.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", href: pesaLogo.url, type: "image/png" },
-      { rel: "apple-touch-icon", href: pesaLogo.url },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/favicon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -122,6 +123,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SplashScreen />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

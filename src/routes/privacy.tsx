@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({ meta: [
-    { title: "Privacy Policy — KNUST Attendance" },
-    { name: "description", content: "Privacy policy for the KNUST Attendance QR system." },
+    { title: "Privacy Policy — QRoll" },
+    { name: "description", content: "Privacy policy for the QRoll QR system." },
   ]}),
   component: PrivacyPage,
 });
@@ -13,10 +13,10 @@ function PrivacyPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="max-w-3xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link to={"/" as string} className="font-bold text-primary">KNUST Attendance</Link>
+          <Link to={"/" as string} className="font-bold text-primary">QRoll</Link>
           <div className="flex gap-4 text-sm">
             <Link to={"/terms" as string} className="hover:text-primary">Terms</Link>
-            <a href="/app-manual.pdf" target="_blank" rel="noreferrer" className="hover:text-primary">Manual</a>
+            <Link to={"/manual" as string} className="hover:text-primary">Manual</Link>
           </div>
         </div>
       </header>
@@ -25,7 +25,7 @@ function PrivacyPage() {
         <p className="text-muted-foreground text-sm">Last updated: 4 July 2026</p>
 
         <h2 className="text-xl font-semibold mt-8">1. Who we are</h2>
-        <p>KNUST Attendance is a QR-based attendance-tracking Service operated by PESA KNUST for the Kwame Nkrumah University of Science and Technology community.</p>
+        <p>QRoll is a QR-based attendance-tracking Service operated by QRoll for the Kwame Nkrumah University of Science and Technology community.</p>
 
         <h2 className="text-xl font-semibold mt-8">2. What we collect</h2>
         <ul className="list-disc pl-6 space-y-1">
@@ -61,7 +61,7 @@ function PrivacyPage() {
         <p>The Service stores an authentication token in your browser's local storage so you stay signed in. No advertising or tracking cookies are used.</p>
 
         <h2 className="text-xl font-semibold mt-8">10. Contact</h2>
-        <p>Direct any privacy request to your Master Admin lecturer or to the PESA KNUST executive.</p>
+        <p>Direct any privacy request to your Master Admin lecturer or to the QRoll executive.</p>
 
         <p className="mt-10 text-sm"><Link to={"/" as string} className="text-primary hover:underline">← Back to home</Link></p>
       </main>
