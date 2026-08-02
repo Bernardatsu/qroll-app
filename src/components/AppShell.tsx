@@ -115,12 +115,13 @@ function SidebarBody({
         <div className="px-2 pb-1.5 text-[10px] uppercase tracking-wider text-white/50 font-semibold">
           Help & Legal
         </div>
-        <a
-          href="/manual"
+        <Link
+          to={"/manual" as string}
+          onClick={onNavigate}
           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white transition-colors"
         >
-          <BookOpen className="size-4 shrink-0" /> App Manual (PDF)
-        </a>
+          <BookOpen className="size-4 shrink-0" /> App Manual
+        </Link>
         <Link
           to={"/terms" as string}
           onClick={onNavigate}
