@@ -9,11 +9,12 @@ export function PublicFooter() {
           © {new Date().getFullYear()} QRoll · Attendance Made Easy
         </div>
         <nav className="flex items-center gap-1 flex-wrap justify-center">
-          <a
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-background hover:text-primary transition-colors font-medium"
+          <Link
+            to={"/manual" as string}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-background hover:text-primary transition-colors font-medium"
           >
             <BookOpen className="size-4" /> App Manual
-          </a>
+          </Link>
           <Link
             to={"/terms" as string}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-background hover:text-primary transition-colors font-medium"
