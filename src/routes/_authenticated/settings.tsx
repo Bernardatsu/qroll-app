@@ -41,16 +41,24 @@ function SettingsPage() {
         provider: "google",
         options: { redirectTo: `${window.location.origin}/settings` },
       });
-      if (error) {
-        toast.error(error.message);
-        setBusy(false);
+      if (!error) return; // browser redirects to Google, then back to /settings
+      // Fallback when manual identity linking is unavailable: sign in with the
+      // Google account instead — same email resolves to the same profile.
+      const r = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/settings`,
+      });
+      if (r.error) toast.error(r.error.message);
+      else if (!r.redirected) {
+        toast.success("Google connected");
+        await refresh();
       }
-      // On success the browser navigates to Google and returns to /settings.
     } catch (e) {
-      setBusy(false);
       toast.error(e instanceof Error ? e.message : "Could not start Google linking");
+    } finally {
+      setBusy(false);
     }
   };
+
 
 
   const unlinkGoogle = async () => {
