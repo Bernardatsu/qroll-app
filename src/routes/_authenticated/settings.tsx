@@ -38,15 +38,21 @@ function SettingsPage() {
   const linkGoogle = async () => {
     setBusy(true);
     try {
-      const r = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/settings`,
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/settings` },
       });
-      if (r.error) toast.error(r.error.message);
-      else await refresh();
-    } finally {
+      if (error) {
+        toast.error(error.message);
+        setBusy(false);
+      }
+      // On success the browser navigates to Google and returns to /settings.
+    } catch (e) {
       setBusy(false);
+      toast.error(e instanceof Error ? e.message : "Could not start Google linking");
     }
   };
+
 
   const unlinkGoogle = async () => {
     const goog = identities.find((i) => i.provider === "google");
