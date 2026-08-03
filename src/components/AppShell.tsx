@@ -167,19 +167,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex w-full">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col md:border-r md:border-border">
-        <SidebarBody
-          email={user?.email}
-          role={role}
-          onSignOut={signOut}
-          isAdmin={isAdmin}
-        />
-      </aside>
-
       <main className="flex-1 min-w-0 bg-background flex flex-col">
-        {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 px-3 py-2 border-b bg-background/95 backdrop-blur">
+        {/* Slide-in navigation — hidden until the menu button is pressed */}
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 px-3 py-2 border-b bg-background/95 backdrop-blur">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Open menu">
@@ -223,7 +213,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LogOut className="size-4" />
             </Button>
           </div>
-
         </header>
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
@@ -233,3 +222,4 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
