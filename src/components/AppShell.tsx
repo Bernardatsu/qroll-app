@@ -12,6 +12,7 @@ import {
   Menu,
   Share2,
   Settings,
+  CreditCard,
   FileText,
   Shield,
 
@@ -43,6 +44,7 @@ const nav: NavItem[] = [
   { to: "/scan", label: "Scanner", icon: ScanLine },
   { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
   { to: "/reports", label: "Reports", icon: FileBarChart },
+  { to: "/billing", label: "Billing & Plans", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

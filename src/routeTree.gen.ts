@@ -26,6 +26,7 @@ import { Route as AuthenticatedPortalLinksRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDepartmentsRouteImport } from './routes/_authenticated/departments'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
+import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
 
 const TermsRoute = TermsRouteImport.update({
@@ -114,6 +115,11 @@ const AuthenticatedCoursesRoute = AuthenticatedCoursesRouteImport.update({
   path: '/courses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCoursesCourseIdRoute =
   AuthenticatedCoursesCourseIdRouteImport.update({
     id: '/$courseId',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/departments': typeof AuthenticatedDepartmentsRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/departments': typeof AuthenticatedDepartmentsRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/departments': typeof AuthenticatedDepartmentsRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/privacy'
     | '/terms'
+    | '/billing'
     | '/courses'
     | '/dashboard'
     | '/departments'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/privacy'
     | '/terms'
+    | '/billing'
     | '/courses'
     | '/dashboard'
     | '/departments'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/manual'
     | '/privacy'
     | '/terms'
+    | '/_authenticated/billing'
     | '/_authenticated/courses'
     | '/_authenticated/dashboard'
     | '/_authenticated/departments'
@@ -373,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/billing': {
+      id: '/_authenticated/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AuthenticatedBillingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/courses/$courseId': {
       id: '/_authenticated/courses/$courseId'
       path: '/$courseId'
@@ -395,6 +414,7 @@ const AuthenticatedCoursesRouteWithChildren =
   AuthenticatedCoursesRoute._addFileChildren(AuthenticatedCoursesRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedCoursesRoute: typeof AuthenticatedCoursesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDepartmentsRoute: typeof AuthenticatedDepartmentsRoute
@@ -407,6 +427,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedCoursesRoute: AuthenticatedCoursesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDepartmentsRoute: AuthenticatedDepartmentsRoute,
