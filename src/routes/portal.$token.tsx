@@ -13,7 +13,7 @@ import { PublicFooter } from "@/components/PublicFooter";
 
 export const Route = createFileRoute("/portal/$token")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Student QR Portal — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Student QR Portal — QRoll" }] }),
   component: PortalPage,
 });
 
@@ -36,7 +36,7 @@ function PortalPage() {
     const row = (data as any[])?.[0];
     if (!row) return toast.error("No match. Check your index number and email.");
     setStudent(row);
-    const url = await QRCode.toDataURL(row.qr_uuid, { width: 360, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
+    const url = await QRCode.toDataURL(row.qr_uuid, { width: 360, margin: 2, color: { dark: "#12294a", light: "#ffffff" } });
     setQrDataUrl(url);
   };
 
@@ -66,7 +66,7 @@ function PortalPage() {
       <div className="flex-1 flex flex-col items-center p-6">
       <div className="flex items-center gap-2 mb-6 mt-4">
         <GraduationCap className="size-7 text-primary" />
-        <h1 className="text-2xl font-bold">KNUST Student QR Portal</h1>
+        <h1 className="text-2xl font-bold">QRoll Student QR Portal</h1>
       </div>
 
       {!student ? (

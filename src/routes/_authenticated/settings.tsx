@@ -38,15 +38,29 @@ function SettingsPage() {
   const linkGoogle = async () => {
     setBusy(true);
     try {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/settings` },
+      });
+      if (!error) return; // browser redirects to Google, then back to /settings
+      // Fallback when manual identity linking is unavailable: sign in with the
+      // Google account instead — same email resolves to the same profile.
       const r = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: `${window.location.origin}/settings`,
       });
       if (r.error) toast.error(r.error.message);
-      else await refresh();
+      else if (!r.redirected) {
+        toast.success("Google connected");
+        await refresh();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start Google linking");
     } finally {
       setBusy(false);
     }
   };
+
+
 
   const unlinkGoogle = async () => {
     const goog = identities.find((i) => i.provider === "google");

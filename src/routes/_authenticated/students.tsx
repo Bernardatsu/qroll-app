@@ -20,7 +20,7 @@ import {
 import { parseExcelFile, exportToExcel } from "@/lib/exporters";
 
 export const Route = createFileRoute("/_authenticated/students")({
-  head: () => ({ meta: [{ title: "Students — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Students — QRoll" }] }),
   component: StudentsPage,
 });
 
@@ -537,7 +537,7 @@ function QrButton({ student }: { student: any }) {
   const [dataUrl, setDataUrl] = useState("");
   const show = async () => {
     setOpen(true);
-    const url = await QRCode.toDataURL(student.qr_uuid, { width: 320, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
+    const url = await QRCode.toDataURL(student.qr_uuid, { width: 320, margin: 2, color: { dark: "#12294a", light: "#ffffff" } });
     setDataUrl(url);
   };
   const print = () => {

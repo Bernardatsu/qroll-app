@@ -14,7 +14,7 @@ import { toast } from "sonner";
 type Search = { session?: string };
 
 export const Route = createFileRoute("/_authenticated/scan")({
-  head: () => ({ meta: [{ title: "Scanner — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Scanner — QRoll" }] }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     session: typeof s.session === "string" ? s.session : undefined,
   }),

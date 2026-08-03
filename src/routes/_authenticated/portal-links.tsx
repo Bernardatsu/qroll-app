@@ -8,7 +8,7 @@ import { Copy, ExternalLink, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/portal-links")({
-  head: () => ({ meta: [{ title: "Student Portal Link — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Student Portal Link — QRoll" }] }),
   component: PortalLinksPage,
 });
 

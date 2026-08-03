@@ -11,7 +11,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/departments")({
-  head: () => ({ meta: [{ title: "Departments — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Departments — QRoll" }] }),
   component: DeptPage,
 });
 

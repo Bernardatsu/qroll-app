@@ -1,12 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { QrCode, ShieldCheck, BarChart3, GraduationCap, PlayCircle } from "lucide-react";
+import { QrCode, ShieldCheck, BarChart3, CalendarCheck, PlayCircle } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import qrollLogo from "@/assets/qroll-logo.png.asset.json";
-import qrollBanner from "@/assets/qroll-banner.png.asset.json";
-import qrollPromo from "@/assets/qroll-promo.mp4.asset.json";
+import heroImage from "@/assets/9315935.webp.asset.json";
+import promoLandscape from "@/assets/qroll-promo-landscape.mp4.asset.json";
+import promoPortrait from "@/assets/qroll-promo-portrait.mp4.asset.json";
+import { BrandVideo } from "@/components/BrandVideo";
 import { PublicFooter } from "@/components/PublicFooter";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -48,15 +51,16 @@ function Landing() {
 
       <section className="relative bg-knust-gradient text-primary-foreground overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <img src={qrollBanner.url} alt="" className="absolute inset-0 w-full h-full object-cover object-center opacity-25" />
-          <div className="absolute inset-0 bg-linear-to-r from-primary/80 via-primary/55 to-primary/20" />
+          <img src={heroImage.url} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
+          <div className="absolute inset-0 bg-primary/70" />
+          <div className="absolute inset-0 bg-linear-to-r from-primary/70 via-primary/45 to-primary/25" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <div className="text-gold uppercase tracking-widest text-xs font-semibold mb-3">Scan. Verify. Attend.</div>
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight drop-shadow-md">QRoll — attendance made easy for every lecture, lab, and tutorial.</h1>
-            <p className="mt-5 text-primary-foreground/90 text-lg max-w-lg drop-shadow">Secure UUID student QR codes, geofenced self check-in, live dashboards, and Excel & PDF reports.</p>
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight drop-shadow-md">QRoll — attendance made easy for every class, event, and gathering.</h1>
+            <p className="mt-5 text-primary-foreground/90 text-lg max-w-lg drop-shadow">Secure UUID QR codes, geofenced self check-in, live dashboards, and Excel & PDF reports.</p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link to={"/auth" as string}><Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90">Get started</Button></Link>
               <Link to={"/manual" as string}><Button size="lg" variant="outline" className="border-white/40 bg-white/0 text-primary-foreground hover:bg-white/10">Read the manual</Button></Link>
@@ -65,9 +69,9 @@ function Landing() {
           <div className="hidden md:grid grid-cols-2 gap-4">
             {[
               { i: QrCode, t: "Secure QR", d: "Random UUIDs — no names embedded." },
-              { i: ShieldCheck, t: "Role-based", d: "Admins, lecturers, TAs." },
+              { i: ShieldCheck, t: "Role-based", d: "Admins, organisers, assistants." },
               { i: BarChart3, t: "Reports", d: "Excel, CSV, PDF exports." },
-              { i: GraduationCap, t: "All classes", d: "Any level you create." },
+              { i: CalendarCheck, t: "Any occasion", d: "Classes, events, meetings." },
             ].map((f) => (
               <div key={f.t} className="rounded-xl bg-white/15 backdrop-blur p-5 border border-white/20">
                 <f.i className="size-6 text-gold mb-3" />
@@ -84,14 +88,15 @@ function Landing() {
           <PlayCircle className="size-6 text-primary" /> See QRoll in action
         </h2>
         <p className="text-sm text-muted-foreground mt-1">A quick look at how attendance is captured in seconds.</p>
-        <video
-          src={qrollPromo.url}
-          controls
-          playsInline
-          preload="metadata"
-          className="mt-5 w-full rounded-xl border shadow-sm bg-black"
-        />
+        <div className="mt-5 rounded-xl border shadow-sm bg-black overflow-hidden flex justify-center">
+          <BrandVideo
+            landscape={promoLandscape.url}
+            portrait={promoPortrait.url}
+            className="w-full max-h-[60vh] lg:max-h-[70vh] object-contain"
+          />
+        </div>
       </section>
+
 
       <PublicFooter />
     </div>
