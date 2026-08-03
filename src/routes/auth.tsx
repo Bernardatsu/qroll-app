@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
+
 import qrollLogo from "@/assets/qroll-logo.png.asset.json";
 import qrollLogin from "@/assets/qroll-login.png.asset.json";
 
