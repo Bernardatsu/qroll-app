@@ -68,16 +68,33 @@ function AuthPage() {
         <div className="relative">
           <div className="text-gold uppercase tracking-widest text-xs font-semibold mb-3">Scan. Verify. Attend.</div>
           <h1 className="text-4xl font-bold leading-tight drop-shadow">Attendance made easy.</h1>
-          <p className="mt-4 text-primary-foreground/85 max-w-md">Secure QR-based attendance for lectures, labs, and tutorials — built for KNUST.</p>
+          <p className="mt-4 text-primary-foreground/85 max-w-md">Secure QR-based attendance for classes, events, and every gathering.</p>
         </div>
         <div className="relative text-xs text-primary-foreground/60">© {new Date().getFullYear()} QRoll</div>
       </div>
-      <div className="flex items-center justify-center p-6 md:p-12">
+      <div className="relative flex items-center justify-center p-6 md:p-12">
+        {/* Mobile / tablet: same artwork, blended as a soft background */}
+        <div className="md:hidden absolute inset-0 pointer-events-none" aria-hidden="true">
+          <img src={qrollLogin.url} alt="" className="absolute inset-0 h-full w-full object-cover object-top opacity-20" />
+          <div className="absolute inset-0 bg-linear-to-b from-background/70 via-background/85 to-background" />
+        </div>
+
+        <div className="relative w-full max-w-md space-y-4">
+          <div className="md:hidden flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2">
+              <img src={qrollLogo.url} alt="QRoll logo" className="h-9 w-auto object-contain" />
+              <span className="font-semibold">QRoll</span>
+            </Link>
+            <Link to="/">
+              <Button variant="outline" size="sm"><ArrowLeft className="size-4 mr-1" />Back home</Button>
+            </Link>
+          </div>
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
             <CardDescription>Sign in to manage attendance. First account becomes Super Admin.</CardDescription>
           </CardHeader>
+
           <CardContent>
             <Tabs defaultValue="signin">
               <TabsList className="grid grid-cols-2 w-full">
