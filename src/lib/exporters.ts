@@ -22,7 +22,7 @@ export function exportToCSV(rows: Record<string, unknown>[], filename: string) {
 export function exportToPDF(title: string, headers: string[], rows: (string | number)[][], filename: string) {
   const doc = new jsPDF();
   doc.setFontSize(14);
-  doc.text("KNUST — " + title, 14, 16);
+  doc.text("QRoll — " + title, 14, 16);
   doc.setFontSize(9);
   doc.text(new Date().toLocaleString(), 14, 22);
   autoTable(doc, { head: [headers], body: rows, startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [0, 102, 51] } });

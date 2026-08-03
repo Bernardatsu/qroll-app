@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { getPublicOrigin } from "@/lib/public-origin";
 
 export const Route = createFileRoute("/_authenticated/sessions")({
-  head: () => ({ meta: [{ title: "Sessions — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Sessions — QRoll" }] }),
   component: SessionsPage,
 });
 
@@ -108,10 +108,10 @@ function SessionsPage() {
 
   const projectQr = async (sessionId: string) => {
     const url = `${getPublicOrigin()}/check-in?session=${sessionId}`;
-    const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#006633", light: "#ffffff" } });
+    const dataUrl = await QRCode.toDataURL(url, { width: 800, margin: 2, color: { dark: "#12294a", light: "#ffffff" } });
     const w = window.open("", "_blank");
     if (!w) return toast.error("Allow popups to project");
-    w.document.write(`<html><head><title>Project Check-in QR</title><meta name="viewport" content="width=device-width,initial-scale=1" /><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;color:#006633;padding:16px;box-sizing:border-box}h1{margin:8px 0}p{color:#555;margin:4px 0 16px;font-size:16px;text-align:center}img{max-width:80vmin;max-height:70vmin}button{margin-top:20px;background:#006633;color:#fff;border:0;padding:14px 28px;font-size:16px;border-radius:10px;cursor:pointer}button.close-x{position:fixed;top:12px;right:12px;background:#c00;padding:10px 16px;margin:0;font-weight:bold}</style></head><body><button class="close-x" onclick="window.close()">✕ Close</button><h1>Scan to check in</h1><p>Open your camera, scan, allow location, then enter your index number.</p><img src="${dataUrl}" /><p style="margin-top:16px;font-size:13px;word-break:break-all">${url}</p><button onclick="window.close()">Close this page</button></body></html>`);
+    w.document.write(`<html><head><title>Project Check-in QR</title><meta name="viewport" content="width=device-width,initial-scale=1" /><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;color:#12294a;padding:16px;box-sizing:border-box}h1{margin:8px 0}p{color:#555;margin:4px 0 16px;font-size:16px;text-align:center}img{max-width:80vmin;max-height:70vmin}button{margin-top:20px;background:#12294a;color:#fff;border:0;padding:14px 28px;font-size:16px;border-radius:10px;cursor:pointer}button.close-x{position:fixed;top:12px;right:12px;background:#c00;padding:10px 16px;margin:0;font-weight:bold}</style></head><body><button class="close-x" onclick="window.close()">✕ Close</button><h1>Scan to check in</h1><p>Open your camera, scan, allow location, then enter your index number.</p><img src="${dataUrl}" /><p style="margin-top:16px;font-size:13px;word-break:break-all">${url}</p><button onclick="window.close()">Close this page</button></body></html>`);
     w.document.close();
   };
 

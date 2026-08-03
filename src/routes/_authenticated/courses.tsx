@@ -13,7 +13,7 @@ import { Plus, Users, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/courses")({
-  head: () => ({ meta: [{ title: "Courses — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Courses — QRoll" }] }),
   component: CoursesPage,
 });
 

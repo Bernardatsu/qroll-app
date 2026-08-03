@@ -15,7 +15,7 @@ const search = z.object({ session: z.string().uuid().optional() });
 export const Route = createFileRoute("/check-in")({
   ssr: false,
   validateSearch: search,
-  head: () => ({ meta: [{ title: "Check in — KNUST" }] }),
+  head: () => ({ meta: [{ title: "Check in — QRoll" }] }),
   component: CheckInPage,
 });
 
@@ -64,7 +64,7 @@ function CheckInPage() {
       <div className="flex-1 flex flex-col items-center p-6">
       <div className="flex items-center gap-2 mb-6 mt-4">
         <GraduationCap className="size-7 text-primary" />
-        <h1 className="text-2xl font-bold">KNUST Self Check-in</h1>
+        <h1 className="text-2xl font-bold">QRoll Self Check-in</h1>
       </div>
 
       {done ? (
