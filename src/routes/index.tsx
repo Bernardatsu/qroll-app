@@ -1,12 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { QrCode, ShieldCheck, BarChart3, GraduationCap, PlayCircle } from "lucide-react";
+import { QrCode, ShieldCheck, BarChart3, CalendarCheck, PlayCircle } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import qrollLogo from "@/assets/qroll-logo.png.asset.json";
-import qrollBanner from "@/assets/qroll-banner.png.asset.json";
-import qrollPromo from "@/assets/qroll-promo.mp4.asset.json";
+import heroImage from "@/assets/9315935.webp.asset.json";
+import promoLandscape from "@/assets/qroll-promo-landscape.mp4.asset.json";
+import promoPortrait from "@/assets/qroll-promo-portrait.mp4.asset.json";
+import { BrandVideo } from "@/components/BrandVideo";
 import { PublicFooter } from "@/components/PublicFooter";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
