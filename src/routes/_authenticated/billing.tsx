@@ -64,19 +64,32 @@ function localPrice(usd: number) {
 
 function BillingPage() {
   const { user } = useAuth();
+  const [sub, setSub] = useState<{ plan_code: string; status: string; days_remaining: number; is_active: boolean; current_period_end: string | null; trial_ends_at: string | null } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void supabase.rpc("my_subscription").then(({ data }) => {
+      if (alive && data && data.length) setSub(data[0] as never);
+    });
+    return () => { alive = false; };
+  }, [user?.id]);
 
   const trial = useMemo(() => {
+    const endsRaw = sub?.trial_ends_at ?? sub?.current_period_end;
     const created = user?.created_at ? new Date(user.created_at) : new Date();
-    const ends = new Date(created.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-    const daysLeft = Math.max(0, Math.ceil((ends.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+    const ends = endsRaw ? new Date(endsRaw) : new Date(created.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    const daysLeft = sub?.days_remaining ?? Math.max(0, Math.ceil((ends.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
     return { ends, daysLeft };
-  }, [user?.created_at]);
+  }, [user?.created_at, sub]);
+
+  const planLabel = sub?.status === "active" ? (sub.plan_code ?? "Premium") : "Free trial";
 
   const checkout = (planName: string) => {
     toast.info(`${planName} plan selected — payments are not switched on yet.`, {
       description: "Billing is fully set up but stays inactive until the payment provider is connected and approved. Everything remains free and unrestricted until then.",
     });
   };
+
 
   return (
     <AppShell>
