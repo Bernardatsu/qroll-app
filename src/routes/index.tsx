@@ -52,8 +52,9 @@ function Landing() {
       <section className="relative bg-knust-gradient text-primary-foreground overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <img src={heroImage.url} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
-          <div className="absolute inset-0 bg-primary/70" />
-          <div className="absolute inset-0 bg-linear-to-r from-primary/70 via-primary/45 to-primary/25" />
+          <div className="absolute inset-0 bg-primary/35" />
+          <div className="absolute inset-0 bg-linear-to-r from-primary/45 via-primary/25 to-primary/10" />
+
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-10 items-center">
