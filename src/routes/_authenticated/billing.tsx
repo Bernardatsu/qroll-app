@@ -121,7 +121,7 @@ function BillingPage() {
             <CardDescription>{user?.email}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
-            <Badge variant="secondary" className="text-sm">Free trial</Badge>
+            <Badge variant="secondary" className="text-sm capitalize">{planLabel}</Badge>
             <span className="text-sm text-muted-foreground">
               {trial.daysLeft} of {TRIAL_DAYS} days remaining · ends {trial.ends.toLocaleDateString()}
             </span>
