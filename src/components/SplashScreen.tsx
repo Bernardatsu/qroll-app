@@ -6,16 +6,24 @@ import introPortrait from "@/assets/qroll-intro-video---portrait.mp4.asset.json"
 /**
  * QRoll launch screen — plays the branded intro video once per browser
  * session so the web app feels like a native app when opened.
+ *
+ * The overlay is rendered on the very first paint (server + client) so the
+ * landing page never flashes before the intro. If the intro was already shown
+ * this session it is removed synchronously on mount.
  */
 export function SplashScreen() {
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
+  const [ready, setReady] = useState(false);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (sessionStorage.getItem("qroll_splash_seen")) return;
+    if (sessionStorage.getItem("qroll_splash_seen")) {
+      setShow(false);
+      return;
+    }
     sessionStorage.setItem("qroll_splash_seen", "1");
-    setShow(true);
+    setReady(true);
     const t1 = setTimeout(() => setFading(true), 5000);
     const t2 = setTimeout(() => setShow(false), 5600);
     return () => {
@@ -38,14 +46,16 @@ export function SplashScreen() {
       }`}
       aria-hidden="true"
     >
-      <BrandVideo
-        landscape={introLandscape.url}
-        portrait={introPortrait.url}
-        autoStart
-        loop={false}
-        onEnded={finish}
-        className="h-full w-full object-cover object-center"
-      />
+      {ready && (
+        <BrandVideo
+          landscape={introLandscape.url}
+          portrait={introPortrait.url}
+          autoStart
+          loop={false}
+          onEnded={finish}
+          className="h-full w-full object-cover object-center"
+        />
+      )}
     </div>
   );
 }

@@ -551,10 +551,10 @@ function QrButton({ student }: { student: any }) {
     <>
       <Button variant="ghost" size="icon" onClick={show}><QrCode className="size-4" /></Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{student.full_name}</DialogTitle></DialogHeader>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm sm:max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader><DialogTitle className="text-base sm:text-lg pr-6 break-words">{student.full_name}</DialogTitle></DialogHeader>
           <div className="text-center space-y-3">
-            {dataUrl && <img src={dataUrl} alt="QR" className="mx-auto rounded-lg border" />}
+            {dataUrl && <img src={dataUrl} alt="QR" className="mx-auto rounded-lg border w-full max-w-[260px] h-auto" />}
             <div className="text-sm text-muted-foreground">{student.index_number} · Level {student.level}</div>
             <Button onClick={print} className="w-full"><Printer className="size-4 mr-1" />Print</Button>
           </div>
