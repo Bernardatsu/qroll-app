@@ -61,11 +61,19 @@ function BillingPage() {
   const planLabel = sub?.status === "active" ? (sub.plan_code ?? "Premium") : "Free trial";
 
   const [busy, setBusy] = useState<PlanCode | null>(null);
+  const [chosen, setChosen] = useState<PlanCode | null>(null);
+
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("qroll:plan") : null;
+    if (saved) setChosen(saved as PlanCode);
+  }, []);
 
   const checkout = async (code: PlanCode, planName: string) => {
     if (!PAYMENTS_LIVE) {
-      toast.info(`${planName} plan selected — payments are not switched on yet.`, {
-        description: "Billing and the Paystack connection are fully wired but stay inactive until you switch them on. Everything remains free and unrestricted until then.",
+      setChosen(code);
+      window.localStorage.setItem("qroll:plan", code);
+      toast.success(`${planName} plan saved as your preferred plan.`, {
+        description: "Payments are not switched on yet — you keep full access for free. When billing goes live this plan will be pre-selected at checkout.",
       });
       return;
     }
@@ -80,6 +88,7 @@ function BillingPage() {
       setBusy(null);
     }
   };
+
 
 
 
@@ -120,12 +129,15 @@ function BillingPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {PLANS.map((p) => (
-            <Card key={p.code} className={p.highlight ? "border-primary shadow-md relative" : "relative"}>
+            <Card key={p.code} className={`relative transition-all hover:-translate-y-0.5 hover:shadow-lg ${chosen === p.code ? "border-primary ring-2 ring-primary/30 shadow-lg" : p.highlight ? "border-primary shadow-md" : ""}`}>
               {p.highlight && (
                 <Badge className="absolute -top-2 right-4">Most popular</Badge>
               )}
               <CardHeader>
-                <CardTitle>{p.name}</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  {p.name}
+                  {chosen === p.code && <Badge variant="secondary" className="text-[10px]">Your pick</Badge>}
+                </CardTitle>
                 <CardDescription>{p.note}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -140,9 +152,11 @@ function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
-                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : `Choose ${p.name}`}
+                <Button className="w-full" variant={chosen === p.code ? "default" : p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
+                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : chosen === p.code ? "Selected plan" : `Choose ${p.name}`}
                 </Button>
+
+
 
               </CardContent>
             </Card>
