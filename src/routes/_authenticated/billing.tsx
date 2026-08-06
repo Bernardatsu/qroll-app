@@ -140,9 +140,10 @@ function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"} onClick={() => checkout(p.name)}>
-                  <CreditCard className="size-4 mr-1" /> Choose {p.name}
+                <Button className="w-full" variant={p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
+                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : `Choose ${p.name}`}
                 </Button>
+
               </CardContent>
             </Card>
           ))}
