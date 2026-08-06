@@ -25,35 +25,9 @@ export const Route = createFileRoute("/_authenticated/billing")({
   component: BillingPage,
 });
 
-const TRIAL_DAYS = 14;
+import { PLANS, TRIAL_DAYS, PAYMENTS_LIVE, type PlanCode } from "@/lib/billing";
+import { startCheckout } from "@/lib/paystack.functions";
 
-const PLANS = [
-  {
-    code: "monthly",
-    name: "Monthly",
-    usd: 6,
-    cadence: "per month",
-    note: "Billed every month. Cancel anytime.",
-    features: ["Unlimited sessions", "Unlimited students", "Excel, CSV & PDF reports", "Geofenced self check-in"],
-  },
-  {
-    code: "semester",
-    name: "Per Semester",
-    usd: 20,
-    cadence: "per 4 months",
-    note: "Best for a full academic semester — save 17%.",
-    highlight: true,
-    features: ["Everything in Monthly", "4 months of access", "Priority email support"],
-  },
-  {
-    code: "yearly",
-    name: "Yearly",
-    usd: 60,
-    cadence: "per year",
-    note: "Best value — save 17% versus monthly.",
-    features: ["Everything in Per Semester", "12 months of access", "Early access to new features"],
-  },
-];
 
 function localPrice(usd: number) {
   try {
