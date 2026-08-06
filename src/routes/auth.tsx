@@ -74,23 +74,33 @@ function AuthPage() {
         </div>
         <div className="relative text-xs text-primary-foreground/60">© {new Date().getFullYear()} QRoll</div>
       </div>
-      <div className="relative flex items-center justify-center p-6 md:p-12">
-        {/* Mobile / tablet: same artwork, blended as a soft background */}
-        <div className="md:hidden absolute inset-0 pointer-events-none" aria-hidden="true">
-          <img src={qrollLogin.url} alt="" className="absolute inset-0 h-full w-full object-cover object-top opacity-20" />
-          <div className="absolute inset-0 bg-linear-to-b from-background/70 via-background/85 to-background" />
-        </div>
-
-        <div className="relative w-full max-w-md space-y-4">
-          <div className="md:hidden flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={qrollLogo.url} alt="QRoll logo" className="h-9 w-auto object-contain" />
-              <span className="font-semibold">QRoll</span>
-            </Link>
-            <Link to="/">
-              <Button variant="outline" size="sm"><ArrowLeft className="size-4 mr-1" />Back home</Button>
-            </Link>
+      <div className="relative flex items-center justify-center p-0 md:p-12">
+        <div className="relative w-full max-w-md space-y-4 pb-6 md:pb-0">
+          {/* Mobile / tablet: the same artwork as a proper hero banner */}
+          <div className="md:hidden relative h-56 w-full overflow-hidden rounded-b-3xl bg-knust-gradient">
+            <img
+              src={qrollLogin.url}
+              alt="Student checking in with a QR code"
+              className="absolute inset-0 h-full w-full object-cover object-top"
+            />
+            <div className="absolute inset-0 bg-linear-to-b from-primary/45 via-primary/25 to-background" aria-hidden="true" />
+            <div className="absolute inset-x-0 top-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
+              <Link to="/" className="flex min-w-0 items-center gap-2 text-primary-foreground">
+                <img src={qrollLogo.url} alt="QRoll logo" className="h-9 w-auto shrink-0 object-contain" />
+                <span className="truncate font-semibold drop-shadow">QRoll</span>
+              </Link>
+              <Link to="/">
+                <Button variant="secondary" size="sm" className="shrink-0"><ArrowLeft className="size-4 mr-1" />Home</Button>
+              </Link>
+            </div>
+            <div className="absolute inset-x-0 bottom-3 px-5">
+              <div className="text-[10px] uppercase tracking-widest font-semibold text-primary-foreground/90 drop-shadow">Scan. Verify. Attend.</div>
+              <div className="text-xl font-bold text-primary-foreground drop-shadow">Attendance made easy.</div>
+            </div>
           </div>
+
+          <div className="px-4 md:px-0">
+
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Welcome</CardTitle>
