@@ -129,12 +129,15 @@ function BillingPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {PLANS.map((p) => (
-            <Card key={p.code} className={p.highlight ? "border-primary shadow-md relative" : "relative"}>
+            <Card key={p.code} className={`relative transition-all hover:-translate-y-0.5 hover:shadow-lg ${chosen === p.code ? "border-primary ring-2 ring-primary/30 shadow-lg" : p.highlight ? "border-primary shadow-md" : ""}`}>
               {p.highlight && (
                 <Badge className="absolute -top-2 right-4">Most popular</Badge>
               )}
               <CardHeader>
-                <CardTitle>{p.name}</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  {p.name}
+                  {chosen === p.code && <Badge variant="secondary" className="text-[10px]">Your pick</Badge>}
+                </CardTitle>
                 <CardDescription>{p.note}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -149,9 +152,11 @@ function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
-                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : `Choose ${p.name}`}
+                <Button className="w-full" variant={chosen === p.code ? "default" : p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
+                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : chosen === p.code ? "Selected plan" : `Choose ${p.name}`}
                 </Button>
+
+
 
               </CardContent>
             </Card>
