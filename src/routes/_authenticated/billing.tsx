@@ -60,11 +60,27 @@ function BillingPage() {
 
   const planLabel = sub?.status === "active" ? (sub.plan_code ?? "Premium") : "Free trial";
 
-  const checkout = (planName: string) => {
-    toast.info(`${planName} plan selected — payments are not switched on yet.`, {
-      description: "Billing is fully set up but stays inactive until the payment provider is connected and approved. Everything remains free and unrestricted until then.",
-    });
+  const [busy, setBusy] = useState<PlanCode | null>(null);
+
+  const checkout = async (code: PlanCode, planName: string) => {
+    if (!PAYMENTS_LIVE) {
+      toast.info(`${planName} plan selected — payments are not switched on yet.`, {
+        description: "Billing and the Paystack connection are fully wired but stay inactive until you switch them on. Everything remains free and unrestricted until then.",
+      });
+      return;
+    }
+    setBusy(code);
+    try {
+      const r = await startCheckout({ data: { plan: code, callbackUrl: `${window.location.origin}/billing` } });
+      if (r.url) window.location.href = r.url;
+      else toast.info(r.message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start checkout");
+    } finally {
+      setBusy(null);
+    }
   };
+
 
 
   return (
