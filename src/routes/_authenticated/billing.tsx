@@ -25,35 +25,9 @@ export const Route = createFileRoute("/_authenticated/billing")({
   component: BillingPage,
 });
 
-const TRIAL_DAYS = 14;
+import { PLANS, TRIAL_DAYS, PAYMENTS_LIVE, type PlanCode } from "@/lib/billing";
+import { startCheckout } from "@/lib/paystack.functions";
 
-const PLANS = [
-  {
-    code: "monthly",
-    name: "Monthly",
-    usd: 6,
-    cadence: "per month",
-    note: "Billed every month. Cancel anytime.",
-    features: ["Unlimited sessions", "Unlimited students", "Excel, CSV & PDF reports", "Geofenced self check-in"],
-  },
-  {
-    code: "semester",
-    name: "Per Semester",
-    usd: 20,
-    cadence: "per 4 months",
-    note: "Best for a full academic semester — save 17%.",
-    highlight: true,
-    features: ["Everything in Monthly", "4 months of access", "Priority email support"],
-  },
-  {
-    code: "yearly",
-    name: "Yearly",
-    usd: 60,
-    cadence: "per year",
-    note: "Best value — save 17% versus monthly.",
-    features: ["Everything in Per Semester", "12 months of access", "Early access to new features"],
-  },
-];
 
 function localPrice(usd: number) {
   try {
@@ -86,11 +60,27 @@ function BillingPage() {
 
   const planLabel = sub?.status === "active" ? (sub.plan_code ?? "Premium") : "Free trial";
 
-  const checkout = (planName: string) => {
-    toast.info(`${planName} plan selected — payments are not switched on yet.`, {
-      description: "Billing is fully set up but stays inactive until the payment provider is connected and approved. Everything remains free and unrestricted until then.",
-    });
+  const [busy, setBusy] = useState<PlanCode | null>(null);
+
+  const checkout = async (code: PlanCode, planName: string) => {
+    if (!PAYMENTS_LIVE) {
+      toast.info(`${planName} plan selected — payments are not switched on yet.`, {
+        description: "Billing and the Paystack connection are fully wired but stay inactive until you switch them on. Everything remains free and unrestricted until then.",
+      });
+      return;
+    }
+    setBusy(code);
+    try {
+      const r = await startCheckout({ data: { plan: code, callbackUrl: `${window.location.origin}/billing` } });
+      if (r.url) window.location.href = r.url;
+      else toast.info(r.message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start checkout");
+    } finally {
+      setBusy(null);
+    }
   };
+
 
 
   return (
@@ -150,9 +140,10 @@ function BillingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"} onClick={() => checkout(p.name)}>
-                  <CreditCard className="size-4 mr-1" /> Choose {p.name}
+                <Button className="w-full" variant={p.highlight ? "default" : "outline"} disabled={busy === p.code} onClick={() => void checkout(p.code, p.name)}>
+                  <CreditCard className="size-4 mr-1" /> {busy === p.code ? "Starting…" : `Choose ${p.name}`}
                 </Button>
+
               </CardContent>
             </Card>
           ))}
