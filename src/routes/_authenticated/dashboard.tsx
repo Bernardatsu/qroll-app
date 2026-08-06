@@ -91,7 +91,7 @@ function Dashboard() {
       {/* Hero */}
       <section className="relative overflow-hidden rounded-2xl bg-knust-gradient text-primary-foreground p-6 sm:p-8 mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
         <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute -left-10 bottom--10 size-40 rounded-full bg-white/5 blur-2xl" />
+        <div className="pointer-events-none absolute -left-10 -bottom-10 size-40 rounded-full bg-white/5 blur-2xl" />
         <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
