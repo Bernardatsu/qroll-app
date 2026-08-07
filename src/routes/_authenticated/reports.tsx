@@ -164,7 +164,8 @@ function ReportsPage() {
     const { rows, headers } = buildExportRows();
     if (!rows.length) return;
     const label = mode === "overall" ? "overall" : `W${weekOfDay(day)}-${day}`;
-    const filename = `${courseLabel?.code ?? "report"}-${label}`;
+    const suffix = presence === "all" ? "" : `-${presence}`;
+    const filename = `${courseLabel?.code ?? "report"}-${label}${suffix}`;
     if (fmt === "xlsx") exportToExcel(rows, filename);
     else if (fmt === "csv") exportToCSV(rows, filename);
     else
