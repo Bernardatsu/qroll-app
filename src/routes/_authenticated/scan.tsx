@@ -36,7 +36,7 @@ function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
-  const processingRef = useRef(false);
+  const inFlight = useRef<Set<string>>(new Set());
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
