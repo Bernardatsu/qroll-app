@@ -292,7 +292,7 @@ function ScanPage() {
       });
 
       const config = {
-        fps: 15,
+        fps: 30,
         qrbox: (vw: number, vh: number) => {
           const m = Math.floor(Math.min(vw, vh) * 0.75);
           return { width: m, height: m };
