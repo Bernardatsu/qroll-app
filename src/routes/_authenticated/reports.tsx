@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
 
 type Mode = "overall" | "daily";
 type Risk = "all" | "at-risk" | "passed";
+type Presence = "all" | "present" | "absent";
 
 const dayKey = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 const prettyDay = (d: string) => new Date(d + "T00:00:00").toLocaleDateString();
@@ -38,6 +39,8 @@ function ReportsPage() {
   const [day, setDay] = useState<string>("");
   const [maxMisses, setMaxMisses] = useState<number>(3);
   const [risk, setRisk] = useState<Risk>("all");
+  const [presence, setPresence] = useState<Presence>("all");
+  const [gradeWeight, setGradeWeight] = useState<number>(5);
 
   const { data: courses } = useQuery({
     queryKey: ["courses-active"],
