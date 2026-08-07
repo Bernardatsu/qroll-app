@@ -285,6 +285,8 @@ function ReportsPage() {
                     ))}
                     <th className="p-3 text-center">Scans</th>
                     <th className="p-3 text-center">Missed</th>
+                    <th className="p-3 text-center">%</th>
+                    <th className="p-3 text-center whitespace-nowrap">Score /{gradeWeight}</th>
                     <th className="p-3 text-center">Status</th>
                   </tr>
                 </thead>
@@ -299,6 +301,8 @@ function ReportsPage() {
                       ))}
                       <td className="p-3 text-center font-bold text-success">{r.scans}</td>
                       <td className="p-3 text-center font-bold text-muted-foreground">{r.missed}</td>
+                      <td className="p-3 text-center font-semibold">{r.pct}%</td>
+                      <td className="p-3 text-center font-semibold text-primary">{r.score}</td>
                       <td className="p-3 text-center">
                         <span className={`text-xs px-2 py-1 rounded font-medium ${r.atRisk ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
                           {r.atRisk ? "AT RISK" : "PASSED"}
@@ -307,7 +311,7 @@ function ReportsPage() {
                     </tr>
                   ))}
                   {!visibleRows.length && (
-                    <tr><td colSpan={6 + report.days.length} className="p-6 text-center text-muted-foreground">
+                    <tr><td colSpan={8 + report.days.length} className="p-6 text-center text-muted-foreground">
                       {allDays.length ? "No students to show" : "No attendance recorded for this course yet"}
                     </td></tr>
                   )}
