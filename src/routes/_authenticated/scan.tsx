@@ -210,7 +210,7 @@ function ScanPage() {
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
     } finally {
-      processingRef.current = false;
+      inFlight.current.delete(uuid);
     }
   };
 
