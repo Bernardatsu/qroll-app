@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, BookOpen, CalendarClock, CheckCircle2, Clock, QrCode, FileSpreadsheet, ArrowRight, Sparkles } from "lucide-react";
+import { Users, BookOpen, CalendarClock, Clock, QrCode, FileSpreadsheet, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
