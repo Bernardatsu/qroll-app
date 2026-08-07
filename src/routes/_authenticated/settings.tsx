@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle2, Link2, Mail, ShieldCheck, Home as HomeIcon } from "lucide-react";
+import { CheckCircle2, Link2, Mail, ShieldCheck, Home as HomeIcon, Info } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 
