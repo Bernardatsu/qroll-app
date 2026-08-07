@@ -23,6 +23,28 @@ export const Route = createFileRoute("/_authenticated/scan")({
 
 const QR_REGION_ID = "qr-reader";
 
+/** Short confirmation tone so the operator knows a code was captured. */
+let audioCtx: AudioContext | null = null;
+function beep() {
+  try {
+    const Ctx = window.AudioContext ?? (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx ??= new Ctx();
+    void audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 1180;
+    gain.gain.setValueAtTime(0.09, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  } catch {
+    /* audio is a nicety — never block scanning */
+  }
+}
+
 function ScanPage() {
   const { session: sessionId } = Route.useSearch();
   const qc = useQueryClient();
@@ -36,7 +58,7 @@ function ScanPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
-  const processingRef = useRef(false);
+  const inFlight = useRef<Set<string>>(new Set());
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
@@ -94,12 +116,15 @@ function ScanPage() {
     const uuid = raw.trim();
     const sess = sessionRef.current;
     if (!uuid || !sess) return;
-    if (processingRef.current) return;
+    // Per-code lock (not a global lock) so a queue of students can be scanned
+    // back-to-back without the camera stalling on the previous student.
+    if (inFlight.current.has(uuid)) return;
     const now = Date.now();
     const last = recentScans.current.get(uuid) ?? 0;
-    if (now - last < 6000) return;
+    if (now - last < 3000) return;
     recentScans.current.set(uuid, now);
-    processingRef.current = true;
+    inFlight.current.add(uuid);
+    beep();
     try {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
@@ -207,7 +232,7 @@ function ScanPage() {
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
     } finally {
-      processingRef.current = false;
+      inFlight.current.delete(uuid);
     }
   };
 
@@ -267,7 +292,7 @@ function ScanPage() {
       });
 
       const config = {
-        fps: 15,
+        fps: 30,
         qrbox: (vw: number, vh: number) => {
           const m = Math.floor(Math.min(vw, vh) * 0.75);
           return { width: m, height: m };

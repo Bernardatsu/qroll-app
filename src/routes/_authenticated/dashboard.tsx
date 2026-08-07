@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, BookOpen, CalendarClock, CheckCircle2, Clock, QrCode, FileSpreadsheet, ArrowRight, Sparkles } from "lucide-react";
+import { Users, BookOpen, CalendarClock, Clock, QrCode, FileSpreadsheet, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -129,7 +129,6 @@ function Dashboard() {
         <Stat icon={BookOpen} label="Courses" value={data?.courses ?? 0} tint="bg-gold/20 text-gold" delay={80} />
         <Stat icon={CalendarClock} label="Sessions" value={data?.sessions ?? 0} tint="bg-accent text-accent-foreground" delay={160} />
         <Stat icon={Clock} label="In progress" value={data?.IN_PROGRESS ?? 0} tint="bg-warning/30 text-warning-foreground" delay={240} />
-        <Stat icon={CheckCircle2} label="Scans recorded" value={data?.PRESENT ?? 0} tint="bg-success/20 text-success" delay={320} />
       </div>
 
       {/* Quick actions */}

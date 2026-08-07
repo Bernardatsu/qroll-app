@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
 
 type Mode = "overall" | "daily";
 type Risk = "all" | "at-risk" | "passed";
+type Presence = "all" | "present" | "absent";
 
 const dayKey = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 const prettyDay = (d: string) => new Date(d + "T00:00:00").toLocaleDateString();
@@ -38,6 +39,8 @@ function ReportsPage() {
   const [day, setDay] = useState<string>("");
   const [maxMisses, setMaxMisses] = useState<number>(3);
   const [risk, setRisk] = useState<Risk>("all");
+  const [presence, setPresence] = useState<Presence>("all");
+  const [gradeWeight, setGradeWeight] = useState<number>(5);
 
   const { data: courses } = useQuery({
     queryKey: ["courses-active"],
@@ -106,6 +109,7 @@ function ReportsPage() {
         const cells = activeDays.map((d) => (scanned.get(s.id)?.has(d) ? 1 : 0));
         const scans = cells.filter((v) => v === 1).length;
         const missed = cells.length - scans;
+        const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
         return {
           id: s.id,
           full_name: s.full_name,
@@ -114,33 +118,42 @@ function ReportsPage() {
           cells,
           scans,
           missed,
+          pct,
+          score: Math.round((pct / 100) * gradeWeight * 100) / 100,
           atRisk: missed > maxMisses,
         };
       })
       .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
     return { rows, days: activeDays };
-  }, [raw, courseId, activeDays, maxMisses]);
+  }, [raw, courseId, activeDays, maxMisses, gradeWeight]);
 
   const visibleRows = useMemo(() => {
     if (!report) return [];
-    if (risk === "at-risk") return report.rows.filter((r) => r.atRisk);
-    if (risk === "passed") return report.rows.filter((r) => !r.atRisk);
-    return report.rows;
-  }, [report, risk]);
+    let rows = report.rows;
+    if (risk === "at-risk") rows = rows.filter((r) => r.atRisk);
+    else if (risk === "passed") rows = rows.filter((r) => !r.atRisk);
+    if (presence === "present") rows = rows.filter((r) => r.scans > 0);
+    else if (presence === "absent") rows = rows.filter((r) => r.scans === 0);
+    return rows;
+  }, [report, risk, presence]);
 
   const courseLabel = useMemo(() => courses?.find((c: any) => c.id === courseId), [courses, courseId]);
   const atRiskCount = report?.rows.filter((r) => r.atRisk).length ?? 0;
+  const presentCount = report?.rows.filter((r) => r.scans > 0).length ?? 0;
+  const absentCount = (report?.rows.length ?? 0) - presentCount;
 
   const buildExportRows = () => {
     if (!report) return { rows: [] as any[], headers: [] as string[] };
     const dayHeaders = report.days.map((d) => `W${weekOfDay(d)} · ${prettyDay(d)}`);
-    const headers = ["Name", "Index", "Level", ...dayHeaders, "Scans", "Missed", "Status"];
+    const headers = ["Name", "Index", "Level", ...dayHeaders, "Scans", "Missed", "Attendance %", `Score (/${gradeWeight})`, "Status"];
     const rows = visibleRows.map((r) => {
       const base: Record<string, string | number> = { Name: r.full_name, Index: r.index_number, Level: r.level ?? "" };
       report.days.forEach((_d, i) => { base[dayHeaders[i]] = r.cells[i]; });
       base["Scans"] = r.scans;
       base["Missed"] = r.missed;
+      base["Attendance %"] = r.pct;
+      base[`Score (/${gradeWeight})`] = r.score;
       base["Status"] = r.atRisk ? `AT RISK (>${maxMisses} missed)` : "PASSED";
       return base;
     });
@@ -151,7 +164,8 @@ function ReportsPage() {
     const { rows, headers } = buildExportRows();
     if (!rows.length) return;
     const label = mode === "overall" ? "overall" : `W${weekOfDay(day)}-${day}`;
-    const filename = `${courseLabel?.code ?? "report"}-${label}`;
+    const suffix = presence === "all" ? "" : `-${presence}`;
+    const filename = `${courseLabel?.code ?? "report"}-${label}${suffix}`;
     if (fmt === "xlsx") exportToExcel(rows, filename);
     else if (fmt === "csv") exportToCSV(rows, filename);
     else
@@ -206,10 +220,27 @@ function ReportsPage() {
             <Label className="text-xs text-muted-foreground">Allowed misses</Label>
             <Input type="number" min={0} value={maxMisses} onChange={(e) => setMaxMisses(Math.max(0, Number(e.target.value)))} />
           </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Attendance weight (% of final grade)</Label>
+            <Input type="number" min={0} max={100} step={0.5} value={gradeWeight} onChange={(e) => setGradeWeight(Math.max(0, Math.min(100, Number(e.target.value))))} />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Show</Label>
+            <Tabs value={presence} onValueChange={(v) => setPresence(v as Presence)}>
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="all" className="flex-1 sm:flex-none">All ({report?.rows.length ?? 0})</TabsTrigger>
+                <TabsTrigger value="present" className="flex-1 sm:flex-none">Present ({presentCount})</TabsTrigger>
+                <TabsTrigger value="absent" className="flex-1 sm:flex-none">Absent ({absentCount})</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("xlsx")}><FileSpreadsheet className="size-4 mr-1" />Excel</Button>
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("csv")}><Download className="size-4 mr-1" />CSV</Button>
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("pdf")}><FileText className="size-4 mr-1" />PDF</Button>
+            <span className="text-xs text-muted-foreground self-center">
+              Downloads follow the filters above — {mode === "overall" ? "full compiled course report" : "this single session/day only"}.
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -254,6 +285,8 @@ function ReportsPage() {
                     ))}
                     <th className="p-3 text-center">Scans</th>
                     <th className="p-3 text-center">Missed</th>
+                    <th className="p-3 text-center">%</th>
+                    <th className="p-3 text-center whitespace-nowrap">Score /{gradeWeight}</th>
                     <th className="p-3 text-center">Status</th>
                   </tr>
                 </thead>
@@ -268,6 +301,8 @@ function ReportsPage() {
                       ))}
                       <td className="p-3 text-center font-bold text-success">{r.scans}</td>
                       <td className="p-3 text-center font-bold text-muted-foreground">{r.missed}</td>
+                      <td className="p-3 text-center font-semibold">{r.pct}%</td>
+                      <td className="p-3 text-center font-semibold text-primary">{r.score}</td>
                       <td className="p-3 text-center">
                         <span className={`text-xs px-2 py-1 rounded font-medium ${r.atRisk ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
                           {r.atRisk ? "AT RISK" : "PASSED"}
@@ -276,7 +311,7 @@ function ReportsPage() {
                     </tr>
                   ))}
                   {!visibleRows.length && (
-                    <tr><td colSpan={6 + report.days.length} className="p-6 text-center text-muted-foreground">
+                    <tr><td colSpan={8 + report.days.length} className="p-6 text-center text-muted-foreground">
                       {allDays.length ? "No students to show" : "No attendance recorded for this course yet"}
                     </td></tr>
                   )}

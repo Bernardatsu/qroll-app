@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle2, Link2, Mail, ShieldCheck, Home as HomeIcon } from "lucide-react";
+import { CheckCircle2, Link2, Mail, ShieldCheck, Home as HomeIcon, Info } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 
@@ -143,6 +143,24 @@ function SettingsPage() {
 
           <p className="text-xs text-muted-foreground pt-2">
             💡 <b>Security tip:</b> we only link your Google account when you're already signed in here. This prevents anyone else with the same Gmail address from taking over your account.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Info className="size-5 text-primary" /> About QRoll</CardTitle>
+          <CardDescription>Attendance and classroom management, made simple.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-1">
+          <p>Built by <b className="text-foreground">Bern Studio</b></p>
+          <p>Developed by <b className="text-foreground">Agbenyo Bernard Atsu</b></p>
+          <p className="text-xs pt-2">
+            <Link to={"/manual" as string} className="underline hover:text-primary">Manual</Link>
+            {" · "}
+            <Link to={"/terms" as string} className="underline hover:text-primary">Terms</Link>
+            {" · "}
+            <Link to={"/privacy" as string} className="underline hover:text-primary">Privacy</Link>
           </p>
         </CardContent>
       </Card>
