@@ -109,6 +109,7 @@ function ReportsPage() {
         const cells = activeDays.map((d) => (scanned.get(s.id)?.has(d) ? 1 : 0));
         const scans = cells.filter((v) => v === 1).length;
         const missed = cells.length - scans;
+        const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
         return {
           id: s.id,
           full_name: s.full_name,
@@ -117,33 +118,42 @@ function ReportsPage() {
           cells,
           scans,
           missed,
+          pct,
+          score: Math.round((pct / 100) * gradeWeight * 100) / 100,
           atRisk: missed > maxMisses,
         };
       })
       .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
     return { rows, days: activeDays };
-  }, [raw, courseId, activeDays, maxMisses]);
+  }, [raw, courseId, activeDays, maxMisses, gradeWeight]);
 
   const visibleRows = useMemo(() => {
     if (!report) return [];
-    if (risk === "at-risk") return report.rows.filter((r) => r.atRisk);
-    if (risk === "passed") return report.rows.filter((r) => !r.atRisk);
-    return report.rows;
-  }, [report, risk]);
+    let rows = report.rows;
+    if (risk === "at-risk") rows = rows.filter((r) => r.atRisk);
+    else if (risk === "passed") rows = rows.filter((r) => !r.atRisk);
+    if (presence === "present") rows = rows.filter((r) => r.scans > 0);
+    else if (presence === "absent") rows = rows.filter((r) => r.scans === 0);
+    return rows;
+  }, [report, risk, presence]);
 
   const courseLabel = useMemo(() => courses?.find((c: any) => c.id === courseId), [courses, courseId]);
   const atRiskCount = report?.rows.filter((r) => r.atRisk).length ?? 0;
+  const presentCount = report?.rows.filter((r) => r.scans > 0).length ?? 0;
+  const absentCount = (report?.rows.length ?? 0) - presentCount;
 
   const buildExportRows = () => {
     if (!report) return { rows: [] as any[], headers: [] as string[] };
     const dayHeaders = report.days.map((d) => `W${weekOfDay(d)} · ${prettyDay(d)}`);
-    const headers = ["Name", "Index", "Level", ...dayHeaders, "Scans", "Missed", "Status"];
+    const headers = ["Name", "Index", "Level", ...dayHeaders, "Scans", "Missed", "Attendance %", `Score (/${gradeWeight})`, "Status"];
     const rows = visibleRows.map((r) => {
       const base: Record<string, string | number> = { Name: r.full_name, Index: r.index_number, Level: r.level ?? "" };
       report.days.forEach((_d, i) => { base[dayHeaders[i]] = r.cells[i]; });
       base["Scans"] = r.scans;
       base["Missed"] = r.missed;
+      base["Attendance %"] = r.pct;
+      base[`Score (/${gradeWeight})`] = r.score;
       base["Status"] = r.atRisk ? `AT RISK (>${maxMisses} missed)` : "PASSED";
       return base;
     });
