@@ -94,12 +94,15 @@ function ScanPage() {
     const uuid = raw.trim();
     const sess = sessionRef.current;
     if (!uuid || !sess) return;
-    if (processingRef.current) return;
+    // Per-code lock (not a global lock) so a queue of students can be scanned
+    // back-to-back without the camera stalling on the previous student.
+    if (inFlight.current.has(uuid)) return;
     const now = Date.now();
     const last = recentScans.current.get(uuid) ?? 0;
-    if (now - last < 6000) return;
+    if (now - last < 3000) return;
     recentScans.current.set(uuid, now);
-    processingRef.current = true;
+    inFlight.current.add(uuid);
+    beep();
     try {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
