@@ -220,10 +220,27 @@ function ReportsPage() {
             <Label className="text-xs text-muted-foreground">Allowed misses</Label>
             <Input type="number" min={0} value={maxMisses} onChange={(e) => setMaxMisses(Math.max(0, Number(e.target.value)))} />
           </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Attendance weight (% of final grade)</Label>
+            <Input type="number" min={0} max={100} step={0.5} value={gradeWeight} onChange={(e) => setGradeWeight(Math.max(0, Math.min(100, Number(e.target.value))))} />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Show</Label>
+            <Tabs value={presence} onValueChange={(v) => setPresence(v as Presence)}>
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="all" className="flex-1 sm:flex-none">All ({report?.rows.length ?? 0})</TabsTrigger>
+                <TabsTrigger value="present" className="flex-1 sm:flex-none">Present ({presentCount})</TabsTrigger>
+                <TabsTrigger value="absent" className="flex-1 sm:flex-none">Absent ({absentCount})</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("xlsx")}><FileSpreadsheet className="size-4 mr-1" />Excel</Button>
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("csv")}><Download className="size-4 mr-1" />CSV</Button>
             <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("pdf")}><FileText className="size-4 mr-1" />PDF</Button>
+            <span className="text-xs text-muted-foreground self-center">
+              Downloads follow the filters above — {mode === "overall" ? "full compiled course report" : "this single session/day only"}.
+            </span>
           </div>
         </CardContent>
       </Card>
