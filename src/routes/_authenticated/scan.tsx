@@ -23,6 +23,28 @@ export const Route = createFileRoute("/_authenticated/scan")({
 
 const QR_REGION_ID = "qr-reader";
 
+/** Short confirmation tone so the operator knows a code was captured. */
+let audioCtx: AudioContext | null = null;
+function beep() {
+  try {
+    const Ctx = window.AudioContext ?? (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx ??= new Ctx();
+    void audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 1180;
+    gain.gain.setValueAtTime(0.09, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  } catch {
+    /* audio is a nicety — never block scanning */
+  }
+}
+
 function ScanPage() {
   const { session: sessionId } = Route.useSearch();
   const qc = useQueryClient();
