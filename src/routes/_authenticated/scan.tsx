@@ -116,19 +116,35 @@ function ScanPage() {
     refetchInterval: 3000,
   });
 
-  const processQr = async (raw: string) => {
+  const processQr = async (raw: string, opts?: { at?: string; replay?: boolean }): Promise<boolean> => {
     const uuid = raw.trim();
     const sess = sessionRef.current;
-    if (!uuid || !sess) return;
+    if (!uuid || !sess) return false;
+    const replay = opts?.replay === true;
     // Per-code lock (not a global lock) so a queue of students can be scanned
     // back-to-back without the camera stalling on the previous student.
-    if (inFlight.current.has(uuid)) return;
+    if (!replay && inFlight.current.has(uuid)) return false;
     const now = Date.now();
-    const last = recentScans.current.get(uuid) ?? 0;
-    if (now - last < 3000) return;
-    recentScans.current.set(uuid, now);
-    inFlight.current.add(uuid);
-    beep();
+    if (!replay) {
+      const last = recentScans.current.get(uuid) ?? 0;
+      if (now - last < 3000) return false;
+      recentScans.current.set(uuid, now);
+      inFlight.current.add(uuid);
+      beep();
+    }
+
+    // No network? Keep the scan locally and replay it when we're back online.
+    if (!replay && !isOnline()) {
+      queueScan(sess.id, uuid);
+      setPending(listQueued().length);
+      setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
+      setStatus("Offline — scan saved, will sync automatically");
+      toast.message("Offline — scan saved on this device");
+      inFlight.current.delete(uuid);
+      return true;
+    }
+
+    const at = opts?.at ?? new Date().toISOString();
     try {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
