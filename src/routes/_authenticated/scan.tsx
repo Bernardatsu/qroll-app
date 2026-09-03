@@ -145,6 +145,11 @@ function ScanPage() {
     }
 
     const at = opts?.at ?? new Date().toISOString();
+    const notify = {
+      error: (m: string) => !replay && toast.error(m),
+      success: (m: string) => !replay && toast.success(m),
+      message: (m: string) => !replay && toast.message(m),
+    };
     try {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
@@ -154,18 +159,18 @@ function ScanPage() {
         .maybeSingle();
       if (!student) {
         setStatus(`Unknown QR: ${uuid.slice(0, 12)}…`);
-        toast.error("Unknown QR code");
-        return;
+        notify.error("Unknown QR code");
+        return true; // not a network problem — don't keep retrying
       }
 
       // A course created for one class/level cannot be used by another level
       const courseLevel = String(sess.courses?.level ?? "").trim();
       const studentLevel = String((student as any).level ?? "").trim();
       if (courseLevel && studentLevel && courseLevel !== studentLevel) {
-        toast.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
+        notify.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
         setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
         setStatus(`Wrong level: ${student.full_name}`);
-        return;
+        return true;
       }
 
 
@@ -181,14 +186,14 @@ function ScanPage() {
           .from("course_registrations")
           .insert({ course_id: sess.course_id, student_id: student.id });
         if (regErr) {
-          toast.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
+          notify.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
           setStatus(`Registration failed: ${student.full_name}`);
-          return;
+          return false;
         }
-        toast.message(`Auto-registered ${student.full_name} for this course`);
+        notify.message(`Auto-registered ${student.full_name} for this course`);
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const day = at.slice(0, 10);
       const singleScanMode = (sess.mode ?? "single") === "single";
 
       const { data: existing } = await supabase
@@ -196,7 +201,7 @@ function ScanPage() {
         .select("*")
         .eq("session_id", sess.id)
         .eq("student_id", student.id)
-        .eq("session_date", today)
+        .eq("session_date", day)
         .maybeSingle();
       const { data: me } = await supabase.auth.getUser();
 
@@ -204,56 +209,94 @@ function ScanPage() {
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
-          session_date: today,
-          check_in_at: new Date().toISOString(),
+          session_date: day,
+          check_in_at: at,
           status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
           scanned_by: me.user?.id,
         } as any);
         if (error) {
-          toast.error(error.message);
+          notify.error(error.message);
           setStatus(`Error: ${error.message}`);
-        } else {
-          const label = singleScanMode ? "Recorded" : "Checked in";
-          toast.success(`✓ ${label}: ${student.full_name}`);
-          setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
-          setStatus(`${label}: ${student.full_name}`);
+          return false;
         }
+        const label = singleScanMode ? "Recorded" : "Checked in";
+        notify.success(`✓ ${label}: ${student.full_name}`);
+        setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
+        setStatus(`${label}: ${student.full_name}`);
       } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
-        toast.message(`Already recorded today: ${student.full_name}`);
+        notify.message(`Already recorded today: ${student.full_name}`);
         setLastScan({ name: student.full_name, status: "ALREADY RECORDED" });
         setStatus(`Already recorded today: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
-        const minsSince = Math.floor((now - checkIn) / 60000);
+        const minsSince = Math.floor((Date.parse(at) - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          toast.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
+          notify.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
           setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
           setStatus(`Sign-out locked for ${student.full_name}`);
-          return;
+          return true;
         }
         const duration = Math.max(1, minsSince);
         const { error } = await supabase
           .from("attendance_records")
           .update({
-            check_out_at: new Date().toISOString(),
+            check_out_at: at,
             duration_minutes: duration,
             status: "PRESENT",
           })
           .eq("id", existing.id);
         if (error) {
-          toast.error(error.message);
+          notify.error(error.message);
           setStatus(`Error: ${error.message}`);
-        } else {
-          toast.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
-          setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
-          setStatus(`Signed out: ${student.full_name}`);
+          return false;
         }
+        notify.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
+        setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
+        setStatus(`Signed out: ${student.full_name}`);
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
+      return true;
+    } catch (err: any) {
+      // Network dropped mid-request — stash the scan instead of losing it.
+      if (!replay) {
+        queueScan(sess.id, uuid, at);
+        setPending(listQueued().length);
+        setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
+        setStatus("Connection lost — scan saved, will sync automatically");
+        toast.message("Connection lost — scan saved on this device");
+      }
+      return false;
     } finally {
       inFlight.current.delete(uuid);
     }
+  };
+
+  /** Replay every stored scan for this session, oldest first. */
+  const syncQueue = async (silent = false) => {
+    const items = listQueued(activeSession);
+    if (!items.length || !sessionRef.current) {
+      if (!silent) toast.message("Nothing to sync");
+      return;
+    }
+    if (!isOnline()) {
+      if (!silent) toast.error("Still offline — try again once you have a connection");
+      return;
+    }
+    setSyncing(true);
+    let done = 0;
+    for (const item of items.sort((a, b) => a.at.localeCompare(b.at))) {
+      const ok = await processQr(item.code, { at: item.at, replay: true });
+      if (ok) {
+        removeQueued(item.id);
+        done += 1;
+      }
+    }
+    setPending(listQueued().length);
+    setSyncing(false);
+    qc.invalidateQueries({ queryKey: ["records", activeSession] });
+    if (done) toast.success(`Synced ${done} offline scan${done === 1 ? "" : "s"}`);
+    else if (!silent) toast.error("Could not sync yet — will retry");
   };
 
 
