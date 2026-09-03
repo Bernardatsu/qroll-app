@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera, Lock } from "lucide-react";
+import { CheckCircle2, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera, Lock, WifiOff, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { clearQueue, isOnline, listQueued, queueScan, removeQueued } from "@/lib/offline-queue";
 
 type Search = { session?: string };
 
@@ -59,6 +60,9 @@ function ScanPage() {
   const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
   const inFlight = useRef<Set<string>>(new Set());
+  const [online, setOnline] = useState(true);
+  const [pending, setPending] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
@@ -112,19 +116,40 @@ function ScanPage() {
     refetchInterval: 3000,
   });
 
-  const processQr = async (raw: string) => {
+  const processQr = async (raw: string, opts?: { at?: string; replay?: boolean }): Promise<boolean> => {
     const uuid = raw.trim();
     const sess = sessionRef.current;
-    if (!uuid || !sess) return;
+    if (!uuid || !sess) return false;
+    const replay = opts?.replay === true;
     // Per-code lock (not a global lock) so a queue of students can be scanned
     // back-to-back without the camera stalling on the previous student.
-    if (inFlight.current.has(uuid)) return;
+    if (!replay && inFlight.current.has(uuid)) return false;
     const now = Date.now();
-    const last = recentScans.current.get(uuid) ?? 0;
-    if (now - last < 3000) return;
-    recentScans.current.set(uuid, now);
-    inFlight.current.add(uuid);
-    beep();
+    if (!replay) {
+      const last = recentScans.current.get(uuid) ?? 0;
+      if (now - last < 3000) return false;
+      recentScans.current.set(uuid, now);
+      inFlight.current.add(uuid);
+      beep();
+    }
+
+    // No network? Keep the scan locally and replay it when we're back online.
+    if (!replay && !isOnline()) {
+      queueScan(sess.id, uuid);
+      setPending(listQueued().length);
+      setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
+      setStatus("Offline — scan saved, will sync automatically");
+      toast.message("Offline — scan saved on this device");
+      inFlight.current.delete(uuid);
+      return true;
+    }
+
+    const at = opts?.at ?? new Date().toISOString();
+    const notify = {
+      error: (m: string) => !replay && toast.error(m),
+      success: (m: string) => !replay && toast.success(m),
+      message: (m: string) => !replay && toast.message(m),
+    };
     try {
       // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
       const { data: student } = await supabase
@@ -134,18 +159,18 @@ function ScanPage() {
         .maybeSingle();
       if (!student) {
         setStatus(`Unknown QR: ${uuid.slice(0, 12)}…`);
-        toast.error("Unknown QR code");
-        return;
+        notify.error("Unknown QR code");
+        return true; // not a network problem — don't keep retrying
       }
 
       // A course created for one class/level cannot be used by another level
       const courseLevel = String(sess.courses?.level ?? "").trim();
       const studentLevel = String((student as any).level ?? "").trim();
       if (courseLevel && studentLevel && courseLevel !== studentLevel) {
-        toast.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
+        notify.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
         setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
         setStatus(`Wrong level: ${student.full_name}`);
-        return;
+        return true;
       }
 
 
@@ -161,14 +186,14 @@ function ScanPage() {
           .from("course_registrations")
           .insert({ course_id: sess.course_id, student_id: student.id });
         if (regErr) {
-          toast.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
+          notify.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
           setStatus(`Registration failed: ${student.full_name}`);
-          return;
+          return false;
         }
-        toast.message(`Auto-registered ${student.full_name} for this course`);
+        notify.message(`Auto-registered ${student.full_name} for this course`);
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const day = at.slice(0, 10);
       const singleScanMode = (sess.mode ?? "single") === "single";
 
       const { data: existing } = await supabase
@@ -176,7 +201,7 @@ function ScanPage() {
         .select("*")
         .eq("session_id", sess.id)
         .eq("student_id", student.id)
-        .eq("session_date", today)
+        .eq("session_date", day)
         .maybeSingle();
       const { data: me } = await supabase.auth.getUser();
 
@@ -184,56 +209,94 @@ function ScanPage() {
         const { error } = await supabase.from("attendance_records").insert({
           session_id: sess.id,
           student_id: student.id,
-          session_date: today,
-          check_in_at: new Date().toISOString(),
+          session_date: day,
+          check_in_at: at,
           status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
           scanned_by: me.user?.id,
         } as any);
         if (error) {
-          toast.error(error.message);
+          notify.error(error.message);
           setStatus(`Error: ${error.message}`);
-        } else {
-          const label = singleScanMode ? "Recorded" : "Checked in";
-          toast.success(`✓ ${label}: ${student.full_name}`);
-          setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
-          setStatus(`${label}: ${student.full_name}`);
+          return false;
         }
+        const label = singleScanMode ? "Recorded" : "Checked in";
+        notify.success(`✓ ${label}: ${student.full_name}`);
+        setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
+        setStatus(`${label}: ${student.full_name}`);
       } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
-        toast.message(`Already recorded today: ${student.full_name}`);
+        notify.message(`Already recorded today: ${student.full_name}`);
         setLastScan({ name: student.full_name, status: "ALREADY RECORDED" });
         setStatus(`Already recorded today: ${student.full_name}`);
       } else {
         const checkIn = new Date(existing.check_in_at!).getTime();
-        const minsSince = Math.floor((now - checkIn) / 60000);
+        const minsSince = Math.floor((Date.parse(at) - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          toast.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
+          notify.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
           setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
           setStatus(`Sign-out locked for ${student.full_name}`);
-          return;
+          return true;
         }
         const duration = Math.max(1, minsSince);
         const { error } = await supabase
           .from("attendance_records")
           .update({
-            check_out_at: new Date().toISOString(),
+            check_out_at: at,
             duration_minutes: duration,
             status: "PRESENT",
           })
           .eq("id", existing.id);
         if (error) {
-          toast.error(error.message);
+          notify.error(error.message);
           setStatus(`Error: ${error.message}`);
-        } else {
-          toast.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
-          setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
-          setStatus(`Signed out: ${student.full_name}`);
+          return false;
         }
+        notify.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
+        setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
+        setStatus(`Signed out: ${student.full_name}`);
       }
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
+      return true;
+    } catch (err: any) {
+      // Network dropped mid-request — stash the scan instead of losing it.
+      if (!replay) {
+        queueScan(sess.id, uuid, at);
+        setPending(listQueued().length);
+        setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
+        setStatus("Connection lost — scan saved, will sync automatically");
+        toast.message("Connection lost — scan saved on this device");
+      }
+      return false;
     } finally {
       inFlight.current.delete(uuid);
     }
+  };
+
+  /** Replay every stored scan for this session, oldest first. */
+  const syncQueue = async (silent = false) => {
+    const items = listQueued(activeSession);
+    if (!items.length || !sessionRef.current) {
+      if (!silent) toast.message("Nothing to sync");
+      return;
+    }
+    if (!isOnline()) {
+      if (!silent) toast.error("Still offline — try again once you have a connection");
+      return;
+    }
+    setSyncing(true);
+    let done = 0;
+    for (const item of items.sort((a, b) => a.at.localeCompare(b.at))) {
+      const ok = await processQr(item.code, { at: item.at, replay: true });
+      if (ok) {
+        removeQueued(item.id);
+        done += 1;
+      }
+    }
+    setPending(listQueued().length);
+    setSyncing(false);
+    qc.invalidateQueries({ queryKey: ["records", activeSession] });
+    if (done) toast.success(`Synced ${done} offline scan${done === 1 ? "" : "s"}`);
+    else if (!silent) toast.error("Could not sync yet — will retry");
   };
 
 
@@ -350,6 +413,32 @@ function ScanPage() {
     }
   }, [activeSession, openSessions]);
 
+  // Connectivity watcher: flush the offline queue the moment we're back online.
+  useEffect(() => {
+    setOnline(isOnline());
+    setPending(listQueued().length);
+    const goOnline = () => {
+      setOnline(true);
+      toast.success("Back online — syncing saved scans");
+      void syncQueue(true);
+    };
+    const goOffline = () => {
+      setOnline(false);
+      toast.message("You're offline — scans will be saved on this device");
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession]);
+
+  useEffect(() => {
+    setPending(listQueued(activeSession).length);
+  }, [activeSession]);
+
   const submitManual = (e: React.FormEvent) => {
     e.preventDefault();
     if (manual.trim()) {
@@ -366,6 +455,42 @@ function ScanPage() {
         scans are recorded automatically for today's date.
       </p>
 
+      {(!online || pending > 0) && (
+        <div
+          className={`mb-4 rounded-lg border p-3 flex flex-wrap items-center gap-3 text-sm ${
+            online ? "border-warning/40 bg-warning/10" : "border-destructive/40 bg-destructive/10"
+          }`}
+        >
+          <WifiOff className="size-4 shrink-0" />
+          <div className="flex-1 min-w-[12rem]">
+            <div className="font-medium">{online ? "Offline scans waiting to sync" : "You are offline"}</div>
+            <div className="text-xs text-muted-foreground">
+              {pending > 0
+                ? `${pending} scan${pending === 1 ? "" : "s"} saved on this device.`
+                : "Scans keep working — they are saved here and uploaded automatically."}
+            </div>
+          </div>
+          {pending > 0 && (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void syncQueue()} disabled={syncing || !online}>
+                <UploadCloud className="size-4 mr-1" />
+                {syncing ? "Syncing…" : "Sync now"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (!confirm("Discard the saved offline scans? They will be lost permanently.")) return;
+                  clearQueue(activeSession);
+                  setPending(listQueued(activeSession).length);
+                }}
+              >
+                Discard
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
