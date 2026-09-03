@@ -413,6 +413,32 @@ function ScanPage() {
     }
   }, [activeSession, openSessions]);
 
+  // Connectivity watcher: flush the offline queue the moment we're back online.
+  useEffect(() => {
+    setOnline(isOnline());
+    setPending(listQueued().length);
+    const goOnline = () => {
+      setOnline(true);
+      toast.success("Back online — syncing saved scans");
+      void syncQueue(true);
+    };
+    const goOffline = () => {
+      setOnline(false);
+      toast.message("You're offline — scans will be saved on this device");
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession]);
+
+  useEffect(() => {
+    setPending(listQueued(activeSession).length);
+  }, [activeSession]);
+
   const submitManual = (e: React.FormEvent) => {
     e.preventDefault();
     if (manual.trim()) {
