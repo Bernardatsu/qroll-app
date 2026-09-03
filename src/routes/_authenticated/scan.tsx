@@ -60,6 +60,9 @@ function ScanPage() {
   const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
   const inFlight = useRef<Set<string>>(new Set());
+  const [online, setOnline] = useState(true);
+  const [pending, setPending] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions"],
