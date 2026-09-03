@@ -455,6 +455,42 @@ function ScanPage() {
         scans are recorded automatically for today's date.
       </p>
 
+      {(!online || pending > 0) && (
+        <div
+          className={`mb-4 rounded-lg border p-3 flex flex-wrap items-center gap-3 text-sm ${
+            online ? "border-warning/40 bg-warning/10" : "border-destructive/40 bg-destructive/10"
+          }`}
+        >
+          <WifiOff className="size-4 shrink-0" />
+          <div className="flex-1 min-w-[12rem]">
+            <div className="font-medium">{online ? "Offline scans waiting to sync" : "You are offline"}</div>
+            <div className="text-xs text-muted-foreground">
+              {pending > 0
+                ? `${pending} scan${pending === 1 ? "" : "s"} saved on this device.`
+                : "Scans keep working — they are saved here and uploaded automatically."}
+            </div>
+          </div>
+          {pending > 0 && (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void syncQueue()} disabled={syncing || !online}>
+                <UploadCloud className="size-4 mr-1" />
+                {syncing ? "Syncing…" : "Sync now"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (!confirm("Discard the saved offline scans? They will be lost permanently.")) return;
+                  clearQueue(activeSession);
+                  setPending(listQueued(activeSession).length);
+                }}
+              >
+                Discard
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
