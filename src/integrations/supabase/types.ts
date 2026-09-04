@@ -448,6 +448,7 @@ export type Database = {
           index_number: string
           level: string
           owner_id: string
+          password_hash: string | null
           pin: string
           program: string | null
           qr_uuid: string
@@ -464,6 +465,7 @@ export type Database = {
           index_number: string
           level: string
           owner_id: string
+          password_hash?: string | null
           pin: string
           program?: string | null
           qr_uuid?: string
@@ -480,6 +482,7 @@ export type Database = {
           index_number?: string
           level?: string
           owner_id?: string
+          password_hash?: string | null
           pin?: string
           program?: string | null
           qr_uuid?: string
@@ -718,6 +721,60 @@ export type Database = {
           message: string
           ok: boolean
           student_name: string
+        }[]
+      }
+      student_auth_status: {
+        Args: { _index: string }
+        Returns: {
+          exists_: boolean
+          has_email: boolean
+          has_password: boolean
+        }[]
+      }
+      student_courses: {
+        Args: { _index: string; _password: string }
+        Returns: {
+          attended: number
+          code: string
+          course_id: string
+          percentage: number
+          sessions_total: number
+          title: string
+        }[]
+      }
+      student_history: {
+        Args: { _index: string; _password: string }
+        Returns: {
+          checked_in: string
+          course_code: string
+          session_date: string
+          session_title: string
+          status: string
+        }[]
+      }
+      student_login: {
+        Args: { _index: string; _password: string }
+        Returns: {
+          full_name: string
+          index_number: string
+          level: string
+          ok: boolean
+          pin: string
+          qr_uuid: string
+        }[]
+      }
+      student_reset_password: {
+        Args: { _email: string; _index: string; _password: string }
+        Returns: {
+          message: string
+          ok: boolean
+        }[]
+      }
+      student_set_password: {
+        Args: { _email: string; _index: string; _password: string }
+        Returns: {
+          message: string
+          ok: boolean
         }[]
       }
     }
