@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as StudentRouteImport } from './routes/student'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as CheckInRouteImport } from './routes/check-in'
@@ -27,6 +28,7 @@ import { Route as AuthenticatedDepartmentsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
+import { Route as PortalTokenIndexRouteImport } from './routes/portal.$token.index'
 import { Route as PortalTokenRegisterRouteImport } from './routes/portal.$token.register'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api/public/webhooks/paystack'
@@ -34,6 +36,11 @@ import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api/publ
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentRoute = StudentRouteImport.update({
+  id: '/student',
+  path: '/student',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -122,6 +129,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PortalTokenIndexRoute = PortalTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalTokenRoute,
+} as any)
 const PortalTokenRegisterRoute = PortalTokenRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -146,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -160,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -168,6 +182,7 @@ export interface FileRoutesByTo {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -179,9 +194,9 @@ export interface FileRoutesByTo {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/students': typeof AuthenticatedStudentsRoute
-  '/portal/$token': typeof PortalTokenRouteWithChildren
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -192,6 +207,7 @@ export interface FileRoutesById {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -206,6 +222,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -216,6 +233,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/billing'
     | '/courses'
@@ -230,6 +248,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token/'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -238,6 +257,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/billing'
     | '/courses'
@@ -249,9 +269,9 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/students'
-    | '/portal/$token'
     | '/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -261,6 +281,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/_authenticated/billing'
     | '/_authenticated/courses'
@@ -275,6 +296,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token/'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -285,6 +307,7 @@ export interface RootRouteChildren {
   CheckInRoute: typeof CheckInRoute
   ManualRoute: typeof ManualRoute
   PrivacyRoute: typeof PrivacyRoute
+  StudentRoute: typeof StudentRoute
   TermsRoute: typeof TermsRoute
   PortalTokenRoute: typeof PortalTokenRouteWithChildren
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -297,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student': {
+      id: '/student'
+      path: '/student'
+      fullPath: '/student'
+      preLoaderRoute: typeof StudentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -418,6 +448,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/portal/$token/': {
+      id: '/portal/$token/'
+      path: '/'
+      fullPath: '/portal/$token/'
+      preLoaderRoute: typeof PortalTokenIndexRouteImport
+      parentRoute: typeof PortalTokenRoute
+    }
     '/portal/$token/register': {
       id: '/portal/$token/register'
       path: '/register'
@@ -484,10 +521,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface PortalTokenRouteChildren {
   PortalTokenRegisterRoute: typeof PortalTokenRegisterRoute
+  PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
 
 const PortalTokenRouteChildren: PortalTokenRouteChildren = {
   PortalTokenRegisterRoute: PortalTokenRegisterRoute,
+  PortalTokenIndexRoute: PortalTokenIndexRoute,
 }
 
 const PortalTokenRouteWithChildren = PortalTokenRoute._addFileChildren(
@@ -501,6 +540,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckInRoute: CheckInRoute,
   ManualRoute: ManualRoute,
   PrivacyRoute: PrivacyRoute,
+  StudentRoute: StudentRoute,
   TermsRoute: TermsRoute,
   PortalTokenRoute: PortalTokenRouteWithChildren,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
