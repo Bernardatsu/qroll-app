@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, GraduationCap } from "lucide-react";
+import { Download, FileText, GraduationCap, UserPlus } from "lucide-react";
+
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -81,7 +82,14 @@ function PortalPage() {
               <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
               <Button type="submit" className="w-full" disabled={loading}>{loading ? "Looking up..." : "Show my QR"}</Button>
             </form>
+            <div className="mt-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-center text-sm">
+              <p className="text-muted-foreground mb-2">New student and not in the system yet?</p>
+              <Link to="/portal/$token/register" params={{ token }}>
+                <Button variant="outline" className="w-full"><UserPlus className="size-4 mr-1" />Register as a new student</Button>
+              </Link>
+            </div>
           </CardContent>
+
         </Card>
       ) : (
         <Card className="w-full max-w-md">

@@ -670,6 +670,34 @@ export type Database = {
           qr_uuid: string
         }[]
       }
+      portal_options: {
+        Args: { _token: string }
+        Returns: {
+          id: string
+          kind: string
+          name: string
+        }[]
+      }
+      portal_register: {
+        Args: {
+          _department_id?: string
+          _email: string
+          _full_name: string
+          _index: string
+          _level: string
+          _program?: string
+          _token: string
+        }
+        Returns: {
+          department: string
+          existed: boolean
+          full_name: string
+          index_number: string
+          level: string
+          pin: string
+          qr_uuid: string
+        }[]
+      }
       self_checkin: {
         Args: { _index: string; _pin: string; _session_id: string }
         Returns: {
