@@ -81,7 +81,14 @@ function PortalPage() {
               <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
               <Button type="submit" className="w-full" disabled={loading}>{loading ? "Looking up..." : "Show my QR"}</Button>
             </form>
+            <div className="mt-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-center text-sm">
+              <p className="text-muted-foreground mb-2">New student and not in the system yet?</p>
+              <Link to="/portal/$token/register" params={{ token }}>
+                <Button variant="outline" className="w-full"><UserPlus className="size-4 mr-1" />Register as a new student</Button>
+              </Link>
+            </div>
           </CardContent>
+
         </Card>
       ) : (
         <Card className="w-full max-w-md">
