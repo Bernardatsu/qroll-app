@@ -27,6 +27,7 @@ import { Route as AuthenticatedDepartmentsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
+import { Route as PortalTokenIndexRouteImport } from './routes/portal.$token.index'
 import { Route as PortalTokenRegisterRouteImport } from './routes/portal.$token.register'
 import { Route as AuthenticatedCoursesCourseIdRouteImport } from './routes/_authenticated/courses.$courseId'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api/public/webhooks/paystack'
@@ -122,6 +123,11 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PortalTokenIndexRoute = PortalTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalTokenRoute,
+} as any)
 const PortalTokenRegisterRoute = PortalTokenRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -179,9 +186,9 @@ export interface FileRoutesByTo {
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/students': typeof AuthenticatedStudentsRoute
-  '/portal/$token': typeof PortalTokenRouteWithChildren
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -206,6 +213,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/courses/$courseId': typeof AuthenticatedCoursesCourseIdRoute
   '/portal/$token/register': typeof PortalTokenRegisterRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -230,6 +238,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token/'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -249,9 +258,9 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/students'
-    | '/portal/$token'
     | '/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/courses/$courseId'
     | '/portal/$token/register'
+    | '/portal/$token/'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -418,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/portal/$token/': {
+      id: '/portal/$token/'
+      path: '/'
+      fullPath: '/portal/$token/'
+      preLoaderRoute: typeof PortalTokenIndexRouteImport
+      parentRoute: typeof PortalTokenRoute
+    }
     '/portal/$token/register': {
       id: '/portal/$token/register'
       path: '/register'
@@ -484,10 +501,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface PortalTokenRouteChildren {
   PortalTokenRegisterRoute: typeof PortalTokenRegisterRoute
+  PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
 
 const PortalTokenRouteChildren: PortalTokenRouteChildren = {
   PortalTokenRegisterRoute: PortalTokenRegisterRoute,
+  PortalTokenIndexRoute: PortalTokenIndexRoute,
 }
 
 const PortalTokenRouteWithChildren = PortalTokenRoute._addFileChildren(

@@ -12,7 +12,7 @@ import { Download, FileText, GraduationCap, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
-export const Route = createFileRoute("/portal/$token")({
+export const Route = createFileRoute("/portal/$token/")({
   ssr: false,
   head: () => ({ meta: [{ title: "Student QR Portal — QRoll" }] }),
   component: PortalPage,
