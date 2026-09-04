@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as StudentRouteImport } from './routes/student'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ManualRouteImport } from './routes/manual'
 import { Route as CheckInRouteImport } from './routes/check-in'
@@ -35,6 +36,11 @@ import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api/publ
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentRoute = StudentRouteImport.update({
+  id: '/student',
+  path: '/student',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/check-in': typeof CheckInRoute
   '/manual': typeof ManualRoute
   '/privacy': typeof PrivacyRoute
+  '/student': typeof StudentRoute
   '/terms': typeof TermsRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/billing'
     | '/courses'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/billing'
     | '/courses'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/manual'
     | '/privacy'
+    | '/student'
     | '/terms'
     | '/_authenticated/billing'
     | '/_authenticated/courses'
@@ -295,6 +307,7 @@ export interface RootRouteChildren {
   CheckInRoute: typeof CheckInRoute
   ManualRoute: typeof ManualRoute
   PrivacyRoute: typeof PrivacyRoute
+  StudentRoute: typeof StudentRoute
   TermsRoute: typeof TermsRoute
   PortalTokenRoute: typeof PortalTokenRouteWithChildren
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
@@ -307,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student': {
+      id: '/student'
+      path: '/student'
+      fullPath: '/student'
+      preLoaderRoute: typeof StudentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -520,6 +540,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckInRoute: CheckInRoute,
   ManualRoute: ManualRoute,
   PrivacyRoute: PrivacyRoute,
+  StudentRoute: StudentRoute,
   TermsRoute: TermsRoute,
   PortalTokenRoute: PortalTokenRouteWithChildren,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
