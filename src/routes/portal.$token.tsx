@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, GraduationCap } from "lucide-react";
+import { Download, FileText, GraduationCap, UserPlus } from "lucide-react";
+
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
