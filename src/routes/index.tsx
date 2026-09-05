@@ -45,7 +45,10 @@ function Landing() {
               <div className="text-xs text-muted-foreground truncate">Scan. Verify. Attend.</div>
             </div>
           </div>
-          <Link to={"/auth" as string}><Button>Sign in</Button></Link>
+          <div className="flex items-center gap-2">
+            <Link to={"/student" as string}><Button variant="outline">Student page</Button></Link>
+            <Link to={"/auth" as string}><Button>Sign in</Button></Link>
+          </div>
         </div>
       </header>
 
