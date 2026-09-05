@@ -21,6 +21,7 @@ import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSessionsRouteImport } from './routes/_authenticated/sessions'
+import { Route as AuthenticatedSemestersRouteImport } from './routes/_authenticated/semesters'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPortalLinksRouteImport } from './routes/_authenticated/portal-links'
@@ -90,6 +91,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedSessionsRoute = AuthenticatedSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSemestersRoute = AuthenticatedSemestersRouteImport.update({
+  id: '/semesters',
+  path: '/semesters',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedScanRoute = AuthenticatedScanRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/portal-links': typeof AuthenticatedPortalLinksRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/scan': typeof AuthenticatedScanRoute
+  '/semesters': typeof AuthenticatedSemestersRoute
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/students': typeof AuthenticatedStudentsRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/portal-links': typeof AuthenticatedPortalLinksRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/scan': typeof AuthenticatedScanRoute
+  '/semesters': typeof AuthenticatedSemestersRoute
   '/sessions': typeof AuthenticatedSessionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/students': typeof AuthenticatedStudentsRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/_authenticated/portal-links': typeof AuthenticatedPortalLinksRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
+  '/_authenticated/semesters': typeof AuthenticatedSemestersRoute
   '/_authenticated/sessions': typeof AuthenticatedSessionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/portal-links'
     | '/reports'
     | '/scan'
+    | '/semesters'
     | '/sessions'
     | '/settings'
     | '/students'
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/portal-links'
     | '/reports'
     | '/scan'
+    | '/semesters'
     | '/sessions'
     | '/settings'
     | '/students'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portal-links'
     | '/_authenticated/reports'
     | '/_authenticated/scan'
+    | '/_authenticated/semesters'
     | '/_authenticated/sessions'
     | '/_authenticated/settings'
     | '/_authenticated/students'
@@ -399,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSessionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/semesters': {
+      id: '/_authenticated/semesters'
+      path: '/semesters'
+      fullPath: '/semesters'
+      preLoaderRoute: typeof AuthenticatedSemestersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/scan': {
       id: '/_authenticated/scan'
       path: '/scan'
@@ -498,6 +517,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortalLinksRoute: typeof AuthenticatedPortalLinksRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
+  AuthenticatedSemestersRoute: typeof AuthenticatedSemestersRoute
   AuthenticatedSessionsRoute: typeof AuthenticatedSessionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
@@ -511,6 +531,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortalLinksRoute: AuthenticatedPortalLinksRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
+  AuthenticatedSemestersRoute: AuthenticatedSemestersRoute,
   AuthenticatedSessionsRoute: AuthenticatedSessionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
