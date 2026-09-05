@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.block_archived_term_changes() FROM PUBLIC, anon, authenticated;
