@@ -31,12 +31,18 @@ function CoursesPage() {
   });
   const { data: depts } = useQuery({ queryKey: ["departments"], queryFn: async () => (await supabase.from("departments").select("*").order("name")).data ?? [] });
   const { data: years } = useQuery({ queryKey: ["years"], queryFn: async () => (await supabase.from("academic_years").select("*").order("name", { ascending: false })).data ?? [] });
+  const { data: currentTerm } = useQuery({
+    queryKey: ["current-term"],
+    queryFn: async () =>
+      (await supabase.from("academic_terms").select("id, year_name, semester").eq("is_current", true).maybeSingle()).data,
+  });
 
   const add = async () => {
     if (!form.code || !form.title) return toast.error("Code and title required");
     const payload: any = { ...form, credit_hours: Number(form.credit_hours) };
     if (!payload.department_id) delete payload.department_id;
     if (!payload.academic_year_id) delete payload.academic_year_id;
+    if (currentTerm?.id) payload.term_id = currentTerm.id;
     const { error } = await supabase.from("courses").insert(payload);
     if (error) return toast.error(error.message);
     toast.success("Course added");

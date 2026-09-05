@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      academic_terms: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          ends_on: string | null
+          id: string
+          is_current: boolean
+          owner_id: string
+          semester: Database["public"]["Enums"]["semester_name"]
+          starts_on: string | null
+          updated_at: string
+          year_name: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          is_current?: boolean
+          owner_id?: string
+          semester: Database["public"]["Enums"]["semester_name"]
+          starts_on?: string | null
+          updated_at?: string
+          year_name: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          is_current?: boolean
+          owner_id?: string
+          semester?: Database["public"]["Enums"]["semester_name"]
+          starts_on?: string | null
+          updated_at?: string
+          year_name?: string
+        }
+        Relationships: []
+      }
       academic_years: {
         Row: {
           created_at: string
@@ -266,6 +305,7 @@ export type Database = {
           level: string
           owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
+          term_id: string | null
           title: string
         }
         Insert: {
@@ -280,6 +320,7 @@ export type Database = {
           level: string
           owner_id: string
           semester: Database["public"]["Enums"]["semester_name"]
+          term_id?: string | null
           title: string
         }
         Update: {
@@ -294,6 +335,7 @@ export type Database = {
           level?: string
           owner_id?: string
           semester?: Database["public"]["Enums"]["semester_name"]
+          term_id?: string | null
           title?: string
         }
         Relationships: [
@@ -309,6 +351,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "academic_terms"
             referencedColumns: ["id"]
           },
         ]

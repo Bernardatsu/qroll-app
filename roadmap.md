@@ -15,24 +15,27 @@ Status: [x] done · [~] partial · [ ] pending
 - [x] Offline banner + pending count + manual "Sync now"
 - [x] Auto-sync on reconnect, duplicate-safe replay
 
-## Phase 3 — Student self-service portal
-- [ ] Homepage "Student Page" button
-- [ ] Index-number lookup → first-time password creation (hashed, server-side)
-- [ ] Student login (index + password) + secure reset via email on record
-- [ ] Student dashboard: attendance %, present/absent/late sessions, warnings
-- [ ] Strict isolation: a student sees only their own records
+## Phase 3 — Student self-service portal (DONE)
+- [x] Homepage "Student Page" button (header + hero)
+- [x] Index-number lookup → first-time password creation (hashed, server-side)
+- [x] Student login (index + password) + secure reset via email on record
+- [x] Student dashboard: attendance %, present/absent sessions, warnings
+- [x] Strict isolation: a student sees only their own records
+- [x] Self-registration page from the portal link
 
-## Phase 4 — Reports upgrade
-- [ ] Complete compilation report per course (all sessions rolled up)
-- [ ] Single-session/day report download
-- [ ] PDF / Excel / CSV export parity
+## Phase 4 — Reports upgrade (DONE)
+- [x] Complete compilation report per course (all sessions rolled up)
+- [x] Single-session/day report download
+- [x] PDF / Excel / CSV export parity
 
 ## Phase 5 — Academic semester management + archive
-- [ ] Faculty → Department → Programme → Year → Semester → Course structure
-- [ ] End-of-semester archive prompt; lock + preserve, open clean workspace
+- [x] Academic year + semester terms, current-semester marker
+- [x] End-of-semester archive prompt; lock + preserve
+- [x] New courses auto-join the current semester
 - [ ] Academic History dashboard + cross-semester search
 - [ ] Historical reports (attendance, performance, department, tutor workload)
 - [ ] Role-based access: super admin / dept head / tutor / TA / student
+
 
 ## Phase 6 — Assignments, announcements, notifications
 - [ ] Assignments with deadlines + submission links
