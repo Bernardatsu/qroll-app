@@ -40,6 +40,7 @@ const nav: NavItem[] = [
   { to: "/students", label: "Students", icon: Users, adminOnly: true },
   { to: "/courses", label: "Courses", icon: BookOpen, adminOnly: true },
   { to: "/departments", label: "Departments", icon: Building2, adminOnly: true },
+  { to: "/semesters", label: "Semesters", icon: CalendarRange, adminOnly: true },
   { to: "/sessions", label: "Sessions", icon: CalendarClock },
   { to: "/scan", label: "Scanner", icon: ScanLine },
   { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
