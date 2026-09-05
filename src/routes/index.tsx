@@ -68,6 +68,7 @@ function Landing() {
             <div className="mt-7 flex flex-wrap gap-3">
               <Link to={"/auth" as string}><Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90">Get started</Button></Link>
               <Link to={"/manual" as string}><Button size="lg" variant="outline" className="border-white/40 bg-white/0 text-primary-foreground hover:bg-white/10">Read the manual</Button></Link>
+              <Link to={"/student" as string}><Button size="lg" variant="outline" className="border-white/40 bg-white/0 text-primary-foreground hover:bg-white/10">Student page</Button></Link>
             </div>
           </div>
           <div className="hidden md:grid grid-cols-2 gap-4">
