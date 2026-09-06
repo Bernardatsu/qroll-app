@@ -32,8 +32,8 @@ Status: [x] done · [~] partial · [ ] pending
 - [x] Academic year + semester terms, current-semester marker
 - [x] End-of-semester archive prompt; lock + preserve
 - [x] New courses auto-join the current semester
-- [ ] Academic History dashboard + cross-semester search
-- [ ] Historical reports (attendance, performance, department, tutor workload)
+- [x] Academic History dashboard + cross-semester search (course & student views, archive search, Excel/CSV/PDF export)
+- [~] Historical reports (course + student attendance done; department/tutor workload pending)
 - [ ] Role-based access: super admin / dept head / tutor / TA / student
 
 
@@ -55,3 +55,7 @@ Status: [x] done · [~] partial · [ ] pending
 
 ## Cross-cutting
 - Single account type: tutors/admins only. Students are records, never auth users.
+
+## Repository / self-hosting (DONE)
+- [x] All images, videos, PDF and icons committed as real files in `src/assets` and `public`
+- [x] `.env.example` + `DEPLOYMENT.md` (Vercel steps, migrations, webhook URL)
