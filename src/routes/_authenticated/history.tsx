@@ -270,7 +270,16 @@ function HistoryPage() {
                 <Button variant="outline" size="sm" onClick={() => exportToCSV(exportRows(), fileName())}>
                   <Download className="mr-1 size-4" /> CSV
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => exportToPDF(exportRows(), fileName(), "QRoll academic history")}>
+                <Button variant="outline" size="sm" onClick={() => {
+                    const rows = exportRows();
+                    const headers = rows.length ? Object.keys(rows[0]) : [];
+                    exportToPDF(
+                      "Academic history",
+                      headers,
+                      rows.map((r) => headers.map((h) => String((r as Record<string, unknown>)[h] ?? ""))),
+                      fileName(),
+                    );
+                  }}>
                   <FileText className="mr-1 size-4" /> PDF
                 </Button>
               </div>
