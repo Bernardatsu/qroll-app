@@ -21,7 +21,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import qrollLogo from "@/assets/qroll-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png";
 import {
   Sheet,
   SheetContent,
@@ -101,7 +101,7 @@ function SidebarBody({
     <div className="flex h-full flex-col bg-knust-gradient text-primary-foreground">
       <div className="px-5 py-5 flex items-center gap-3 border-b border-white/10">
         <img
-          src={qrollLogo.url}
+          src={qrollLogo}
           alt="QRoll logo"
           className="size-11 rounded-full bg-white object-contain p-0.5 shrink-0"
         />
@@ -198,7 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Sheet>
           <div className="flex items-center gap-2 min-w-0">
             <img
-              src={qrollLogo.url}
+              src={qrollLogo}
               alt="QRoll logo"
               className="size-8 rounded-full bg-white object-contain p-0.5 shrink-0"
             />
