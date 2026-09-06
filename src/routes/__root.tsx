@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { SplashScreen } from "@/components/SplashScreen";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import qrollLogo from "@/assets/qroll-logo.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png";
 
 function NotFoundComponent() {
   return (

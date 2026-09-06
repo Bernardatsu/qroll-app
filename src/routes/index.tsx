@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { QrCode, ShieldCheck, BarChart3, CalendarCheck, PlayCircle } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import qrollLogo from "@/assets/qroll-logo.png.asset.json";
-import heroImage from "@/assets/9315935.webp.asset.json";
-import promoLandscape from "@/assets/qroll-promo-landscape.mp4.asset.json";
-import promoPortrait from "@/assets/qroll-promo-portrait.mp4.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png";
+import heroImage from "@/assets/9315935.webp";
+import promoLandscape from "@/assets/qroll-promo-landscape.mp4";
+import promoPortrait from "@/assets/qroll-promo-portrait.mp4";
 import { BrandVideo } from "@/components/BrandVideo";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -39,7 +39,7 @@ function Landing() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-6 py-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={qrollLogo.url} alt="QRoll logo" className="h-9 w-auto shrink-0 object-contain" />
+            <img src={qrollLogo} alt="QRoll logo" className="h-9 w-auto shrink-0 object-contain" />
             <div className="leading-tight min-w-0">
               <div className="font-bold truncate">QRoll</div>
               <div className="text-xs text-muted-foreground truncate">Scan. Verify. Attend.</div>
@@ -54,7 +54,7 @@ function Landing() {
 
       <section className="relative bg-knust-gradient text-primary-foreground overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <img src={heroImage.url} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
+          <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
           <div className="absolute inset-0 bg-primary/35" />
           <div className="absolute inset-0 bg-linear-to-r from-primary/45 via-primary/25 to-primary/10" />
 
@@ -95,8 +95,8 @@ function Landing() {
         <p className="text-sm text-muted-foreground mt-1">A quick look at how attendance is captured in seconds.</p>
         <div className="mt-5 rounded-xl border shadow-sm bg-black overflow-hidden flex justify-center">
           <BrandVideo
-            landscape={promoLandscape.url}
-            portrait={promoPortrait.url}
+            landscape={promoLandscape}
+            portrait={promoPortrait}
             className="w-full max-h-[60vh] lg:max-h-[70vh] object-contain"
           />
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrandVideo } from "@/components/BrandVideo";
-import introLandscape from "@/assets/qroll-intro-landscape.mp4.asset.json";
-import introPortrait from "@/assets/qroll-intro-video---portrait.mp4.asset.json";
+import introLandscape from "@/assets/qroll-intro-landscape.mp4";
+import introPortrait from "@/assets/qroll-intro-video---portrait.mp4";
 
 /**
  * QRoll launch screen — plays the branded intro video once per browser
@@ -48,8 +48,8 @@ export function SplashScreen() {
     >
       {ready && (
         <BrandVideo
-          landscape={introLandscape.url}
-          portrait={introPortrait.url}
+          landscape={introLandscape}
+          portrait={introPortrait}
           autoStart
           loop={false}
           onEnded={finish}

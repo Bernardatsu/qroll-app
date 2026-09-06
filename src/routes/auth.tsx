@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 
-import qrollLogo from "@/assets/qroll-logo.png.asset.json";
-import qrollLogin from "@/assets/qroll-login.png.asset.json";
+import qrollLogo from "@/assets/qroll-logo.png";
+import qrollLogin from "@/assets/qroll-login.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — QRoll" }] }),
@@ -61,10 +61,10 @@ function AuthPage() {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="relative hidden md:flex bg-knust-gradient text-primary-foreground p-12 flex-col justify-between overflow-hidden">
-        <img src={qrollLogin.url} alt="" aria-hidden="true" className="absolute inset-x-0 inset-y-0 h-full w-full object-cover object-top opacity-45" />
+        <img src={qrollLogin} alt="" aria-hidden="true" className="absolute inset-x-0 inset-y-0 h-full w-full object-cover object-top opacity-45" />
         <div className="absolute inset-0 bg-linear-to-t from-primary/85 via-primary/50 to-primary/70" aria-hidden="true" />
         <Link to="/" className="relative flex items-center gap-3">
-          <img src={qrollLogo.url} alt="QRoll logo" className="h-10 w-auto object-contain" />
+          <img src={qrollLogo} alt="QRoll logo" className="h-10 w-auto object-contain" />
           <div className="font-semibold">QRoll</div>
         </Link>
         <div className="relative">
@@ -79,14 +79,14 @@ function AuthPage() {
           {/* Mobile / tablet: the same artwork as a proper hero banner */}
           <div className="md:hidden relative h-56 w-full overflow-hidden rounded-b-3xl bg-knust-gradient">
             <img
-              src={qrollLogin.url}
+              src={qrollLogin}
               alt="Student checking in with a QR code"
               className="absolute inset-0 h-full w-full object-cover object-top"
             />
             <div className="absolute inset-0 bg-linear-to-b from-primary/45 via-primary/25 to-background" aria-hidden="true" />
             <div className="absolute inset-x-0 top-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
               <Link to="/" className="flex min-w-0 items-center gap-2 text-primary-foreground">
-                <img src={qrollLogo.url} alt="QRoll logo" className="h-9 w-auto shrink-0 object-contain" />
+                <img src={qrollLogo} alt="QRoll logo" className="h-9 w-auto shrink-0 object-contain" />
                 <span className="truncate font-semibold drop-shadow">QRoll</span>
               </Link>
               <Link to="/">
