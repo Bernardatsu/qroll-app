@@ -16,6 +16,11 @@ Open http://localhost:8080
 
 ## 2. Environment variables
 
+No `.env` file is required to run the app: the public backend URL and
+publishable key are committed in `src/config/public-backend.ts` and used
+automatically when the environment variables are absent, so `bun install && bun run dev`
+works straight after cloning. Set the `VITE_*` variables in `.env` only to point
+the app at a different backend — they always override the committed defaults.
 See `.env.example`. The `VITE_*` values are public and required at build time.
 `SUPABASE_SERVICE_ROLE_KEY` and `PAYSTACK_SECRET_KEY` are server-only — add them
 as encrypted environment variables in your host, never in the repo.

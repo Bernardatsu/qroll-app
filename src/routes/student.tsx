@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, Megaphone, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -31,6 +31,7 @@ const STORE = "qroll.student.session.v1";
 type Me = { full_name: string; index_number: string; level: string; qr_uuid: string; pin: string };
 type CourseRow = { course_id: string; code: string; title: string; sessions_total: number; attended: number; percentage: number };
 type HistRow = { course_code: string; session_title: string; session_date: string; checked_in: string | null; status: string };
+type NoticeRow = { id: string; title: string; body: string; course_code: string | null; starts_on: string; expires_on: string | null };
 
 type Step = "index" | "create" | "login" | "reset";
 
@@ -44,6 +45,7 @@ function StudentPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [history, setHistory] = useState<HistRow[]>([]);
+  const [notices, setNotices] = useState<NoticeRow[]>([]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(STORE);
@@ -56,12 +58,14 @@ function StudentPage() {
   }, []);
 
   const loadData = async (i: string, p: string) => {
-    const [c, h] = await Promise.all([
+    const [c, h, n] = await Promise.all([
       (supabase as any).rpc("student_courses", { _index: i, _password: p }),
       (supabase as any).rpc("student_history", { _index: i, _password: p }),
+      (supabase as any).rpc("student_announcements", { _index: i, _password: p }),
     ]);
     setCourses((c.data ?? []) as CourseRow[]);
     setHistory((h.data ?? []) as HistRow[]);
+    setNotices((n.data ?? []) as NoticeRow[]);
   };
 
   const signIn = async (i: string, p: string, silent = false) => {
@@ -120,7 +124,7 @@ function StudentPage() {
 
   const signOut = () => {
     sessionStorage.removeItem(STORE);
-    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]);
+    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]);
   };
 
   const overall = courses.length
@@ -237,6 +241,28 @@ function StudentPage() {
                 )}
               </CardContent>
             </Card>
+
+            {notices.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Megaphone className="size-4 text-primary" /> Announcements
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {notices.map((n) => (
+                    <div key={n.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium">{n.title}</div>
+                        {n.course_code && <Badge variant="secondary">{n.course_code}</Badge>}
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
+                      <div className="mt-1 text-xs text-muted-foreground">{n.starts_on}</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader><CardTitle className="text-base">My courses</CardTitle></CardHeader>

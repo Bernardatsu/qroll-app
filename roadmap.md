@@ -39,7 +39,7 @@ Status: [x] done · [~] partial · [ ] pending
 
 ## Phase 6 — Assignments, announcements, notifications
 - [ ] Assignments with deadlines + submission links
-- [ ] Tutor messaging to a level, several levels, or all classes
+- [x] Tutor messaging to a level, several levels, or all classes (Announcements page + student feed)
 - [ ] Web push notifications (PWA installed / added to home screen)
 - [ ] Smart alerts: attendance < 75%, quizzes, room changes, cancellations
 
@@ -58,4 +58,5 @@ Status: [x] done · [~] partial · [ ] pending
 
 ## Repository / self-hosting (DONE)
 - [x] All images, videos, PDF and icons committed as real files in `src/assets` and `public`
+- [x] Public backend URL/key committed in `src/config/public-backend.ts` so a plain clone runs without a .env file
 - [x] `.env.example` + `DEPLOYMENT.md` (Vercel steps, migrations, webhook URL)
