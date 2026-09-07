@@ -242,6 +242,28 @@ function StudentPage() {
               </CardContent>
             </Card>
 
+            {notices.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Megaphone className="size-4 text-primary" /> Announcements
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {notices.map((n) => (
+                    <div key={n.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium">{n.title}</div>
+                        {n.course_code && <Badge variant="secondary">{n.course_code}</Badge>}
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p>
+                      <div className="mt-1 text-xs text-muted-foreground">{n.starts_on}</div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader><CardTitle className="text-base">My courses</CardTitle></CardHeader>
               <CardContent className="space-y-3">
