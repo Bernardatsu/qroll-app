@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, Megaphone, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -31,6 +31,7 @@ const STORE = "qroll.student.session.v1";
 type Me = { full_name: string; index_number: string; level: string; qr_uuid: string; pin: string };
 type CourseRow = { course_id: string; code: string; title: string; sessions_total: number; attended: number; percentage: number };
 type HistRow = { course_code: string; session_title: string; session_date: string; checked_in: string | null; status: string };
+type NoticeRow = { id: string; title: string; body: string; course_code: string | null; starts_on: string; expires_on: string | null };
 
 type Step = "index" | "create" | "login" | "reset";
 
