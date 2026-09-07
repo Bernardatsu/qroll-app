@@ -45,6 +45,7 @@ function StudentPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [history, setHistory] = useState<HistRow[]>([]);
+  const [notices, setNotices] = useState<NoticeRow[]>([]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(STORE);
@@ -57,12 +58,14 @@ function StudentPage() {
   }, []);
 
   const loadData = async (i: string, p: string) => {
-    const [c, h] = await Promise.all([
+    const [c, h, n] = await Promise.all([
       (supabase as any).rpc("student_courses", { _index: i, _password: p }),
       (supabase as any).rpc("student_history", { _index: i, _password: p }),
+      (supabase as any).rpc("student_announcements", { _index: i, _password: p }),
     ]);
     setCourses((c.data ?? []) as CourseRow[]);
     setHistory((h.data ?? []) as HistRow[]);
+    setNotices((n.data ?? []) as NoticeRow[]);
   };
 
   const signIn = async (i: string, p: string, silent = false) => {
@@ -121,7 +124,7 @@ function StudentPage() {
 
   const signOut = () => {
     sessionStorage.removeItem(STORE);
-    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]);
+    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]);
   };
 
   const overall = courses.length
