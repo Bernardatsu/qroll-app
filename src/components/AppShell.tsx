@@ -17,6 +17,8 @@ import {
   Shield,
   CalendarRange,
   History,
+  Megaphone,
+
 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +50,7 @@ const nav: NavItem[] = [
   { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/history", label: "Academic History", icon: History },
+  { to: "/announcements", label: "Announcements", icon: Megaphone },
   { to: "/billing", label: "Billing & Plans", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
