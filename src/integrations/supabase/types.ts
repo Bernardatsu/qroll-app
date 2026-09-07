@@ -77,6 +77,50 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          body: string
+          course_id: string | null
+          created_at: string
+          expires_on: string | null
+          id: string
+          levels: string[]
+          owner_id: string
+          starts_on: string
+          title: string
+        }
+        Insert: {
+          body: string
+          course_id?: string | null
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          levels?: string[]
+          owner_id?: string
+          starts_on?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          course_id?: string | null
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          levels?: string[]
+          owner_id?: string
+          starts_on?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           check_in_at: string | null
@@ -770,6 +814,17 @@ export type Database = {
           message: string
           ok: boolean
           student_name: string
+        }[]
+      }
+      student_announcements: {
+        Args: { _index: string; _password: string }
+        Returns: {
+          body: string
+          course_code: string
+          expires_on: string
+          id: string
+          starts_on: string
+          title: string
         }[]
       }
       student_auth_status: {
