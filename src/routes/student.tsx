@@ -268,6 +268,50 @@ function StudentPage() {
               </Card>
             )}
 
+            {assignments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ClipboardList className="size-4 text-primary" /> Assignments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {assignments.map((a) => {
+                    const due = a.due_at ? new Date(a.due_at) : null;
+                    const overdue = !!due && due.getTime() < Date.now();
+                    return (
+                      <div key={a.id} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium">{a.title}</div>
+                          {a.course_code && <Badge variant="secondary">{a.course_code}</Badge>}
+                        </div>
+                        {a.details && (
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{a.details}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Badge variant={overdue ? "destructive" : "outline"}>
+                            {due ? (overdue ? `closed ${due.toLocaleDateString()}` : `due ${due.toLocaleString()}`) : "no deadline"}
+                          </Badge>
+                          {a.submission_url && (
+                            <a
+                              href={a.submission_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                            >
+                              <LinkIcon className="size-3.5" /> Submit here
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+
+
             <Card>
               <CardHeader><CardTitle className="text-base">My courses</CardTitle></CardHeader>
               <CardContent className="space-y-3">
