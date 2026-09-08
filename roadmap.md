@@ -38,7 +38,7 @@ Status: [x] done · [~] partial · [ ] pending
 
 
 ## Phase 6 — Assignments, announcements, notifications
-- [ ] Assignments with deadlines + submission links
+- [x] Assignments with deadlines + submission links (tutor page + student feed)
 - [x] Tutor messaging to a level, several levels, or all classes (Announcements page + student feed)
 - [ ] Web push notifications (PWA installed / added to home screen)
 - [ ] Smart alerts: attendance < 75%, quizzes, room changes, cancellations
