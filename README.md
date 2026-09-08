@@ -60,7 +60,7 @@ Data corruption
 
 Data loss
 
-==================================================
+================================================
 FREE TECHNOLOGY STACK (MANDATORY)
 
 Use only free or open-source solutions whenever possible.
