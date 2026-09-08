@@ -47,6 +47,7 @@ function StudentPage() {
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [history, setHistory] = useState<HistRow[]>([]);
   const [notices, setNotices] = useState<NoticeRow[]>([]);
+  const [assignments, setAssignments] = useState<AssignRow[]>([]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(STORE);
