@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, Megaphone, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ClipboardList, GraduationCap, Link as LinkIcon, LogOut, Megaphone, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
