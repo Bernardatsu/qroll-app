@@ -60,14 +60,16 @@ function StudentPage() {
   }, []);
 
   const loadData = async (i: string, p: string) => {
-    const [c, h, n] = await Promise.all([
+    const [c, h, n, a] = await Promise.all([
       (supabase as any).rpc("student_courses", { _index: i, _password: p }),
       (supabase as any).rpc("student_history", { _index: i, _password: p }),
       (supabase as any).rpc("student_announcements", { _index: i, _password: p }),
+      (supabase as any).rpc("student_assignments", { _index: i, _password: p }),
     ]);
     setCourses((c.data ?? []) as CourseRow[]);
     setHistory((h.data ?? []) as HistRow[]);
     setNotices((n.data ?? []) as NoticeRow[]);
+    setAssignments((a.data ?? []) as AssignRow[]);
   };
 
   const signIn = async (i: string, p: string, silent = false) => {
