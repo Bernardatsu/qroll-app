@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowLeft, GraduationCap, LogOut, Megaphone, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ClipboardList, GraduationCap, Link as LinkIcon, LogOut, Megaphone, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -32,6 +32,7 @@ type Me = { full_name: string; index_number: string; level: string; qr_uuid: str
 type CourseRow = { course_id: string; code: string; title: string; sessions_total: number; attended: number; percentage: number };
 type HistRow = { course_code: string; session_title: string; session_date: string; checked_in: string | null; status: string };
 type NoticeRow = { id: string; title: string; body: string; course_code: string | null; starts_on: string; expires_on: string | null };
+type AssignRow = { id: string; title: string; details: string; submission_url: string | null; course_code: string | null; due_at: string | null };
 
 type Step = "index" | "create" | "login" | "reset";
 
@@ -46,6 +47,7 @@ function StudentPage() {
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [history, setHistory] = useState<HistRow[]>([]);
   const [notices, setNotices] = useState<NoticeRow[]>([]);
+  const [assignments, setAssignments] = useState<AssignRow[]>([]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(STORE);
@@ -58,14 +60,16 @@ function StudentPage() {
   }, []);
 
   const loadData = async (i: string, p: string) => {
-    const [c, h, n] = await Promise.all([
+    const [c, h, n, a] = await Promise.all([
       (supabase as any).rpc("student_courses", { _index: i, _password: p }),
       (supabase as any).rpc("student_history", { _index: i, _password: p }),
       (supabase as any).rpc("student_announcements", { _index: i, _password: p }),
+      (supabase as any).rpc("student_assignments", { _index: i, _password: p }),
     ]);
     setCourses((c.data ?? []) as CourseRow[]);
     setHistory((h.data ?? []) as HistRow[]);
     setNotices((n.data ?? []) as NoticeRow[]);
+    setAssignments((a.data ?? []) as AssignRow[]);
   };
 
   const signIn = async (i: string, p: string, silent = false) => {
@@ -124,7 +128,7 @@ function StudentPage() {
 
   const signOut = () => {
     sessionStorage.removeItem(STORE);
-    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]);
+    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]); setAssignments([]);
   };
 
   const overall = courses.length
@@ -263,6 +267,50 @@ function StudentPage() {
                 </CardContent>
               </Card>
             )}
+
+            {assignments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ClipboardList className="size-4 text-primary" /> Assignments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {assignments.map((a) => {
+                    const due = a.due_at ? new Date(a.due_at) : null;
+                    const overdue = !!due && due.getTime() < Date.now();
+                    return (
+                      <div key={a.id} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium">{a.title}</div>
+                          {a.course_code && <Badge variant="secondary">{a.course_code}</Badge>}
+                        </div>
+                        {a.details && (
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{a.details}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Badge variant={overdue ? "destructive" : "outline"}>
+                            {due ? (overdue ? `closed ${due.toLocaleDateString()}` : `due ${due.toLocaleString()}`) : "no deadline"}
+                          </Badge>
+                          {a.submission_url && (
+                            <a
+                              href={a.submission_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                            >
+                              <LinkIcon className="size-3.5" /> Submit here
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+
 
             <Card>
               <CardHeader><CardTitle className="text-base">My courses</CardTitle></CardHeader>

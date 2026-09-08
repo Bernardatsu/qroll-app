@@ -121,6 +121,53 @@ export type Database = {
           },
         ]
       }
+      assignments: {
+        Row: {
+          course_id: string | null
+          created_at: string
+          details: string
+          due_at: string | null
+          id: string
+          levels: string[]
+          owner_id: string
+          submission_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string
+          details?: string
+          due_at?: string | null
+          id?: string
+          levels?: string[]
+          owner_id?: string
+          submission_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string
+          details?: string
+          due_at?: string | null
+          id?: string
+          levels?: string[]
+          owner_id?: string
+          submission_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           check_in_at: string | null
@@ -824,6 +871,17 @@ export type Database = {
           expires_on: string
           id: string
           starts_on: string
+          title: string
+        }[]
+      }
+      student_assignments: {
+        Args: { _index: string; _password: string }
+        Returns: {
+          course_code: string
+          details: string
+          due_at: string
+          id: string
+          submission_url: string
           title: string
         }[]
       }
