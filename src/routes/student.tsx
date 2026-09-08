@@ -32,6 +32,7 @@ type Me = { full_name: string; index_number: string; level: string; qr_uuid: str
 type CourseRow = { course_id: string; code: string; title: string; sessions_total: number; attended: number; percentage: number };
 type HistRow = { course_code: string; session_title: string; session_date: string; checked_in: string | null; status: string };
 type NoticeRow = { id: string; title: string; body: string; course_code: string | null; starts_on: string; expires_on: string | null };
+type AssignRow = { id: string; title: string; details: string; submission_url: string | null; course_code: string | null; due_at: string | null };
 
 type Step = "index" | "create" | "login" | "reset";
 
