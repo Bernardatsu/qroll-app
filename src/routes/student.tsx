@@ -128,7 +128,7 @@ function StudentPage() {
 
   const signOut = () => {
     sessionStorage.removeItem(STORE);
-    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]);
+    setMe(null); setPassword(""); setStep("index"); setCourses([]); setHistory([]); setNotices([]); setAssignments([]);
   };
 
   const overall = courses.length
