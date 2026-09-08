@@ -51,6 +51,7 @@ const nav: NavItem[] = [
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/history", label: "Academic History", icon: History },
   { to: "/announcements", label: "Announcements", icon: Megaphone },
+  { to: "/assignments", label: "Assignments", icon: ClipboardList },
   { to: "/billing", label: "Billing & Plans", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
