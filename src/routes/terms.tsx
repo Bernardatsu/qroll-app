@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({ meta: [
-    { title: "Terms of Service — QRoll" },
-    { name: "description", content: "Terms of Service for the QRoll QR system." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Terms of Service — QRoll" },
+      { name: "description", content: "Terms of Service for the QRoll QR system." },
+    ],
+  }),
   component: TermsPage,
 });
 
@@ -13,10 +15,16 @@ function TermsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="max-w-3xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link to={"/" as string} className="font-bold text-primary">QRoll</Link>
+          <Link to={"/" as string} className="font-bold text-primary">
+            QRoll
+          </Link>
           <div className="flex gap-4 text-sm">
-            <Link to={"/privacy" as string} className="hover:text-primary">Privacy</Link>
-            <Link to={"/manual" as string} className="hover:text-primary">Manual</Link>
+            <Link to={"/privacy" as string} className="hover:text-primary">
+              Privacy
+            </Link>
+            <Link to={"/manual" as string} className="hover:text-primary">
+              Manual
+            </Link>
           </div>
         </div>
       </header>
@@ -25,38 +33,80 @@ function TermsPage() {
         <p className="text-muted-foreground text-sm">Last updated: 4 July 2026</p>
 
         <h2 className="text-xl font-semibold mt-8">1. Acceptance</h2>
-        <p>By creating an account or using the QRoll application ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p>
+        <p>
+          By creating an account or using the QRoll application ("the Service"), you agree to be
+          bound by these Terms of Service. If you do not agree, do not use the Service.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">2. Eligibility</h2>
-        <p>The Service is intended for staff and students of Kwame Nkrumah University of Science and Technology, and other tertiary institutions using it for attendance tracking. You must be at least 16 years old to create an account.</p>
+        <p>
+          The Service is intended for staff and students of Kwame Nkrumah University of Science and
+          Technology, and other tertiary institutions using it for attendance tracking. You must be
+          at least 16 years old to create an account.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">3. Your responsibilities as a Master Admin</h2>
         <ul className="list-disc pl-6 space-y-1">
           <li>You are responsible for the accuracy of the student data you upload.</li>
-          <li>You must inform your students that their name, index number, email and attendance timestamps are stored and processed by this Service.</li>
-          <li>You must not upload data you do not have the right to process, or use the Service to harass, mislead or defraud students.</li>
-          <li>You must comply with your institution's data-handling policies and Ghana's Data Protection Act, 2012 (Act 843).</li>
+          <li>
+            You must inform your students that their name, index number, email and attendance
+            timestamps are stored and processed by this Service.
+          </li>
+          <li>
+            You must not upload data you do not have the right to process, or use the Service to
+            harass, mislead or defraud students.
+          </li>
+          <li>
+            You must comply with your institution's data-handling policies and Ghana's Data
+            Protection Act, 2012 (Act 843).
+          </li>
         </ul>
 
         <h2 className="text-xl font-semibold mt-8">4. Acceptable use</h2>
-        <p>You may not: (a) attempt to bypass the geofence or any other security control; (b) share your account with unauthorised users; (c) probe, scan or test the vulnerability of the Service without written permission; (d) use the Service to distribute malware, spam or unlawful content.</p>
+        <p>
+          You may not: (a) attempt to bypass the geofence or any other security control; (b) share
+          your account with unauthorised users; (c) probe, scan or test the vulnerability of the
+          Service without written permission; (d) use the Service to distribute malware, spam or
+          unlawful content.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">5. Availability & warranties</h2>
-        <p>The Service is provided <b>"as-is"</b> and <b>"as available"</b>, without warranty of any kind. We do not guarantee uninterrupted operation, absence of bugs, or fitness for a particular purpose.</p>
+        <p>
+          The Service is provided <b>"as-is"</b> and <b>"as available"</b>, without warranty of any
+          kind. We do not guarantee uninterrupted operation, absence of bugs, or fitness for a
+          particular purpose.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">6. Limitation of liability</h2>
-        <p>To the maximum extent permitted by law, the operators of the Service are not liable for indirect, incidental, or consequential damages, including loss of data or academic disputes arising from the use of attendance records generated by the Service.</p>
+        <p>
+          To the maximum extent permitted by law, the operators of the Service are not liable for
+          indirect, incidental, or consequential damages, including loss of data or academic
+          disputes arising from the use of attendance records generated by the Service.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">7. Suspension & termination</h2>
-        <p>We may suspend or terminate accounts that abuse the Service or breach these Terms. You may delete your account at any time; upon deletion, all student records you own are removed.</p>
+        <p>
+          We may suspend or terminate accounts that abuse the Service or breach these Terms. You may
+          delete your account at any time; upon deletion, all student records you own are removed.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">8. Changes</h2>
-        <p>We may update these Terms as the Service evolves. Material changes will be surfaced in-app. Continued use after the change constitutes acceptance.</p>
+        <p>
+          We may update these Terms as the Service evolves. Material changes will be surfaced
+          in-app. Continued use after the change constitutes acceptance.
+        </p>
 
         <h2 className="text-xl font-semibold mt-8">9. Contact</h2>
-        <p>Questions about these Terms should be directed to your Master Admin or to the maintainers via the QRoll executive.</p>
+        <p>
+          Questions about these Terms should be directed to your Master Admin or to the maintainers
+          via the QRoll executive.
+        </p>
 
-        <p className="mt-10 text-sm"><Link to={"/" as string} className="text-primary hover:underline">← Back to home</Link></p>
+        <p className="mt-10 text-sm">
+          <Link to={"/" as string} className="text-primary hover:underline">
+            ← Back to home
+          </Link>
+        </p>
       </main>
     </div>
   );

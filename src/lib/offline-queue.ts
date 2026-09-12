@@ -37,7 +37,11 @@ export function listQueued(sessionId?: string): QueuedScan[] {
   return sessionId ? all.filter((s) => s.sessionId === sessionId) : all;
 }
 
-export function queueScan(sessionId: string, code: string, at = new Date().toISOString()): QueuedScan {
+export function queueScan(
+  sessionId: string,
+  code: string,
+  at = new Date().toISOString(),
+): QueuedScan {
   const item: QueuedScan = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     sessionId,
@@ -47,7 +51,10 @@ export function queueScan(sessionId: string, code: string, at = new Date().toISO
   const all = read();
   // Ignore an identical code queued for the same session within 30s
   const dup = all.find(
-    (s) => s.sessionId === sessionId && s.code === code && Math.abs(Date.parse(s.at) - Date.parse(at)) < 30_000,
+    (s) =>
+      s.sessionId === sessionId &&
+      s.code === code &&
+      Math.abs(Date.parse(s.at) - Date.parse(at)) < 30_000,
   );
   if (dup) return dup;
   all.push(item);

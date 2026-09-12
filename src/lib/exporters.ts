@@ -19,7 +19,12 @@ export function exportToCSV(rows: Record<string, unknown>[], filename: string) {
   link.click();
 }
 
-export function exportToPDF(title: string, headers: string[], rows: (string | number)[][], filename: string) {
+export function exportToPDF(
+  title: string,
+  headers: string[],
+  rows: (string | number)[][],
+  filename: string,
+) {
   const doc = new jsPDF();
   doc.setFontSize(14);
   doc.setTextColor(18, 41, 74);

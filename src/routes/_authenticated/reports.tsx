@@ -1,24 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { supabase } from "@/integrations/supabase/client";
+import { firestoreDb } from "@/integrations/firebase/config";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, FileText, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { exportToExcel, exportToCSV, exportToPDF } from "@/lib/exporters";
+import { calculateAttendanceGrade } from "@/lib/grading";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
     meta: [
       { title: "Attendance Reports — QRoll" },
-      { name: "description", content: "Daily and whole-semester QR attendance reports per course, with at-risk absentee tracking and Excel, CSV and PDF export." },
+      {
+        name: "description",
+        content:
+          "Daily and whole-semester QR attendance reports per course, with at-risk absentee tracking and Excel, CSV and PDF export.",
+      },
       { property: "og:title", content: "Attendance Reports — QRoll" },
-      { property: "og:description", content: "Daily and semester attendance reports with export and absentee alerts." },
+      {
+        property: "og:description",
+        content: "Daily and semester attendance reports with export and absentee alerts.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -42,37 +59,111 @@ function ReportsPage() {
   const [presence, setPresence] = useState<Presence>("all");
   const [gradeWeight, setGradeWeight] = useState<number>(5);
 
+  const currentUid = firebaseAuth.currentUser?.uid;
+
   const { data: courses } = useQuery({
-    queryKey: ["courses-active"],
-    queryFn: async () => (await supabase.from("courses").select("id, code, title, level").order("code")).data ?? [],
+    queryKey: ["courses-active", currentUid],
+    queryFn: async () => {
+      if (!currentUid) return [];
+      const snap = await getDocs(
+        query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
+      );
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        code: (d.data() as any).code,
+        title: (d.data() as any).title,
+        level: (d.data() as any).level,
+      }));
+      return list.sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+    },
+    enabled: !!currentUid,
   });
 
+  useEffect(() => {
+    if (!courseId && courses && courses.length > 0) {
+      setCourseId(courses[0].id);
+    }
+  }, [courses, courseId]);
+
   const { data: raw } = useQuery({
-    queryKey: ["report-data", courseId],
-    enabled: !!courseId,
+    queryKey: ["report-data", courseId, currentUid],
+    enabled: !!courseId && !!currentUid,
     queryFn: async () => {
-      const { data: sessions } = await supabase
-        .from("attendance_sessions")
-        .select("id, title, starts_at")
-        .eq("course_id", courseId);
-      const sessionIds = (sessions ?? []).map((s) => s.id);
-      const [{ data: regs }, records] = await Promise.all([
-        supabase.from("course_registrations").select("students(id, full_name, index_number, level)").eq("course_id", courseId),
-        sessionIds.length
-          ? supabase
-              .from("attendance_records")
-              .select("student_id, session_id, session_date, check_in_at, students(id, full_name, index_number, level)")
-              .in("session_id", sessionIds)
-          : Promise.resolve({ data: [] as any[] }),
+      if (!currentUid) return { sessions: [], regs: [], records: [] };
+      const [sessSnap, regsSnap, allStudSnap] = await Promise.all([
+        getDocs(
+          query(
+            collection(firestoreDb, "attendance_sessions"),
+            where("course_id", "==", courseId),
+            where("owner_id", "==", currentUid),
+          ),
+        ),
+        getDocs(
+          query(
+            collection(firestoreDb, "course_registrations"),
+            where("course_id", "==", courseId),
+            where("owner_id", "==", currentUid),
+          ),
+        ),
+        getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid))),
       ]);
-      return { sessions: sessions ?? [], regs: regs ?? [], records: (records as any).data ?? [] };
+
+      const studentMap = new Map<string, any>();
+      allStudSnap.docs.forEach((d) => {
+        const s = d.data() as any;
+        studentMap.set(d.id, {
+          id: d.id,
+          full_name: s.full_name,
+          index_number: s.index_number,
+          level: s.level,
+        });
+      });
+
+      const sessions = sessSnap.docs.map((d) => ({
+        id: d.id,
+        title: (d.data() as any).title,
+        starts_at: (d.data() as any).starts_at,
+      }));
+      const sessionIds = new Set(sessions.map((s) => s.id));
+
+      const regs = regsSnap.docs.map((d) => {
+        const rData = d.data() as any;
+        return {
+          id: d.id,
+          ...rData,
+          students: studentMap.get(rData.student_id) || null,
+        };
+      });
+
+      let records: any[] = [];
+      if (sessionIds.size > 0) {
+        const recSnap = await getDocs(
+          query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", currentUid)),
+        );
+        records = recSnap.docs
+          .filter((d) => sessionIds.has((d.data() as any).session_id))
+          .map((d) => {
+            const data = d.data() as any;
+            return {
+              id: d.id,
+              student_id: data.student_id,
+              session_id: data.session_id,
+              session_date: data.session_date,
+              check_in_at: data.check_in_at,
+              students: studentMap.get(data.student_id) || null,
+            };
+          });
+      }
+
+      return { sessions, regs, records };
     },
   });
 
   // Every distinct class day that actually happened for this course
   const allDays = useMemo(() => {
     const set = new Set<string>();
-    for (const r of raw?.records ?? []) set.add(r.session_date ?? (r.check_in_at ? dayKey(r.check_in_at) : ""));
+    for (const r of raw?.records ?? [])
+      set.add(r.session_date ?? (r.check_in_at ? dayKey(r.check_in_at) : ""));
     set.delete("");
     return Array.from(set).sort();
   }, [raw]);
@@ -92,7 +183,8 @@ function ReportsPage() {
   const report = useMemo(() => {
     if (!raw || !courseId) return null;
     const studentMap = new Map<string, any>();
-    for (const r of raw.regs) if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
+    for (const r of raw.regs)
+      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
     for (const rec of raw.records) if (rec.students) studentMap.set(rec.students.id, rec.students);
 
     // student -> set of days scanned
@@ -110,6 +202,7 @@ function ReportsPage() {
         const scans = cells.filter((v) => v === 1).length;
         const missed = cells.length - scans;
         const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
+        const gradeInfo = calculateAttendanceGrade(pct);
         return {
           id: s.id,
           full_name: s.full_name,
@@ -120,6 +213,8 @@ function ReportsPage() {
           missed,
           pct,
           score: Math.round((pct / 100) * gradeWeight * 100) / 100,
+          attendanceMarks: gradeInfo.marks,
+          attendanceGradeLabel: gradeInfo.label,
           atRisk: missed > maxMisses,
         };
       })
@@ -138,67 +233,221 @@ function ReportsPage() {
     return rows;
   }, [report, risk, presence]);
 
-  const courseLabel = useMemo(() => courses?.find((c: any) => c.id === courseId), [courses, courseId]);
+  const [sessionDay, setSessionDay] = useState<string>("");
+
+  // Keep sessionDay updated if allDays changes
+  useEffect(() => {
+    if (allDays.length && (!sessionDay || !allDays.includes(sessionDay))) {
+      setSessionDay(allDays[allDays.length - 1]);
+    }
+  }, [allDays, sessionDay]);
+
+  const courseLabel = useMemo(
+    () => courses?.find((c: any) => c.id === courseId),
+    [courses, courseId],
+  );
   const atRiskCount = report?.rows.filter((r) => r.atRisk).length ?? 0;
   const presentCount = report?.rows.filter((r) => r.scans > 0).length ?? 0;
   const absentCount = (report?.rows.length ?? 0) - presentCount;
 
-  const buildExportRows = () => {
-    if (!report) return { rows: [] as any[], headers: [] as string[] };
-    const dayHeaders = report.days.map((d) => `W${weekOfDay(d)} · ${prettyDay(d)}`);
-    const headers = ["Name", "Index", "Level", ...dayHeaders, "Scans", "Missed", "Attendance %", `Score (/${gradeWeight})`, "Status"];
-    const rows = visibleRows.map((r) => {
-      const base: Record<string, string | number> = { Name: r.full_name, Index: r.index_number, Level: r.level ?? "" };
-      report.days.forEach((_d, i) => { base[dayHeaders[i]] = r.cells[i]; });
-      base["Scans"] = r.scans;
-      base["Missed"] = r.missed;
-      base["Attendance %"] = r.pct;
-      base[`Score (/${gradeWeight})`] = r.score;
-      base["Status"] = r.atRisk ? `AT RISK (>${maxMisses} missed)` : "PASSED";
-      return base;
-    });
-    return { rows, headers };
-  };
+  // Compilation export: always spans all semester days
+  const exportCompilation = (fmt: "xlsx" | "csv" | "pdf") => {
+    if (!raw || !courseId || !allDays.length) {
+      toast.error("No course sessions found to compile");
+      return;
+    }
+    const studentMap = new Map<string, any>();
+    for (const r of raw.regs)
+      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
+    for (const rec of raw.records) if (rec.students) studentMap.set(rec.students.id, rec.students);
 
-  const exportFn = (fmt: "xlsx" | "csv" | "pdf") => {
-    const { rows, headers } = buildExportRows();
-    if (!rows.length) return;
-    const label = mode === "overall" ? "overall" : `W${weekOfDay(day)}-${day}`;
-    const suffix = presence === "all" ? "" : `-${presence}`;
-    const filename = `${courseLabel?.code ?? "report"}-${label}${suffix}`;
+    const scanned = new Map<string, Set<string>>();
+    for (const rec of raw.records) {
+      const d = rec.session_date ?? (rec.check_in_at ? dayKey(rec.check_in_at) : null);
+      if (!d) continue;
+      if (!scanned.has(rec.student_id)) scanned.set(rec.student_id, new Set());
+      scanned.get(rec.student_id)!.add(d);
+    }
+
+    const dayHeaders = allDays.map((d) => `W${weekOfDay(d)} · ${prettyDay(d)}`);
+    const headers = [
+      "Name",
+      "Index Number",
+      "Level",
+      ...dayHeaders,
+      "Total Scans",
+      "Total Missed",
+      "Attendance %",
+      "Attendance Grade (/10 Marks)",
+      `Score (/${gradeWeight})`,
+      "Status",
+    ];
+
+    let studentsList = Array.from(studentMap.values()).map((s: any) => {
+      const cells = allDays.map((d) => (scanned.get(s.id)?.has(d) ? 1 : 0));
+      const scans = cells.filter((v) => v === 1).length;
+      const missed = cells.length - scans;
+      const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
+      const gradeInfo = calculateAttendanceGrade(pct);
+      return {
+        full_name: s.full_name,
+        index_number: s.index_number,
+        level: s.level ?? "",
+        cells,
+        scans,
+        missed,
+        pct,
+        gradeMarks: gradeInfo.marks,
+        score: Math.round((pct / 100) * gradeWeight * 100) / 100,
+        atRisk: missed > maxMisses,
+      };
+    });
+
+    if (risk === "at-risk") studentsList = studentsList.filter((s) => s.atRisk);
+    else if (risk === "passed") studentsList = studentsList.filter((s) => !s.atRisk);
+    if (presence === "present") studentsList = studentsList.filter((s) => s.scans > 0);
+    else if (presence === "absent") studentsList = studentsList.filter((s) => s.scans === 0);
+
+    const rows = studentsList.map((s) => {
+      const row: Record<string, string | number> = {
+        Name: s.full_name,
+        "Index Number": s.index_number,
+        Level: s.level,
+      };
+      allDays.forEach((_d, idx) => {
+        row[dayHeaders[idx]] = s.cells[idx];
+      });
+      row["Total Scans"] = s.scans;
+      row["Total Missed"] = s.missed;
+      row["Attendance %"] = `${s.pct}%`;
+      row["Attendance Grade (/10 Marks)"] = `${s.gradeMarks}/10 Marks`;
+      row[`Score (/${gradeWeight})`] = s.score;
+      row["Status"] = s.atRisk ? `AT RISK (>${maxMisses} missed)` : "PASSED";
+      return row;
+    });
+
+    const filename = `${courseLabel?.code ?? "Course"}-Complete-Compilation`;
     if (fmt === "xlsx") exportToExcel(rows, filename);
     else if (fmt === "csv") exportToCSV(rows, filename);
-    else
+    else {
       exportToPDF(
-        `${courseLabel?.code} — ${courseLabel?.title} (${mode === "overall" ? "Whole semester" : `Week ${weekOfDay(day)} · ${prettyDay(day)}`})`,
+        `${courseLabel?.code} — ${courseLabel?.title} (Complete Semester Compilation)`,
         headers,
         rows.map((r) => headers.map((h) => r[h] ?? "")),
         filename,
       );
+    }
+  };
+
+  // Specific session export: single class day with check-in timestamp
+  const exportSpecificSession = (fmt: "xlsx" | "csv" | "pdf") => {
+    const target = mode === "daily" ? day : sessionDay;
+    if (!target) {
+      toast.error("Please pick a session day to export");
+      return;
+    }
+    const studentMap = new Map<string, any>();
+    for (const r of raw?.regs ?? [])
+      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
+    for (const rec of raw?.records ?? [])
+      if (rec.students) studentMap.set(rec.students.id, rec.students);
+
+    // Map student_id -> check_in timestamp for this target day
+    const checkInMap = new Map<string, string>();
+    for (const rec of raw?.records ?? []) {
+      const d = rec.session_date ?? (rec.check_in_at ? dayKey(rec.check_in_at) : null);
+      if (d === target) {
+        checkInMap.set(
+          rec.student_id,
+          rec.check_in_at ? new Date(rec.check_in_at).toLocaleTimeString() : "Checked In",
+        );
+      }
+    }
+
+    const headers = [
+      "Name",
+      "Index Number",
+      "Level",
+      "Session Date",
+      "Presence Status",
+      "Check-in Time",
+    ];
+    let list = Array.from(studentMap.values()).map((s: any) => {
+      const isPresent = checkInMap.has(s.id);
+      return {
+        full_name: s.full_name,
+        index_number: s.index_number,
+        level: s.level ?? "",
+        session_date: prettyDay(target),
+        status: isPresent ? "PRESENT" : "ABSENT",
+        time: checkInMap.get(s.id) ?? "—",
+        isPresent,
+      };
+    });
+
+    if (presence === "present") list = list.filter((s) => s.isPresent);
+    else if (presence === "absent") list = list.filter((s) => !s.isPresent);
+
+    const rows = list.map((s) => ({
+      Name: s.full_name,
+      "Index Number": s.index_number,
+      Level: s.level,
+      "Session Date": s.session_date,
+      "Presence Status": s.status,
+      "Check-in Time": s.time,
+    }));
+
+    const filename = `${courseLabel?.code ?? "Course"}-Session-W${weekOfDay(target)}-${target}`;
+    if (fmt === "xlsx") exportToExcel(rows, filename);
+    else if (fmt === "csv") exportToCSV(rows, filename);
+    else {
+      exportToPDF(
+        `${courseLabel?.code} — ${courseLabel?.title} (Session: Week ${weekOfDay(target)} · ${prettyDay(target)})`,
+        headers,
+        rows.map((r) => headers.map((h) => r[h] ?? "")),
+        filename,
+      );
+    }
   };
 
   return (
     <AppShell>
       <h1 className="text-2xl md:text-3xl font-bold mb-1">Reports</h1>
       <p className="text-sm text-muted-foreground mb-5">
-        Pick a course, then view a single class day or the combined semester total. <b>1</b> = scanned, <b>0</b> = did not scan.
+        Pick a course, then view a single class day or the combined semester total. <b>1</b> =
+        scanned, <b>0</b> = did not scan.
       </p>
 
       <Card className="mb-4">
         <CardContent className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label className="text-xs text-muted-foreground">Course</Label>
-            <Select value={courseId} onValueChange={(v) => { setCourseId(v); setDay(""); }}>
-              <SelectTrigger><SelectValue placeholder="Pick a course" /></SelectTrigger>
-              <SelectContent>{(courses ?? []).map((c: any) => (
-                <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}{c.level ? ` (L${c.level})` : ""}</SelectItem>
-              ))}</SelectContent>
+            <Select
+              value={courseId}
+              onValueChange={(v) => {
+                setCourseId(v);
+                setDay("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {(courses ?? []).map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.code} — {c.title}
+                    {c.level ? ` (L${c.level})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">View</Label>
             <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="overall">Overall (whole semester)</SelectItem>
                 <SelectItem value="daily">Daily (one class day)</SelectItem>
@@ -209,48 +458,179 @@ function ReportsPage() {
             <div>
               <Label className="text-xs text-muted-foreground">Week / day</Label>
               <Select value={day} onValueChange={setDay}>
-                <SelectTrigger><SelectValue placeholder="Pick a class day" /></SelectTrigger>
-                <SelectContent>{allDays.map((d) => (
-                  <SelectItem key={d} value={d}>Week {weekOfDay(d)} · {prettyDay(d)}</SelectItem>
-                ))}</SelectContent>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick a class day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allDays.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      Week {weekOfDay(d)} · {prettyDay(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           )}
           <div>
             <Label className="text-xs text-muted-foreground">Allowed misses</Label>
-            <Input type="number" min={0} value={maxMisses} onChange={(e) => setMaxMisses(Math.max(0, Number(e.target.value)))} />
+            <Input
+              type="number"
+              min={0}
+              value={maxMisses}
+              onChange={(e) => setMaxMisses(Math.max(0, Number(e.target.value)))}
+            />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Attendance weight (% of final grade)</Label>
-            <Input type="number" min={0} max={100} step={0.5} value={gradeWeight} onChange={(e) => setGradeWeight(Math.max(0, Math.min(100, Number(e.target.value))))} />
+            <Label className="text-xs text-muted-foreground">
+              Attendance weight (% of final grade)
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.5}
+              value={gradeWeight}
+              onChange={(e) => setGradeWeight(Math.max(0, Math.min(100, Number(e.target.value))))}
+            />
           </div>
-          <div className="sm:col-span-2 lg:col-span-4">
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Show</Label>
-            <Tabs value={presence} onValueChange={(v) => setPresence(v as Presence)}>
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="all" className="flex-1 sm:flex-none">All ({report?.rows.length ?? 0})</TabsTrigger>
-                <TabsTrigger value="present" className="flex-1 sm:flex-none">Present ({presentCount})</TabsTrigger>
-                <TabsTrigger value="absent" className="flex-1 sm:flex-none">Absent ({absentCount})</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
-            <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("xlsx")}><FileSpreadsheet className="size-4 mr-1" />Excel</Button>
-            <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("csv")}><Download className="size-4 mr-1" />CSV</Button>
-            <Button variant="outline" size="sm" disabled={!visibleRows.length} onClick={() => exportFn("pdf")}><FileText className="size-4 mr-1" />PDF</Button>
-            <span className="text-xs text-muted-foreground self-center">
-              Downloads follow the filters above — {mode === "overall" ? "full compiled course report" : "this single session/day only"}.
-            </span>
+          <div className="sm:col-span-2 lg:col-span-4 pt-2">
+            <Label className="text-xs font-semibold text-muted-foreground mb-2 block uppercase tracking-wider">
+              Attendance Filter Toggle
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs value={presence} onValueChange={(v) => setPresence(v as Presence)}>
+                <TabsList>
+                  <TabsTrigger value="all">All ({report?.rows.length ?? 0})</TabsTrigger>
+                  <TabsTrigger value="present">Present ({presentCount})</TabsTrigger>
+                  <TabsTrigger value="absent">Absent ({absentCount})</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs value={risk} onValueChange={(v) => setRisk(v as Risk)}>
+                <TabsList>
+                  <TabsTrigger value="all">All Statuses</TabsTrigger>
+                  <TabsTrigger value="at-risk" className="text-destructive font-semibold">
+                    At Risk ({atRiskCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="passed">
+                    Passed ({(report?.rows.length ?? 0) - atRiskCount})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* DEDICATED DOWNLOAD OPTIONS: COMPILATION VS SPECIFIC SESSION */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <FileSpreadsheet className="size-4 text-primary" />
+              Complete Attendance Compilation
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Download the entire semester attendance matrix across all lectures with attendance %,
+              10-mark grades, and at-risk standing.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2 flex flex-wrap items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!courses?.length || !raw?.sessions?.length}
+              onClick={() => exportCompilation("xlsx")}
+            >
+              <FileSpreadsheet className="size-4 mr-1.5" />
+              Excel (.xlsx)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!courses?.length || !raw?.sessions?.length}
+              onClick={() => exportCompilation("csv")}
+            >
+              <Download className="size-4 mr-1.5" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!courses?.length || !raw?.sessions?.length}
+              onClick={() => exportCompilation("pdf")}
+            >
+              <FileText className="size-4 mr-1.5" />
+              PDF Report
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" />
+              Specific Session Download
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Download attendance for a specific lecture session, complete with student check-in
+              timestamps and presence verification.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2 space-y-3">
+            <div className="max-w-xs">
+              <Select value={sessionDay} onValueChange={setSessionDay}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select class session" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allDays.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      Week {weekOfDay(d)} · {prettyDay(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!sessionDay}
+                onClick={() => exportSpecificSession("xlsx")}
+              >
+                <FileSpreadsheet className="size-4 mr-1.5" />
+                Session Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!sessionDay}
+                onClick={() => exportSpecificSession("csv")}
+              >
+                <Download className="size-4 mr-1.5" />
+                Session CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!sessionDay}
+                onClick={() => exportSpecificSession("pdf")}
+              >
+                <FileText className="size-4 mr-1.5" />
+                Session PDF
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {report && !!report.days.length && atRiskCount > 0 && (
         <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm flex items-start gap-2">
           <AlertTriangle className="size-4 text-destructive shrink-0 mt-0.5" />
           <div>
-            <b>{atRiskCount}</b> student{atRiskCount === 1 ? " has" : "s have"} missed more than <b>{maxMisses}</b> class{maxMisses === 1 ? "" : "es"}.
-            Use the <b>At risk</b> tab to see and export just those students.
+            <b>{atRiskCount}</b> student{atRiskCount === 1 ? " has" : "s have"} missed more than{" "}
+            <b>{maxMisses}</b> class{maxMisses === 1 ? "" : "es"}. Use the <b>At risk</b> tab to see
+            and export just those students.
           </div>
         </div>
       )}
@@ -259,13 +639,17 @@ function ReportsPage() {
         <Card>
           <CardHeader className="gap-3">
             <CardTitle className="text-base">
-              {courseLabel?.code} — {visibleRows.length} student{visibleRows.length === 1 ? "" : "s"} · {report.days.length} class day{report.days.length === 1 ? "" : "s"}
+              {courseLabel?.code} — {visibleRows.length} student
+              {visibleRows.length === 1 ? "" : "s"} · {report.days.length} class day
+              {report.days.length === 1 ? "" : "s"}
             </CardTitle>
             <Tabs value={risk} onValueChange={(v) => setRisk(v as Risk)}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="at-risk">At risk ({atRiskCount})</TabsTrigger>
-                <TabsTrigger value="passed">Passed ({(report.rows.length ?? 0) - atRiskCount})</TabsTrigger>
+                <TabsTrigger value="passed">
+                  Passed ({(report.rows.length ?? 0) - atRiskCount})
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </CardHeader>
@@ -286,6 +670,7 @@ function ReportsPage() {
                     <th className="p-3 text-center">Scans</th>
                     <th className="p-3 text-center">Missed</th>
                     <th className="p-3 text-center">%</th>
+                    <th className="p-3 text-center whitespace-nowrap">Grade (/10)</th>
                     <th className="p-3 text-center whitespace-nowrap">Score /{gradeWeight}</th>
                     <th className="p-3 text-center">Status</th>
                   </tr>
@@ -297,31 +682,64 @@ function ReportsPage() {
                       <td className="p-3 font-mono text-xs">{r.index_number}</td>
                       <td className="p-3">{r.level}</td>
                       {r.cells.map((v, i) => (
-                        <td key={i} className={`p-3 text-center font-semibold ${v === 1 ? "text-success" : "text-muted-foreground"}`}>{v}</td>
+                        <td
+                          key={i}
+                          className={`p-3 text-center font-semibold ${v === 1 ? "text-success" : "text-muted-foreground"}`}
+                        >
+                          {v}
+                        </td>
                       ))}
                       <td className="p-3 text-center font-bold text-success">{r.scans}</td>
-                      <td className="p-3 text-center font-bold text-muted-foreground">{r.missed}</td>
+                      <td className="p-3 text-center font-bold text-muted-foreground">
+                        {r.missed}
+                      </td>
                       <td className="p-3 text-center font-semibold">{r.pct}%</td>
+                      <td className="p-3 text-center">
+                        <Badge variant="outline" className="font-mono text-xs font-semibold">
+                          {r.attendanceMarks}/10
+                        </Badge>
+                      </td>
                       <td className="p-3 text-center font-semibold text-primary">{r.score}</td>
                       <td className="p-3 text-center">
-                        <span className={`text-xs px-2 py-1 rounded font-medium ${r.atRisk ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded font-medium ${r.atRisk ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}
+                        >
                           {r.atRisk ? "AT RISK" : "PASSED"}
                         </span>
                       </td>
                     </tr>
                   ))}
                   {!visibleRows.length && (
-                    <tr><td colSpan={8 + report.days.length} className="p-6 text-center text-muted-foreground">
-                      {allDays.length ? "No students to show" : "No attendance recorded for this course yet"}
-                    </td></tr>
+                    <tr>
+                      <td
+                        colSpan={9 + report.days.length}
+                        className="p-6 text-center text-muted-foreground"
+                      >
+                        {allDays.length
+                          ? "No students to show"
+                          : "No attendance recorded for this course yet"}
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="p-3 text-xs text-muted-foreground border-t">
-              Legend: <b className="text-success">1</b> scanned · <b>0</b> did not scan · <b>At risk</b> = missed more than {maxMisses} class{maxMisses === 1 ? "" : "es"}.
+              Legend: <b className="text-success">1</b> scanned · <b>0</b> did not scan ·{" "}
+              <b>At risk</b> = missed more than {maxMisses} class{maxMisses === 1 ? "" : "es"}.
             </div>
           </CardContent>
+        </Card>
+      )}
+
+      {!courseId && (
+        <Card className="p-8 text-center border-dashed">
+          <FileSpreadsheet className="size-10 mx-auto mb-2 text-muted-foreground/60" />
+          <h3 className="font-semibold text-base mb-1">Select a course to view reports</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Choose any course from the selector above to see full semester attendance records,
+            individual session breakdowns, and 10-mark grades.
+          </p>
         </Card>
       )}
     </AppShell>

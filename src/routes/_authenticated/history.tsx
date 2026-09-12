@@ -2,29 +2,54 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { supabase } from "@/integrations/supabase/client";
+import { firestoreDb } from "@/integrations/firebase/config";
+import { collection, getDocs } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Archive, Search, Download, FileSpreadsheet, FileText, History as HistoryIcon } from "lucide-react";
+import {
+  Archive,
+  Search,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  History as HistoryIcon,
+} from "lucide-react";
 import { exportToExcel, exportToCSV, exportToPDF } from "@/lib/exporters";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
     meta: [
       { title: "Academic History — QRoll" },
-      { name: "description", content: "Search attendance history across every academic year and semester, including archived terms, and export historical course or student records." },
+      {
+        name: "description",
+        content:
+          "Search attendance history across every academic year and semester, including archived terms, and export historical course or student records.",
+      },
       { property: "og:title", content: "Academic History — QRoll" },
-      { property: "og:description", content: "Cross-semester attendance history, permanent archive search and historical exports." },
+      {
+        property: "og:description",
+        content:
+          "Cross-semester attendance history, permanent archive search and historical exports.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "Academic History — QRoll" },
-      { name: "twitter:description", content: "Cross-semester attendance history and archive search." },
+      {
+        name: "twitter:description",
+        content: "Cross-semester attendance history and archive search.",
+      },
     ],
   }),
   component: HistoryPage,
@@ -51,31 +76,79 @@ function HistoryPage() {
   const [scope, setScope] = useState<Scope>("courses");
   const [q, setQ] = useState("");
 
+  const currentUid = firebaseAuth.currentUser?.uid;
+
   const { data: terms } = useQuery({
-    queryKey: ["history-terms"],
-    queryFn: async () =>
-      ((await supabase
-        .from("academic_terms")
-        .select("id, year_name, semester, starts_on, ends_on, is_current, archived_at")
-        .order("year_name", { ascending: false })
-        .order("semester")).data ?? []) as TermRow[],
+    queryKey: ["history-terms", currentUid],
+    queryFn: async () => {
+      if (!currentUid) return [];
+      const snap = await getDocs(
+        query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
+      );
+      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as TermRow[];
+      return list.sort((a, b) => {
+        const yComp = (b.year_name || "").localeCompare(a.year_name || "");
+        if (yComp !== 0) return yComp;
+        return (a.semester || "").localeCompare(b.semester || "");
+      });
+    },
+    enabled: !!currentUid,
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["history-data"],
+    queryKey: ["history-data", currentUid],
     queryFn: async () => {
-      const [courses, sessions, records, regs] = await Promise.all([
-        supabase.from("courses").select("id, code, title, level, term_id"),
-        supabase.from("attendance_sessions").select("id, course_id, title, starts_at"),
-        supabase.from("attendance_records").select("student_id, session_id, students(id, full_name, index_number, level)"),
-        supabase.from("course_registrations").select("course_id, students(id, full_name, index_number, level)"),
+      if (!currentUid) return { courses: [], sessions: [], records: [], regs: [] };
+      const [coursesSnap, sessionsSnap, recordsSnap, regsSnap, studSnap] = await Promise.all([
+        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid))),
+        getDocs(
+          query(
+            collection(firestoreDb, "attendance_sessions"),
+            where("owner_id", "==", currentUid),
+          ),
+        ),
+        getDocs(
+          query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", currentUid)),
+        ),
+        getDocs(
+          query(
+            collection(firestoreDb, "course_registrations"),
+            where("owner_id", "==", currentUid),
+          ),
+        ),
+        getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid))),
       ]);
-      return {
-        courses: (courses.data ?? []) as any[],
-        sessions: (sessions.data ?? []) as any[],
-        records: (records.data ?? []) as any[],
-        regs: (regs.data ?? []) as any[],
-      };
+      const studentMap = new Map<string, any>();
+      studSnap.docs.forEach((d) => {
+        const s = d.data() as any;
+        studentMap.set(d.id, {
+          id: d.id,
+          full_name: s.full_name,
+          index_number: s.index_number,
+          level: s.level,
+        });
+      });
+
+      const courses = coursesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      const sessions = sessionsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      const records = recordsSnap.docs.map((d) => {
+        const rData = d.data() as any;
+        return {
+          id: d.id,
+          ...rData,
+          students: studentMap.get(rData.student_id) || null,
+        };
+      });
+      const regs = regsSnap.docs.map((d) => {
+        const rData = d.data() as any;
+        return {
+          id: d.id,
+          ...rData,
+          students: studentMap.get(rData.student_id) || null,
+        };
+      });
+
+      return { courses, sessions, records, regs };
     },
   });
 
@@ -94,9 +167,13 @@ function HistoryPage() {
       sessionsByCourse.set(s.course_id, list);
     });
     const attendedBySession = new Map<string, number>();
-    data.records.forEach((r) => attendedBySession.set(r.session_id, (attendedBySession.get(r.session_id) ?? 0) + 1));
+    data.records.forEach((r) =>
+      attendedBySession.set(r.session_id, (attendedBySession.get(r.session_id) ?? 0) + 1),
+    );
     const regsByCourse = new Map<string, number>();
-    data.regs.forEach((r) => regsByCourse.set(r.course_id, (regsByCourse.get(r.course_id) ?? 0) + 1));
+    data.regs.forEach((r) =>
+      regsByCourse.set(r.course_id, (regsByCourse.get(r.course_id) ?? 0) + 1),
+    );
 
     return data.courses
       .filter((c) => termId === "all" || c.term_id === termId)
@@ -110,7 +187,7 @@ function HistoryPage() {
           code: c.code,
           title: c.title,
           level: c.level,
-          term: c.term_id ? termLabel.get(c.term_id) ?? "—" : "—",
+          term: c.term_id ? (termLabel.get(c.term_id) ?? "—") : "—",
           sessions: ids.length,
           students,
           attendance: pct(attended, possible),
@@ -133,14 +210,24 @@ function HistoryPage() {
     data.sessions.forEach((s) => sessionCourse.set(s.id, s.course_id));
     const sessionsPerCourse = new Map<string, number>();
     data.sessions.forEach((s) => {
-      if (courseIds.has(s.course_id)) sessionsPerCourse.set(s.course_id, (sessionsPerCourse.get(s.course_id) ?? 0) + 1);
+      if (courseIds.has(s.course_id))
+        sessionsPerCourse.set(s.course_id, (sessionsPerCourse.get(s.course_id) ?? 0) + 1);
     });
 
-    const students = new Map<string, { name: string; index: string; level: number | null; courses: Set<string>; attended: number }>();
+    const students = new Map<
+      string,
+      { name: string; index: string; level: number | null; courses: Set<string>; attended: number }
+    >();
     data.regs.forEach((r) => {
       const s = r.students;
       if (!s || !courseIds.has(r.course_id)) return;
-      const entry = students.get(s.id) ?? { name: s.full_name, index: s.index_number, level: s.level, courses: new Set<string>(), attended: 0 };
+      const entry = students.get(s.id) ?? {
+        name: s.full_name,
+        index: s.index_number,
+        level: s.level,
+        courses: new Set<string>(),
+        attended: 0,
+      };
       entry.courses.add(r.course_id);
       students.set(s.id, entry);
     });
@@ -149,14 +236,23 @@ function HistoryPage() {
       if (!courseId || !courseIds.has(courseId)) return;
       const s = rec.students;
       if (!s) return;
-      const entry = students.get(s.id) ?? { name: s.full_name, index: s.index_number, level: s.level, courses: new Set<string>(), attended: 0 };
+      const entry = students.get(s.id) ?? {
+        name: s.full_name,
+        index: s.index_number,
+        level: s.level,
+        courses: new Set<string>(),
+        attended: 0,
+      };
       entry.attended += 1;
       students.set(s.id, entry);
     });
 
     return [...students.entries()]
       .map(([id, e]) => {
-        const possible = [...e.courses].reduce((sum, cid) => sum + (sessionsPerCourse.get(cid) ?? 0), 0);
+        const possible = [...e.courses].reduce(
+          (sum, cid) => sum + (sessionsPerCourse.get(cid) ?? 0),
+          0,
+        );
         return {
           id,
           name: e.name,
@@ -198,7 +294,10 @@ function HistoryPage() {
         }));
 
   const fileName = () => {
-    const term = termId === "all" ? "all-semesters" : (termLabel.get(termId) ?? "semester").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const term =
+      termId === "all"
+        ? "all-semesters"
+        : (termLabel.get(termId) ?? "semester").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     return `qroll-history-${scope}-${term}`;
   };
 
@@ -233,7 +332,9 @@ function HistoryPage() {
                 <Input
                   id="history-search"
                   className="pl-8"
-                  placeholder={scope === "courses" ? "Course code or title" : "Student name or index number"}
+                  placeholder={
+                    scope === "courses" ? "Course code or title" : "Student name or index number"
+                  }
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                 />
@@ -264,22 +365,36 @@ function HistoryPage() {
                 </TabsList>
               </Tabs>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => exportToExcel(exportRows(), fileName())}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToExcel(exportRows(), fileName())}
+                >
                   <FileSpreadsheet className="mr-1 size-4" /> Excel
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => exportToCSV(exportRows(), fileName())}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToCSV(exportRows(), fileName())}
+                >
                   <Download className="mr-1 size-4" /> CSV
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => {
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
                     const rows = exportRows();
                     const headers = rows.length ? Object.keys(rows[0]) : [];
                     exportToPDF(
                       "Academic history",
                       headers,
-                      rows.map((r) => headers.map((h) => String((r as Record<string, unknown>)[h] ?? ""))),
+                      rows.map((r) =>
+                        headers.map((h) => String((r as Record<string, unknown>)[h] ?? "")),
+                      ),
                       fileName(),
                     );
-                  }}>
+                  }}
+                >
                   <FileText className="mr-1 size-4" /> PDF
                 </Button>
               </div>
@@ -290,7 +405,9 @@ function HistoryPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              {scope === "courses" ? `${courseRows.length} course(s)` : `${studentRows.length} student(s)`}
+              {scope === "courses"
+                ? `${courseRows.length} course(s)`
+                : `${studentRows.length} student(s)`}
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">

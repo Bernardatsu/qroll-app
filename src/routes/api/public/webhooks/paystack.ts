@@ -1,19 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac, timingSafeEqual } from "crypto";
+import { firestoreAdmin } from "@/integrations/firebase/admin.server";
 
 /**
  * Paystack webhook. Verifies the HMAC-SHA512 signature Paystack sends in
- * x-paystack-signature, then records the payment and updates the subscription.
+ * x-paystack-signature, then records the payment and updates the subscription in Firestore.
  */
 export const Route = createFileRoute("/api/public/webhooks/paystack")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env["PAYSTACK_SECRET_KEY"] ?? process.env["STRIPE_TEST_API_KEY"];
-        if (!secret) return new Response("Not configured", { status: 503 });
+        const secret = process.env["PAYSTACK_SECRET_KEY"];
+        if (!secret) {
+          return new Response("Paystack secret key is not configured on the server", {
+            status: 503,
+          });
+        }
 
         const raw = await request.text();
         const signature = request.headers.get("x-paystack-signature") ?? "";
+        if (!signature) {
+          return new Response("Missing signature header", { status: 400 });
+        }
+
         const expected = createHmac("sha512", secret).update(raw).digest("hex");
         const a = Buffer.from(signature);
         const b = Buffer.from(expected);
@@ -34,21 +43,21 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
 
         const ownerId = event.data?.metadata?.owner_id;
         const planCode = event.data?.metadata?.plan_code ?? "monthly";
-
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
         let subscriptionId: string | null = null;
 
-        if (ownerId && (event.event === "charge.success" || event.event === "subscription.create")) {
-          const months = planCode === "yearly" ? 12 : planCode === "semester" ? 4 : 1;
+        if (
+          ownerId &&
+          (event.event === "charge.success" || event.event === "subscription.create")
+        ) {
+          const months = planCode === "yearly" ? 12 : planCode === "semester" ? 3 : 1;
           const periodEnd = new Date();
           periodEnd.setMonth(periodEnd.getMonth() + months);
 
-          const { data: existing } = await supabaseAdmin
-            .from("subscriptions")
-            .select("id")
-            .eq("owner_id", ownerId)
-            .maybeSingle();
+          const subQuery = await firestoreAdmin
+            .collection("subscriptions")
+            .where("owner_id", "==", ownerId)
+            .limit(1)
+            .get();
 
           const payload = {
             owner_id: ownerId,
@@ -60,29 +69,49 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
             currency: event.data?.currency ?? "USD",
             current_period_end: periodEnd.toISOString(),
             cancel_at_period_end: false,
+            updated_at: new Date().toISOString(),
           };
 
-          const { data: saved } = existing
-            ? await supabaseAdmin.from("subscriptions").update(payload).eq("id", existing.id).select("id").maybeSingle()
-            : await supabaseAdmin.from("subscriptions").insert(payload).select("id").maybeSingle();
-          subscriptionId = saved?.id ?? existing?.id ?? null;
+          if (!subQuery.empty) {
+            const existingDoc = subQuery.docs[0];
+            await existingDoc.ref.update(payload);
+            subscriptionId = existingDoc.id;
+          } else {
+            const newDoc = await firestoreAdmin.collection("subscriptions").add({
+              ...payload,
+              created_at: new Date().toISOString(),
+            });
+            subscriptionId = newDoc.id;
+          }
         }
 
-        if (ownerId && (event.event === "subscription.disable" || event.event === "invoice.payment_failed")) {
-          await supabaseAdmin
-            .from("subscriptions")
-            .update({ status: event.event === "subscription.disable" ? "canceled" : "past_due" })
-            .eq("owner_id", ownerId);
+        if (
+          ownerId &&
+          (event.event === "subscription.disable" || event.event === "invoice.payment_failed")
+        ) {
+          const subQuery = await firestoreAdmin
+            .collection("subscriptions")
+            .where("owner_id", "==", ownerId)
+            .limit(1)
+            .get();
+
+          if (!subQuery.empty) {
+            await subQuery.docs[0].ref.update({
+              status: event.event === "subscription.disable" ? "canceled" : "past_due",
+              updated_at: new Date().toISOString(),
+            });
+          }
         }
 
-        await supabaseAdmin.from("payment_events").insert({
+        await firestoreAdmin.collection("payment_events").add({
           subscription_id: subscriptionId,
           owner_id: ownerId ?? null,
           provider: "paystack",
           event_type: event.event,
           amount: event.data?.amount ?? null,
           currency: event.data?.currency ?? null,
-          raw: event as never,
+          raw: event,
+          created_at: new Date().toISOString(),
         });
 
         return new Response("ok");

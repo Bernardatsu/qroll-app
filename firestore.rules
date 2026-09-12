@@ -1,0 +1,185 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isSignedIn() && (
+        resource.data.owner_id == request.auth.uid ||
+        resource.data.created_by == request.auth.uid
+      );
+    }
+
+    function isCreatingWithOwner() {
+      return isSignedIn() && (
+        request.resource.data.owner_id == request.auth.uid ||
+        request.resource.data.created_by == request.auth.uid
+      );
+    }
+
+    function isCourseOrganizer(courseId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/courses/$(courseId)).data.owner_id == request.auth.uid;
+    }
+
+    function isSessionOrganizer(sessionId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/attendance_sessions/$(sessionId)).data.owner_id == request.auth.uid;
+    }
+
+    // Users & Roles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    match /user_roles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Students
+    match /students/{studentId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner() || isSignedIn();
+      allow update, delete: if isDocOwner() || isSignedIn();
+    }
+
+    // Courses & Registrations
+    match /courses/{courseId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /course_registrations/{regId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isSignedIn() && (
+        request.resource.data.owner_id == request.auth.uid ||
+        (request.resource.data.course_id != null && isCourseOrganizer(request.resource.data.course_id)) ||
+        true
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.owner_id == request.auth.uid ||
+        (resource.data.course_id != null && isCourseOrganizer(resource.data.course_id))
+      );
+    }
+
+    // Academic Structure
+    match /departments/{deptId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /academic_years/{yearId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /academic_terms/{termId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /class_levels/{levelId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Attendance Sessions & Records
+    match /attendance_sessions/{sessionId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /attendance_records/{recordId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if (
+        (isSignedIn() && (
+          request.resource.data.owner_id == request.auth.uid ||
+          request.resource.data.scanned_by == request.auth.uid ||
+          (request.resource.data.session_id != null && isSessionOrganizer(request.resource.data.session_id)) ||
+          true
+        )) ||
+        (
+          request.resource.data.source in ['self_geofence', 'self_checkin', 'qr_self'] &&
+          request.resource.data.session_id != null &&
+          get(/databases/$(database)/documents/attendance_sessions/$(request.resource.data.session_id)).data.is_active == true
+        )
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.owner_id == request.auth.uid ||
+        (resource.data.session_id != null && isSessionOrganizer(resource.data.session_id))
+      );
+    }
+
+    // Announcements & Assignments
+    match /announcements/{announcementId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Student Portal Links
+    match /student_portal_links/{linkId} {
+      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow create: if isCreatingWithOwner();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Student Accounts (Credentials, Password Hashes & Salts for student portal)
+    match /student_accounts/{accountId} {
+      allow read, write: if true;
+    }
+
+    // Subscriptions & Payments
+    match /subscriptions/{subId} {
+      allow read: if isSignedIn() && resource.data.owner_id == request.auth.uid;
+      allow write: if isSignedIn() && (
+        request.resource.data.owner_id == request.auth.uid ||
+        (resource != null && resource.data.owner_id == request.auth.uid)
+      );
+    }
+
+    // User Devices (Multi-device tracking up to 4 devices)
+    match /user_devices/{deviceId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.user_id == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || request.resource.data.user_id == request.auth.uid);
+    }
+
+    match /payment_events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only server webhooks write here
+    }
+
+    // Rate limits (Internal server-side tracking only via Admin SDK)
+    match /rate_limits/{limitId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

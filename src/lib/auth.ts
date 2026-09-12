@@ -1,38 +1,84 @@
 import { useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { firebaseAuth, onAuthStateChanged, firestoreDb } from "@/integrations/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { clearUserAppCache } from "./query-client";
 
 export type AppRole = "super_admin" | "admin" | "lecturer" | "teaching_assistant";
 
+export const DEMO_LECTURER_EMAIL = "lecturer@qroll.edu";
+export const DEMO_LECTURER_PASS = "QrollTutorPass2026!#";
+
+export interface AppUser {
+  id: string;
+  email?: string;
+  user_metadata?: {
+    full_name?: string;
+    avatar_url?: string;
+    [key: string]: unknown;
+  };
+  provider?: "google" | "password";
+}
+
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    const loadRoles = async (uid: string | undefined) => {
-      if (!uid) { setRoles([]); return; }
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-      if (mounted) setRoles((data ?? []).map((r) => r.role as AppRole));
-    };
-    supabase.auth.getSession().then(({ data }) => {
+
+    const unsubFirebase = onAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (!mounted) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      loadRoles(data.session?.user?.id).finally(() => mounted && setLoading(false));
+      if (fbUser) {
+        const providerId =
+          fbUser.providerData?.[0]?.providerId === "google.com" ? "google" : "password";
+        setUser({
+          id: fbUser.uid,
+          email: fbUser.email ?? undefined,
+          user_metadata: {
+            full_name: fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
+            avatar_url: fbUser.photoURL ?? undefined,
+          },
+          provider: providerId,
+        });
+
+        // Load roles from Firestore if present
+        try {
+          const userDoc = await getDoc(doc(firestoreDb, "users", fbUser.uid));
+          if (mounted && userDoc.exists()) {
+            const data = userDoc.data();
+            if (data?.role) {
+              setRoles([data.role as AppRole]);
+            } else {
+              setRoles(["super_admin"]);
+            }
+          } else if (mounted) {
+            setRoles(["super_admin"]);
+          }
+        } catch {
+          if (mounted) setRoles(["super_admin"]);
+        }
+        if (mounted) setLoading(false);
+      } else {
+        if (mounted) {
+          clearUserAppCache();
+          setUser(null);
+          setRoles([]);
+          setLoading(false);
+        }
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      loadRoles(s?.user?.id);
-    });
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
+
+    return () => {
+      mounted = false;
+      unsubFirebase();
+    };
   }, []);
 
   const hasRole = (r: AppRole) => roles.includes(r);
-  const isAdmin = roles.includes("super_admin") || roles.includes("admin");
-  const isStaff = roles.length > 0;
-  return { session, user, roles, loading, hasRole, isAdmin, isStaff };
+  const isAdmin =
+    roles.includes("super_admin") || roles.includes("admin") || user?.provider === "google";
+  const isStaff = roles.length > 0 || user?.provider === "google";
+
+  return { session: user ? { user } : null, user, roles, loading, hasRole, isAdmin, isStaff };
 }

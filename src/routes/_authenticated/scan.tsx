@@ -3,12 +3,38 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { supabase } from "@/integrations/supabase/client";
+import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  addDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Camera, Square, AlertTriangle, RefreshCw, SwitchCamera, Lock, WifiOff, UploadCloud } from "lucide-react";
+import {
+  CheckCircle2,
+  Camera,
+  Square,
+  AlertTriangle,
+  RefreshCw,
+  SwitchCamera,
+  Lock,
+  WifiOff,
+  UploadCloud,
+} from "lucide-react";
 import { toast } from "sonner";
 import { clearQueue, isOnline, listQueued, queueScan, removeQueued } from "@/lib/offline-queue";
 
@@ -64,33 +90,75 @@ function ScanPage() {
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
+  const currentUid = firebaseAuth.currentUser?.uid;
+
   const { data: openSessions } = useQuery({
-    queryKey: ["open-sessions"],
+    queryKey: ["open-sessions", currentUid],
     queryFn: async () => {
-      // Auto-close sessions older than 12h
+      if (!currentUid) return [];
       const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-      await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("status", "OPEN").lt("starts_at", cutoff);
-      return (
-        await supabase
-          .from("attendance_sessions")
-          .select("id, title, starts_at, courses(code, title)")
-          .eq("status", "OPEN")
-          .order("starts_at", { ascending: false })
-      ).data ?? [];
+      const [sessSnap, coursesSnap] = await Promise.all([
+        getDocs(
+          query(
+            collection(firestoreDb, "attendance_sessions"),
+            where("owner_id", "==", currentUid),
+            where("status", "==", "OPEN"),
+          ),
+        ),
+        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid))),
+      ]);
+      const courseMap = new Map(coursesSnap.docs.map((d) => [d.id, d.data() as any]));
+      const list = await Promise.all(
+        sessSnap.docs.map(async (d) => {
+          const data = d.data() as any;
+          if (data.starts_at && data.starts_at < cutoff) {
+            try {
+              await updateDoc(doc(firestoreDb, "attendance_sessions", d.id), {
+                status: "CLOSED",
+                ends_at: new Date().toISOString(),
+              });
+              data.status = "CLOSED";
+            } catch {
+              // ignore
+            }
+          }
+          const c = courseMap.get(data.course_id);
+          return {
+            id: d.id,
+            title: data.title,
+            starts_at: data.starts_at,
+            status: data.status,
+            courses: c ? { code: c.code, title: c.title } : null,
+          };
+        }),
+      );
+      return list
+        .filter((s) => s.status === "OPEN")
+        .sort((a, b) => (b.starts_at || "").localeCompare(a.starts_at || ""));
     },
+    enabled: !!currentUid,
   });
+
   const { data: session } = useQuery({
     queryKey: ["session", activeSession],
-    queryFn: async () =>
-      activeSession
-        ? (
-            await supabase
-              .from("attendance_sessions")
-              .select("*, courses(code, title, level)")
-              .eq("id", activeSession)
-              .maybeSingle()
-          ).data
-        : null,
+    queryFn: async () => {
+      if (!activeSession) return null;
+      const sSnap = await getDoc(doc(firestoreDb, "attendance_sessions", activeSession));
+      if (!sSnap.exists()) return null;
+      const data = { id: sSnap.id, ...(sSnap.data() as any) };
+      if (data.course_id) {
+        try {
+          const cSnap = await getDoc(doc(firestoreDb, "courses", data.course_id));
+          if (cSnap.exists()) {
+            const cData = cSnap.data() as any;
+            data.courses = { code: cData.code, title: cData.title, level: cData.level };
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return data;
+    },
     enabled: !!activeSession,
   });
   useEffect(() => {
@@ -98,25 +166,73 @@ function ScanPage() {
   }, [session]);
 
   const { data: records } = useQuery({
-    queryKey: ["records", activeSession],
+    queryKey: ["records", activeSession, currentUid],
     queryFn: async () => {
-      if (!activeSession) return [];
-      // Auto-resets daily: only today's scans are listed
+      if (!activeSession || !currentUid) return [];
       const today = new Date().toISOString().slice(0, 10);
-      const { data } = await supabase
-        .from("attendance_records")
-        .select("*, students(full_name, index_number)")
-        .eq("session_id", activeSession)
-        .eq("session_date", today)
-        .order("created_at", { ascending: false });
-      return data ?? [];
+      const recSnap = await getDocs(
+        query(
+          collection(firestoreDb, "attendance_records"),
+          where("session_id", "==", activeSession),
+          where("session_date", "==", today),
+        ),
+      );
+      const studentIds = Array.from(
+        new Set(recSnap.docs.map((d) => (d.data() as any).student_id).filter(Boolean)),
+      );
+      const studentMap = new Map<string, any>();
+      if (studentIds.length > 0) {
+        const sSnap = await getDocs(
+          query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+        );
+        sSnap.docs.forEach((d) => {
+          if (studentIds.includes(d.id)) {
+            studentMap.set(d.id, d.data() as any);
+          }
+        });
+      }
+      const list = recSnap.docs.map((d) => {
+        const data = d.data() as any;
+        const st = studentMap.get(data.student_id);
+        return {
+          id: d.id,
+          ...data,
+          students: st ? { full_name: st.full_name, index_number: st.index_number } : null,
+        };
+      });
+      return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     },
-
-    enabled: !!activeSession,
+    enabled: !!activeSession && !!currentUid,
     refetchInterval: 3000,
   });
 
-  const processQr = async (raw: string, opts?: { at?: string; replay?: boolean }): Promise<boolean> => {
+  // Fast in-memory cache for instant student recognition during continuous high-speed scanning
+  const { data: cachedStudents } = useQuery({
+    queryKey: ["session-students-cache", session?.course_id, currentUid],
+    queryFn: async () => {
+      if (!session?.course_id || !currentUid) return [];
+      const regSnap = await getDocs(
+        query(
+          collection(firestoreDb, "course_registrations"),
+          where("course_id", "==", session.course_id),
+        ),
+      );
+      const studentIds = regSnap.docs.map((d) => (d.data() as any).student_id).filter(Boolean);
+      if (studentIds.length === 0) return [];
+      const studSnap = await getDocs(
+        query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+      );
+      return studSnap.docs
+        .filter((d) => studentIds.includes(d.id))
+        .map((d) => ({ id: d.id, ...(d.data() as any) }));
+    },
+    enabled: !!session?.course_id && !!currentUid,
+  });
+
+  const processQr = async (
+    raw: string,
+    opts?: { at?: string; replay?: boolean },
+  ): Promise<boolean> => {
     const uuid = raw.trim();
     const sess = sessionRef.current;
     if (!uuid || !sess) return false;
@@ -127,18 +243,26 @@ function ScanPage() {
     const now = Date.now();
     if (!replay) {
       const last = recentScans.current.get(uuid) ?? 0;
-      if (now - last < 3000) return false;
+      if (now - last < 2500) return false;
       recentScans.current.set(uuid, now);
       inFlight.current.add(uuid);
       beep();
     }
 
+    // Fast in-memory match: zero-latency feedback for registered students
+    const localMatch = (cachedStudents as any[])?.find(
+      (s: any) => s.qr_uuid === uuid || s.index_number === uuid,
+    );
+
     // No network? Keep the scan locally and replay it when we're back online.
     if (!replay && !isOnline()) {
       queueScan(sess.id, uuid);
       setPending(listQueued().length);
-      setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
-      setStatus("Offline — scan saved, will sync automatically");
+      setLastScan({
+        name: localMatch?.full_name ?? uuid.slice(0, 14) + "…",
+        status: "SAVED OFFLINE",
+      });
+      setStatus(`Offline — saved ${localMatch?.full_name ?? "scan"}`);
       toast.message("Offline — scan saved on this device");
       inFlight.current.delete(uuid);
       return true;
@@ -151,12 +275,24 @@ function ScanPage() {
       message: (m: string) => !replay && toast.message(m),
     };
     try {
-      // Try to match by qr_uuid OR raw index_number (supports plain-text QR codes too)
-      const { data: student } = await supabase
-        .from("students")
-        .select("id, full_name, index_number, level")
-        .or(`qr_uuid.eq.${uuid},index_number.eq.${uuid}`)
-        .maybeSingle();
+      // Try from memory first, otherwise query Firestore
+      let student = localMatch;
+      if (!student) {
+        if (!currentUid) {
+          notify.error("User session expired. Please sign in again.");
+          return true;
+        }
+        const studSnap = await getDocs(
+          query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+        );
+        const match = studSnap.docs.find((d) => {
+          const sData = d.data() as any;
+          return sData.qr_uuid === uuid || sData.index_number === uuid || d.id === uuid;
+        });
+        if (match) {
+          student = { id: match.id, ...(match.data() as any) };
+        }
+      }
       if (!student) {
         setStatus(`Unknown QR: ${uuid.slice(0, 12)}…`);
         notify.error("Unknown QR code");
@@ -167,61 +303,75 @@ function ScanPage() {
       const courseLevel = String(sess.courses?.level ?? "").trim();
       const studentLevel = String((student as any).level ?? "").trim();
       if (courseLevel && studentLevel && courseLevel !== studentLevel) {
-        notify.error(`${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`);
+        notify.error(
+          `${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`,
+        );
         setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
         setStatus(`Wrong level: ${student.full_name}`);
         return true;
       }
 
-
-      const { data: reg } = await supabase
-        .from("course_registrations")
-        .select("id")
-        .eq("course_id", sess.course_id)
-        .eq("student_id", student.id)
-        .maybeSingle();
-      if (!reg) {
+      const regSnap = await getDocs(
+        query(
+          collection(firestoreDb, "course_registrations"),
+          where("course_id", "==", sess.course_id),
+          where("student_id", "==", student.id),
+        ),
+      );
+      if (regSnap.empty) {
         // Auto-enroll the student in this course so the scan goes through
-        const { error: regErr } = await supabase
-          .from("course_registrations")
-          .insert({ course_id: sess.course_id, student_id: student.id });
-        if (regErr) {
+        try {
+          await addDoc(collection(firestoreDb, "course_registrations"), {
+            course_id: sess.course_id,
+            student_id: student.id,
+            registered_at: new Date().toISOString(),
+            owner_id: sess.owner_id || currentUid,
+          });
+          notify.message(`Auto-registered ${student.full_name} for this course`);
+        } catch (regErr: any) {
           notify.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
           setStatus(`Registration failed: ${student.full_name}`);
           return false;
         }
-        notify.message(`Auto-registered ${student.full_name} for this course`);
       }
 
       const day = at.slice(0, 10);
       const singleScanMode = (sess.mode ?? "single") === "single";
 
-      const { data: existing } = await supabase
-        .from("attendance_records")
-        .select("*")
-        .eq("session_id", sess.id)
-        .eq("student_id", student.id)
-        .eq("session_date", day)
-        .maybeSingle();
-      const { data: me } = await supabase.auth.getUser();
+      const recSnap = await getDocs(
+        query(
+          collection(firestoreDb, "attendance_records"),
+          where("session_id", "==", sess.id),
+          where("student_id", "==", student.id),
+          where("session_date", "==", day),
+        ),
+      );
+      const existingDoc = recSnap.docs[0];
+      const existing = existingDoc ? { id: existingDoc.id, ...(existingDoc.data() as any) } : null;
 
       if (!existing) {
-        const { error } = await supabase.from("attendance_records").insert({
-          session_id: sess.id,
-          student_id: student.id,
-          session_date: day,
-          check_in_at: at,
-          status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
-          scanned_by: me.user?.id,
-        } as any);
-        if (error) {
+        try {
+          await addDoc(collection(firestoreDb, "attendance_records"), {
+            session_id: sess.id,
+            student_id: student.id,
+            session_date: day,
+            check_in_at: at,
+            status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
+            scanned_by: currentUid ?? null,
+            owner_id: sess.owner_id || currentUid,
+            created_at: new Date().toISOString(),
+          });
+        } catch (error: any) {
           notify.error(error.message);
           setStatus(`Error: ${error.message}`);
           return false;
         }
         const label = singleScanMode ? "Recorded" : "Checked in";
         notify.success(`✓ ${label}: ${student.full_name}`);
-        setLastScan({ name: student.full_name, status: singleScanMode ? "RECORDED" : "CHECKED IN" });
+        setLastScan({
+          name: student.full_name,
+          status: singleScanMode ? "RECORDED" : "CHECKED IN",
+        });
         setStatus(`${label}: ${student.full_name}`);
       } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
         notify.message(`Already recorded today: ${student.full_name}`);
@@ -232,21 +382,21 @@ function ScanPage() {
         const minsSince = Math.floor((Date.parse(at) - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          notify.error(`Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`);
+          notify.error(
+            `Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`,
+          );
           setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
           setStatus(`Sign-out locked for ${student.full_name}`);
           return true;
         }
         const duration = Math.max(1, minsSince);
-        const { error } = await supabase
-          .from("attendance_records")
-          .update({
+        try {
+          await updateDoc(doc(firestoreDb, "attendance_records", existing.id), {
             check_out_at: at,
             duration_minutes: duration,
             status: "PRESENT",
-          })
-          .eq("id", existing.id);
-        if (error) {
+          });
+        } catch (error: any) {
           notify.error(error.message);
           setStatus(`Error: ${error.message}`);
           return false;
@@ -299,17 +449,22 @@ function ScanPage() {
     else if (!silent) toast.error("Could not sync yet — will retry");
   };
 
-
   const closeSession = async () => {
     if (!activeSession) return;
     if (!confirm("Close this session? Students will no longer be able to check in.")) return;
     await stopCamera();
-    const { error } = await supabase.from("attendance_sessions").update({ status: "CLOSED", ends_at: new Date().toISOString() }).eq("id", activeSession);
-    if (error) return toast.error(error.message);
-    toast.success("Session closed");
-    qc.invalidateQueries({ queryKey: ["open-sessions"] });
-    qc.invalidateQueries({ queryKey: ["session", activeSession] });
-    qc.invalidateQueries({ queryKey: ["sessions"] });
+    try {
+      await updateDoc(doc(firestoreDb, "attendance_sessions", activeSession), {
+        status: "CLOSED",
+        ends_at: new Date().toISOString(),
+      });
+      toast.success("Session closed");
+      qc.invalidateQueries({ queryKey: ["open-sessions"] });
+      qc.invalidateQueries({ queryKey: ["session", activeSession] });
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to close session");
+    }
   };
 
   const stopCamera = async () => {
@@ -386,8 +541,8 @@ function ScanPage() {
         e?.name === "NotAllowedError"
           ? "Camera permission denied. Allow camera access in your browser settings."
           : e?.name === "NotFoundError"
-          ? "No camera found on this device."
-          : e?.message ?? String(e);
+            ? "No camera found on this device."
+            : (e?.message ?? String(e));
       setCamError(msg);
       toast.error(msg);
       setStatus("Camera error");
@@ -463,7 +618,9 @@ function ScanPage() {
         >
           <WifiOff className="size-4 shrink-0" />
           <div className="flex-1 min-w-[12rem]">
-            <div className="font-medium">{online ? "Offline scans waiting to sync" : "You are offline"}</div>
+            <div className="font-medium">
+              {online ? "Offline scans waiting to sync" : "You are offline"}
+            </div>
             <div className="text-xs text-muted-foreground">
               {pending > 0
                 ? `${pending} scan${pending === 1 ? "" : "s"} saved on this device.`
@@ -480,7 +637,8 @@ function ScanPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  if (!confirm("Discard the saved offline scans? They will be lost permanently.")) return;
+                  if (!confirm("Discard the saved offline scans? They will be lost permanently."))
+                    return;
                   clearQueue(activeSession);
                   setPending(listQueued(activeSession).length);
                 }}
@@ -525,11 +683,12 @@ function ScanPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {new Date().toLocaleDateString()} ·{" "}
-                  {(session as any).mode === "inout" ? "Sign in + sign out" : "Single scan = present"}
+                  {(session as any).mode === "inout"
+                    ? "Sign in + sign out"
+                    : "Single scan = present"}
                 </div>
               </div>
             )}
-
 
             <div
               id={QR_REGION_ID}
@@ -580,7 +739,12 @@ function ScanPage() {
                 </>
               )}
               {activeSession && (
-                <Button variant="outline" onClick={closeSession} title="Close session" className="text-destructive">
+                <Button
+                  variant="outline"
+                  onClick={closeSession}
+                  title="Close session"
+                  className="text-destructive"
+                >
                   <Lock className="size-4" />
                 </Button>
               )}
@@ -625,7 +789,6 @@ function ScanPage() {
                         SIGNED IN
                       </span>
                     )}
-
                   </div>
                 </div>
               ))}

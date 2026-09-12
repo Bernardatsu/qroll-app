@@ -81,15 +81,35 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#0f2544" },
       { title: "QRoll — QR Attendance Made Easy" },
-      { name: "description", content: "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records." },
+      {
+        name: "description",
+        content:
+          "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records.",
+      },
       { property: "og:title", content: "QRoll — QR Attendance Made Easy" },
-      { property: "og:description", content: "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records." },
+      {
+        property: "og:description",
+        content:
+          "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "QRoll — QR Attendance Made Easy" },
-      { name: "twitter:description", content: "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1785652190827-social-image.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1785652190827-social-image.webp" },
+      {
+        name: "twitter:description",
+        content:
+          "QRoll is a secure QR attendance system for universities. Scan. Verify. Attend. Instant reports, geofenced self check-in, exportable records.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1785652190827-social-image.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/71J2W22O5zQ9RML7tTBnqENAV3Z2/social-images/social-1785652190827-social-image.webp",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

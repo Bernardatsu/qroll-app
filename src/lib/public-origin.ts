@@ -9,9 +9,6 @@ export function getPublicOrigin(): string {
   if (typeof window === "undefined") return PUBLISHED_ORIGIN;
   const h = window.location.hostname;
   const isPreview =
-    h.includes("id-preview--") ||
-    h === "localhost" ||
-    h.startsWith("127.") ||
-    h.endsWith(".local");
+    h.includes("id-preview--") || h === "localhost" || h.startsWith("127.") || h.endsWith(".local");
   return isPreview ? PUBLISHED_ORIGIN : window.location.origin;
 }

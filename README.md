@@ -587,19 +587,19 @@ Atomic Transactions
 ==================================================
 FINAL GOAL
 
-Generate a complete production-ready university attendance management system with all database schemas, authentication, dashboards, reports, QR generation, QR scanning, attendance tracking, backups, semester archiving, security policies, APIs, responsive UI, PWA support, and deployment configuration fully implemented and connected to Supabase.      .... One additional cost-saving feature you can ask Lovable to build:
+Generate a complete production-ready university attendance management system with all database schemas, authentication, dashboards, reports, QR generation, QR scanning, attendance tracking, backups, semester archiving, security policies, APIs, responsive UI, PWA support, and deployment configuration fully implemented and connected to Supabase. .... One additional cost-saving feature you can ask Lovable to build:
 
 "Database Cleanup Wizard"
 
 Instead of deleting records, it should:
 
- Archive old semesters.
+Archive old semesters.
 
- Compress exports.
+Compress exports.
 
- Remove temporary scan logs older than a configurable period (e.g., 90 days).
+Remove temporary scan logs older than a configurable period (e.g., 90 days).
 
- Keep only essential historical data.
+Keep only essential historical data.
 
 That reduces storage usage while preserving attendance history.
 
