@@ -437,50 +437,60 @@ function ManualPage() {
             </Card>
           ) : (
             filteredSections.map((sec) => (
-              <Card key={sec.id} className="border-border shadow-sm overflow-hidden">
-                <CardHeader className="bg-muted/20 border-b pb-4">
+              <Card key={sec.id} className="border-border/80 shadow-sm overflow-hidden bg-card">
+                <CardHeader className="bg-muted/40 border-b pb-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
                         <sec.icon className="size-5" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg font-bold">{sec.title}</CardTitle>
-                        <CardDescription className="text-xs mt-0.5">{sec.summary}</CardDescription>
+                        <CardTitle className="text-lg font-bold text-foreground">
+                          {sec.title}
+                        </CardTitle>
+                        <p className="text-sm font-medium text-foreground/80 mt-1">{sec.summary}</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="w-fit shrink-0 text-xs">
+                    <Badge
+                      variant="outline"
+                      className="w-fit shrink-0 text-xs font-semibold px-2.5 py-1 border-primary/30 text-primary"
+                    >
                       {sec.badge}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-5 sm:p-6 space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                     {sec.steps.map((st, i) => (
                       <div
                         key={i}
-                        className="rounded-xl border bg-card p-4 space-y-2 flex flex-col justify-between"
+                        className="rounded-xl border border-border/80 bg-background/80 p-4 space-y-2 flex flex-col justify-between shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                       >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 font-semibold text-sm">
-                            <span className="grid size-5 place-items-center rounded-full bg-primary/15 text-primary text-[11px] font-bold shrink-0">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2.5 font-bold text-sm text-foreground">
+                            <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground text-[11px] font-bold shrink-0">
                               {i + 1}
                             </span>
                             {st.title}
                           </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{st.desc}</p>
+                          <p className="text-sm text-foreground/85 leading-relaxed font-normal">
+                            {st.desc}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {sec.tips && sec.tips.length > 0 && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground space-y-1">
-                      <div className="font-semibold text-primary flex items-center gap-1.5">
-                        <CheckCircle2 className="size-4" /> Pro Tip:
+                    <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm text-foreground space-y-1.5">
+                      <div className="font-bold text-primary flex items-center gap-1.5">
+                        <CheckCircle2 className="size-4.5" /> Pro Tip:
                       </div>
                       {sec.tips.map((t, idx) => (
-                        <p key={idx} className="text-muted-foreground pl-5">
+                        <p
+                          key={idx}
+                          className="text-foreground/90 pl-6 font-medium text-sm leading-relaxed"
+                        >
                           {t}
                         </p>
                       ))}

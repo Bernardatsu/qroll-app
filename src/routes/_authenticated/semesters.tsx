@@ -3,7 +3,17 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
-import { collection, getDocs, addDoc, updateDoc, doc, writeBatch } from "firebase/firestore";
+import { useAuth } from "@/lib/auth";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  writeBatch,
+  query,
+  where,
+} from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,14 +83,16 @@ function SemestersPage() {
   const [endsOn, setEndsOn] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<Term | null>(null);
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
 
-  const { data: terms } = useQuery({
+  const { data: terms, isLoading: termsLoading } = useQuery({
     queryKey: ["academic-terms", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid) return [];
       const snap = await getDocs(
-        query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
+        query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", uid)),
       );
       const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Term[];
       return list.sort((a, b) => {
@@ -89,15 +101,16 @@ function SemestersPage() {
         return (a.semester || "").localeCompare(b.semester || "");
       });
     },
-    enabled: !!currentUid,
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   const { data: courseCounts } = useQuery({
     queryKey: ["term-course-counts", currentUid],
     queryFn: async () => {
-      if (!currentUid) return {};
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid) return {};
       const snap = await getDocs(
-        query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
+        query(collection(firestoreDb, "courses"), where("owner_id", "==", uid)),
       );
       const map: Record<string, number> = {};
       for (const d of snap.docs) {
@@ -106,7 +119,7 @@ function SemestersPage() {
       }
       return map;
     },
-    enabled: !!currentUid,
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   const current = useMemo(() => terms?.find((t) => t.is_current) ?? null, [terms]);
@@ -117,8 +130,9 @@ function SemestersPage() {
 
   const createTerm = useMutation({
     mutationFn: async () => {
-      const uid = firebaseAuth.currentUser?.uid;
-      if (!uid) throw new Error("Authentication required");
+      const uid = user?.id || firebaseAuth.currentUser?.uid;
+      if (!uid) throw new Error("Authentication required. Please sign in.");
+      if (!yearName.trim()) throw new Error("Academic year name is required (e.g. 2025/2026)");
       const payload: any = {
         year_name: yearName.trim(),
         semester,
@@ -126,6 +140,7 @@ function SemestersPage() {
         ends_on: endsOn || null,
         is_current: !terms?.length,
         owner_id: uid,
+        created_at: new Date().toISOString(),
       };
       await addDoc(collection(firestoreDb, "academic_terms"), payload);
     },

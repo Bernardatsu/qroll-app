@@ -23,7 +23,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Download, UserPlus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft,
+  Download,
+  UserPlus,
+  AlertTriangle,
+  CheckCircle2,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 
@@ -70,6 +85,8 @@ function RegisterPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [program, setProgram] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmedAccurate, setConfirmedAccurate] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
@@ -102,15 +119,26 @@ function RegisterPage() {
     })();
   }, [token]);
 
-  const submit = async (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanIndex = index.trim().toUpperCase();
-    const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
 
     if (!cleanIndex || !cleanName) {
       return toast.error("Full name and index number are required");
     }
+    if (!level) {
+      return toast.error("Please select your class level");
+    }
+    // Prompt student to cross-check info in modal
+    setConfirmedAccurate(false);
+    setShowConfirmModal(true);
+  };
+
+  const performRegistration = async () => {
+    const cleanIndex = index.trim().toUpperCase();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName.trim();
 
     setLoading(true);
     try {
@@ -130,14 +158,16 @@ function RegisterPage() {
       const courseId = portalData.course_id;
       const portalOwnerId = portalData.owner_id;
 
-      // 2. Look up student by index number (optionally scoped to portal owner if available)
-      const studQuery = portalOwnerId
-        ? query(
-            collection(firestoreDb, "students"),
-            where("owner_id", "==", portalOwnerId),
-            where("index_number", "==", cleanIndex),
-          )
-        : query(collection(firestoreDb, "students"), where("index_number", "==", cleanIndex));
+      if (!portalOwnerId) {
+        throw new Error("This registration link is missing a valid lecturer association.");
+      }
+
+      // 2. Look up student strictly under this lecturer's system
+      const studQuery = query(
+        collection(firestoreDb, "students"),
+        where("owner_id", "==", portalOwnerId),
+        where("index_number", "==", cleanIndex),
+      );
       const studSnap = await getDocs(studQuery);
 
       let studentId: string;
@@ -151,7 +181,7 @@ function RegisterPage() {
       }
 
       if (!studSnap.empty) {
-        // Student already exists
+        // Student already exists under this lecturer
         existed = true;
         const studDoc = studSnap.docs[0];
         studentId = studDoc.id;
@@ -164,7 +194,7 @@ function RegisterPage() {
 
         await updateDoc(doc(firestoreDb, "students", studentId), {
           qr_uuid: qrUuid,
-          ...(portalOwnerId && !sData.owner_id ? { owner_id: portalOwnerId } : {}),
+          owner_id: portalOwnerId,
           ...(cleanEmail && !sData.email ? { email: cleanEmail } : {}),
           ...(level ? { level: Number(level) || 100 } : {}),
           ...(departmentId ? { department_id: departmentId } : {}),
@@ -172,26 +202,24 @@ function RegisterPage() {
           updated_at: new Date().toISOString(),
         });
       } else {
-        // Enforce max 400 students per class/level
+        // Enforce max 400 students per class/level for this lecturer
         const targetLevelNum = Number(level) || 100;
-        if (portalOwnerId) {
-          const countSnap = await getDocs(
-            query(
-              collection(firestoreDb, "students"),
-              where("owner_id", "==", portalOwnerId),
-              where("level", "==", targetLevelNum),
-            ),
+        const countSnap = await getDocs(
+          query(
+            collection(firestoreDb, "students"),
+            where("owner_id", "==", portalOwnerId),
+            where("level", "==", targetLevelNum),
+          ),
+        );
+        if (countSnap.size >= 400) {
+          setLoading(false);
+          toast.error(
+            `Registration closed: Class Level ${targetLevelNum} has reached its maximum capacity of 400 students.`,
           );
-          if (countSnap.size >= 400) {
-            setSubmitting(false);
-            toast.error(
-              `Registration closed: Class Level ${targetLevelNum} has reached its maximum capacity of 400 students.`,
-            );
-            return;
-          }
+          return;
         }
 
-        // Create new student
+        // Create new student strictly tied to this lecturer's account
         qrUuid =
           typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
@@ -205,17 +233,18 @@ function RegisterPage() {
           department_id: departmentId || null,
           program: program.trim() || null,
           qr_uuid: qrUuid,
-          ...(portalOwnerId ? { owner_id: portalOwnerId } : {}),
+          owner_id: portalOwnerId,
           created_at: new Date().toISOString(),
         });
         studentId = newDoc.id;
       }
 
-      // 3. Register for the course if portal link is associated with a course
+      // 3. Register for the course if portal link is associated with a specific course
       if (courseId) {
         const regSnap = await getDocs(
           query(
             collection(firestoreDb, "course_registrations"),
+            where("owner_id", "==", portalOwnerId),
             where("course_id", "==", courseId),
             where("student_id", "==", studentId),
           ),
@@ -224,7 +253,7 @@ function RegisterPage() {
           await addDoc(collection(firestoreDb, "course_registrations"), {
             course_id: courseId,
             student_id: studentId,
-            ...(portalOwnerId ? { owner_id: portalOwnerId } : {}),
+            owner_id: portalOwnerId,
             created_at: new Date().toISOString(),
           });
         }
@@ -241,6 +270,7 @@ function RegisterPage() {
       };
 
       setCreated(row);
+      setShowConfirmModal(false);
       setQrDataUrl(
         await QRCode.toDataURL(row.qr_uuid, {
           width: 360,
@@ -249,7 +279,9 @@ function RegisterPage() {
         }),
       );
       toast.success(
-        row.existed ? "You were already registered — here is your QR." : "Registration complete!",
+        row.existed
+          ? "You were already in this lecturer's system — here is your QR."
+          : "Registration complete! You are now added to your lecturer's class.",
       );
     } catch (err: any) {
       toast.error(err?.message || "Registration failed. Please try again.");
@@ -289,7 +321,7 @@ function RegisterPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={submit} className="space-y-3">
+              <form onSubmit={handleFormSubmit} className="space-y-3">
                 <div>
                   <Label>Full name</Label>
                   <Input
@@ -358,8 +390,18 @@ function RegisterPage() {
                     placeholder="e.g. BSc Computer Science"
                   />
                 </div>
+
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">⚠️ Attention:</span> Please cross-check all your
+                    information carefully before submitting. Your details will be registered
+                    strictly into the account of the lecturer who shared this link.
+                  </div>
+                </div>
+
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Registering..." : "Generate my QR code"}
+                  {loading ? "Checking details..." : "Review & Register"}
                 </Button>
               </form>
             </CardContent>
@@ -386,6 +428,77 @@ function RegisterPage() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldCheck className="size-5 text-primary" />
+                Cross-Check Your Information
+              </DialogTitle>
+              <DialogDescription>
+                Please review your details carefully. This information will be saved directly into
+                your lecturer's attendance roster and cannot be changed after submission.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-muted-foreground">Full Name:</span>
+                <span className="font-semibold">{fullName.trim()}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-muted-foreground">Index Number:</span>
+                <span className="font-mono font-bold text-primary">
+                  {index.trim().toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-muted-foreground">Class Level:</span>
+                <span className="font-semibold">Level {level}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b">
+                <span className="text-muted-foreground">Department:</span>
+                <span>{departments.find((d) => d.id === departmentId)?.name || "General"}</span>
+              </div>
+              {program.trim() && (
+                <div className="flex justify-between py-1 border-b">
+                  <span className="text-muted-foreground">Program:</span>
+                  <span>{program.trim()}</span>
+                </div>
+              )}
+              {email.trim() && (
+                <div className="flex justify-between py-1">
+                  <span className="text-muted-foreground">Email:</span>
+                  <span>{email.trim()}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-start gap-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded border border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>
+                Please verify that your <strong>Index Number ({index.trim().toUpperCase()})</strong>{" "}
+                and <strong>Level ({level})</strong> are completely accurate.
+              </span>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={loading}
+              >
+                Edit Information
+              </Button>
+              <Button type="button" onClick={performRegistration} disabled={loading}>
+                <CheckCircle2 className="size-4 mr-1.5" />
+                {loading ? "Registering..." : "Confirm & Submit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       <PublicFooter />
     </div>

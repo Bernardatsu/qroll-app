@@ -31,8 +31,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Users, Trash2, Pencil } from "lucide-react";
+import { Plus, Users, Trash2, Pencil, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import { isStudentInCourse } from "@/lib/class-matching";
 
 export const Route = createFileRoute("/_authenticated/courses")({
   head: () => ({ meta: [{ title: "Courses — QRoll" }] }),
@@ -106,13 +107,47 @@ function CoursesPage() {
     queryKey: ["courses", currentUid, depts, years],
     queryFn: async () => {
       if (!currentUid) return [];
-      const snap = await getDocs(
-        query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
-      );
+      const [coursesSnap, studSnap, regsSnap] = await Promise.all([
+        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid))),
+        getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid))),
+        getDocs(
+          query(
+            collection(firestoreDb, "course_registrations"),
+            where("owner_id", "==", currentUid),
+          ),
+        ),
+      ]);
+
       const deptMap = new Map((depts ?? []).map((d: any) => [d.id, d.name]));
       const yearMap = new Map((years ?? []).map((y: any) => [y.id, y.name]));
-      const list = snap.docs.map((d) => {
+
+      const students = studSnap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+
+      const regsByCourse = new Map<string, Set<string>>();
+      regsSnap.docs.forEach((d) => {
+        const r = d.data() as any;
+        if (r.course_id && r.student_id) {
+          const set = regsByCourse.get(r.course_id) ?? new Set<string>();
+          set.add(r.student_id);
+          regsByCourse.set(r.course_id, set);
+        }
+      });
+
+      const list = coursesSnap.docs.map((d) => {
         const data = d.data() as any;
+        const regSet = regsByCourse.get(d.id) ?? new Set<string>();
+        const courseObj = {
+          id: d.id,
+          ...data,
+          department_name: data.department_id ? deptMap.get(data.department_id) : null,
+        };
+        const matchingStudents = students.filter((s) =>
+          isStudentInCourse(s, courseObj, regSet, deptMap),
+        );
+
         return {
           id: d.id,
           ...data,
@@ -124,6 +159,8 @@ function CoursesPage() {
             data.academic_year_id && yearMap.has(data.academic_year_id)
               ? { name: yearMap.get(data.academic_year_id) }
               : null,
+          populationCount: matchingStudents.length,
+          registeredCount: regSet.size,
         };
       });
       return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
@@ -360,6 +397,18 @@ function CoursesPage() {
               <div>
                 {c.academic_years?.name ?? "—"} · {c.credit_hours} credits
               </div>
+              <div className="text-xs text-foreground font-medium flex items-center gap-1.5 pt-1">
+                <Users className="size-3.5 text-primary" />
+                <span>
+                  {c.populationCount ?? 0} {(c.populationCount ?? 0) === 1 ? "student" : "students"}{" "}
+                  in class
+                </span>
+                {c.registeredCount > 0 && c.registeredCount !== c.populationCount && (
+                  <span className="text-muted-foreground font-normal">
+                    ({c.registeredCount} enrolled)
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2 pt-3">
                 <Link
                   to={"/courses/$courseId" as string}
@@ -373,7 +422,7 @@ function CoursesPage() {
                     title="Manage students enrolled in this course"
                   >
                     <Users className="size-3 mr-1" />
-                    Roster
+                    Roster ({c.populationCount ?? 0})
                   </Button>
                 </Link>
                 <Button

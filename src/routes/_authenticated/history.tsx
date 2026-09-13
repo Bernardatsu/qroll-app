@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { firestoreDb } from "@/integrations/firebase/config";
-import { collection, getDocs } from "firebase/firestore";
+import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import { useAuth } from "@/lib/auth";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { isStudentInCourse } from "@/lib/class-matching";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,80 +78,133 @@ function HistoryPage() {
   const [scope, setScope] = useState<Scope>("courses");
   const [q, setQ] = useState("");
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
 
-  const { data: terms } = useQuery({
+  const { data: terms, isLoading: termsLoading } = useQuery({
     queryKey: ["history-terms", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
-      const snap = await getDocs(
-        query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
-      );
-      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as TermRow[];
-      return list.sort((a, b) => {
-        const yComp = (b.year_name || "").localeCompare(a.year_name || "");
-        if (yComp !== 0) return yComp;
-        return (a.semester || "").localeCompare(b.semester || "");
-      });
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid) return [];
+      try {
+        const snap = await getDocs(
+          query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", uid)),
+        );
+        const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as TermRow[];
+        return list.sort((a, b) => {
+          const yComp = (b.year_name || "").localeCompare(a.year_name || "");
+          if (yComp !== 0) return yComp;
+          return (a.semester || "").localeCompare(b.semester || "");
+        });
+      } catch (err) {
+        console.error("Failed to load academic terms:", err);
+        return [];
+      }
     },
-    enabled: !!currentUid,
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   const { data, isLoading } = useQuery({
     queryKey: ["history-data", currentUid],
     queryFn: async () => {
-      if (!currentUid) return { courses: [], sessions: [], records: [], regs: [] };
-      const [coursesSnap, sessionsSnap, recordsSnap, regsSnap, studSnap] = await Promise.all([
-        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid))),
-        getDocs(
-          query(
-            collection(firestoreDb, "attendance_sessions"),
-            where("owner_id", "==", currentUid),
-          ),
-        ),
-        getDocs(
-          query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", currentUid)),
-        ),
-        getDocs(
-          query(
-            collection(firestoreDb, "course_registrations"),
-            where("owner_id", "==", currentUid),
-          ),
-        ),
-        getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid))),
-      ]);
-      const studentMap = new Map<string, any>();
-      studSnap.docs.forEach((d) => {
-        const s = d.data() as any;
-        studentMap.set(d.id, {
-          id: d.id,
-          full_name: s.full_name,
-          index_number: s.index_number,
-          level: s.level,
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid)
+        return {
+          courses: [],
+          sessions: [],
+          records: [],
+          regs: [],
+          students: [],
+          deptMap: new Map(),
+        };
+      try {
+        const [coursesSnap, sessionsSnap, recordsSnap, regsSnap, studSnap, deptsSnap] =
+          await Promise.all([
+            getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", uid))).catch(
+              () => ({ docs: [] }) as any,
+            ),
+            getDocs(
+              query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", uid)),
+            ).catch(() => ({ docs: [] }) as any),
+            getDocs(
+              query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", uid)),
+            ).catch(() => ({ docs: [] }) as any),
+            getDocs(
+              query(collection(firestoreDb, "course_registrations"), where("owner_id", "==", uid)),
+            ).catch(() => ({ docs: [] }) as any),
+            getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", uid))).catch(
+              () => ({ docs: [] }) as any,
+            ),
+            getDocs(
+              query(collection(firestoreDb, "departments"), where("owner_id", "==", uid)),
+            ).catch(() => ({ docs: [] }) as any),
+          ]);
+
+        const deptMap = new Map<string, string>();
+        deptsSnap.docs.forEach((d: any) => {
+          deptMap.set(d.id, (d.data() as any).name || "");
         });
-      });
 
-      const courses = coursesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-      const sessions = sessionsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-      const records = recordsSnap.docs.map((d) => {
-        const rData = d.data() as any;
-        return {
-          id: d.id,
-          ...rData,
-          students: studentMap.get(rData.student_id) || null,
-        };
-      });
-      const regs = regsSnap.docs.map((d) => {
-        const rData = d.data() as any;
-        return {
-          id: d.id,
-          ...rData,
-          students: studentMap.get(rData.student_id) || null,
-        };
-      });
+        const studentMap = new Map<string, any>();
+        studSnap.docs.forEach((d: any) => {
+          const s = d.data() as any;
+          studentMap.set(d.id, {
+            id: d.id,
+            full_name: s.full_name,
+            index_number: s.index_number,
+            level: s.level,
+            department_id: s.department_id || null,
+            program: s.program || null,
+          });
+        });
 
-      return { courses, sessions, records, regs };
+        const courses = coursesSnap.docs.map((d: any) => ({
+          id: d.id,
+          ...(d.data() as any),
+          department_name:
+            deptMap.get((d.data() as any).department_id) ||
+            (d.data() as any).departments?.name ||
+            "",
+        }));
+        const sessions = sessionsSnap.docs.map((d: any) => ({ id: d.id, ...(d.data() as any) }));
+        const records = recordsSnap.docs.map((d: any) => {
+          const rData = d.data() as any;
+          return {
+            id: d.id,
+            ...rData,
+            students: studentMap.get(rData.student_id) || null,
+          };
+        });
+        const regs = regsSnap.docs.map((d: any) => {
+          const rData = d.data() as any;
+          return {
+            id: d.id,
+            ...rData,
+            students: studentMap.get(rData.student_id) || null,
+          };
+        });
+
+        return {
+          courses,
+          sessions,
+          records,
+          regs,
+          students: Array.from(studentMap.values()),
+          deptMap,
+        };
+      } catch (err) {
+        console.error("Failed to load history data:", err);
+        return {
+          courses: [],
+          sessions: [],
+          records: [],
+          regs: [],
+          students: [],
+          deptMap: new Map(),
+        };
+      }
     },
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   const termLabel = useMemo(() => {
@@ -170,16 +225,26 @@ function HistoryPage() {
     data.records.forEach((r) =>
       attendedBySession.set(r.session_id, (attendedBySession.get(r.session_id) ?? 0) + 1),
     );
-    const regsByCourse = new Map<string, number>();
-    data.regs.forEach((r) =>
-      regsByCourse.set(r.course_id, (regsByCourse.get(r.course_id) ?? 0) + 1),
-    );
+    const regsByCourse = new Map<string, Set<string>>();
+    data.regs.forEach((r) => {
+      if (r.course_id && r.student_id) {
+        const set = regsByCourse.get(r.course_id) ?? new Set<string>();
+        set.add(r.student_id);
+        regsByCourse.set(r.course_id, set);
+      }
+    });
 
     return data.courses
       .filter((c) => termId === "all" || c.term_id === termId)
       .map((c) => {
         const ids = sessionsByCourse.get(c.id) ?? [];
-        const students = regsByCourse.get(c.id) ?? 0;
+        const explicitRegIds = regsByCourse.get(c.id) ?? new Set<string>();
+
+        // Match students who are explicitly registered OR belong to this class level & department
+        const matchingStudents = (data.students || []).filter((st: any) =>
+          isStudentInCourse(st, c, explicitRegIds, data.deptMap),
+        );
+        const students = matchingStudents.length;
         const attended = ids.reduce((sum, id) => sum + (attendedBySession.get(id) ?? 0), 0);
         const possible = ids.length * students;
         return {
@@ -214,54 +279,52 @@ function HistoryPage() {
         sessionsPerCourse.set(s.course_id, (sessionsPerCourse.get(s.course_id) ?? 0) + 1);
     });
 
-    const students = new Map<
-      string,
-      { name: string; index: string; level: number | null; courses: Set<string>; attended: number }
-    >();
+    const regsByCourse = new Map<string, Set<string>>();
     data.regs.forEach((r) => {
-      const s = r.students;
-      if (!s || !courseIds.has(r.course_id)) return;
-      const entry = students.get(s.id) ?? {
-        name: s.full_name,
-        index: s.index_number,
-        level: s.level,
-        courses: new Set<string>(),
-        attended: 0,
-      };
-      entry.courses.add(r.course_id);
-      students.set(s.id, entry);
+      if (r.course_id && r.student_id) {
+        const set = regsByCourse.get(r.course_id) ?? new Set<string>();
+        set.add(r.student_id);
+        regsByCourse.set(r.course_id, set);
+      }
     });
+
+    // Compute attendance per student
+    const attendedPerStudent = new Map<string, number>();
     data.records.forEach((rec) => {
       const courseId = sessionCourse.get(rec.session_id);
       if (!courseId || !courseIds.has(courseId)) return;
-      const s = rec.students;
-      if (!s) return;
-      const entry = students.get(s.id) ?? {
-        name: s.full_name,
-        index: s.index_number,
-        level: s.level,
-        courses: new Set<string>(),
-        attended: 0,
-      };
-      entry.attended += 1;
-      students.set(s.id, entry);
+      if (rec.student_id) {
+        attendedPerStudent.set(rec.student_id, (attendedPerStudent.get(rec.student_id) ?? 0) + 1);
+      }
     });
 
-    return [...students.entries()]
-      .map(([id, e]) => {
-        const possible = [...e.courses].reduce(
+    // Populate every student in this lecturer's system who has courses
+    return (data.students || [])
+      .map((st: any) => {
+        const enrolledCourses = new Set<string>();
+        data.courses.forEach((c) => {
+          if (!courseIds.has(c.id)) return;
+          const explicitRegs = regsByCourse.get(c.id);
+          if (isStudentInCourse(st, c, explicitRegs, data.deptMap)) {
+            enrolledCourses.add(c.id);
+          }
+        });
+
+        const possible = [...enrolledCourses].reduce(
           (sum, cid) => sum + (sessionsPerCourse.get(cid) ?? 0),
           0,
         );
+        const attended = attendedPerStudent.get(st.id) ?? 0;
+
         return {
-          id,
-          name: e.name,
-          index: e.index,
-          level: e.level,
-          courses: e.courses.size,
-          attended: e.attended,
+          id: st.id,
+          name: st.full_name || "—",
+          index: st.index_number || "—",
+          level: st.level,
+          courses: enrolledCourses.size,
+          attended,
           possible,
-          attendance: pct(e.attended, possible),
+          attendance: pct(attended, possible),
         };
       })
       .filter((r) => {

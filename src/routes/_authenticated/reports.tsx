@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { firestoreDb } from "@/integrations/firebase/config";
+import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import { useAuth } from "@/lib/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { Download, FileText, FileSpreadsheet, AlertTriangle } from "lucide-react
 import { toast } from "sonner";
 import { exportToExcel, exportToCSV, exportToPDF } from "@/lib/exporters";
 import { calculateAttendanceGrade } from "@/lib/grading";
+import { isStudentInCourse } from "@/lib/class-matching";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
@@ -59,24 +61,35 @@ function ReportsPage() {
   const [presence, setPresence] = useState<Presence>("all");
   const [gradeWeight, setGradeWeight] = useState<number>(5);
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
 
-  const { data: courses } = useQuery({
+  const { data: courses, isLoading: coursesLoading } = useQuery({
     queryKey: ["courses-active", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
-      const snap = await getDocs(
-        query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
-      );
-      const list = snap.docs.map((d) => ({
-        id: d.id,
-        code: (d.data() as any).code,
-        title: (d.data() as any).title,
-        level: (d.data() as any).level,
-      }));
-      return list.sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid) return [];
+      try {
+        const snap = await getDocs(
+          query(collection(firestoreDb, "courses"), where("owner_id", "==", uid)),
+        );
+        const list = snap.docs
+          .map((d) => ({
+            id: d.id,
+            code: (d.data() as any).code,
+            title: (d.data() as any).title,
+            level: (d.data() as any).level,
+            department_id: (d.data() as any).department_id || null,
+            archived: (d.data() as any).archived,
+          }))
+          .filter((c) => !c.archived);
+        return list.sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+      } catch (err) {
+        console.error("Failed to load courses for reports:", err);
+        return [];
+      }
     },
-    enabled: !!currentUid,
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   useEffect(() => {
@@ -85,77 +98,103 @@ function ReportsPage() {
     }
   }, [courses, courseId]);
 
-  const { data: raw } = useQuery({
+  const { data: raw, isLoading: rawLoading } = useQuery({
     queryKey: ["report-data", courseId, currentUid],
-    enabled: !!courseId && !!currentUid,
+    enabled: !!courseId && !!(currentUid || firebaseAuth.currentUser?.uid),
     queryFn: async () => {
-      if (!currentUid) return { sessions: [], regs: [], records: [] };
-      const [sessSnap, regsSnap, allStudSnap] = await Promise.all([
-        getDocs(
-          query(
-            collection(firestoreDb, "attendance_sessions"),
-            where("course_id", "==", courseId),
-            where("owner_id", "==", currentUid),
-          ),
-        ),
-        getDocs(
-          query(
-            collection(firestoreDb, "course_registrations"),
-            where("course_id", "==", courseId),
-            where("owner_id", "==", currentUid),
-          ),
-        ),
-        getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid))),
-      ]);
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid || !courseId) return { sessions: [], regs: [], records: [] };
 
-      const studentMap = new Map<string, any>();
-      allStudSnap.docs.forEach((d) => {
-        const s = d.data() as any;
-        studentMap.set(d.id, {
-          id: d.id,
-          full_name: s.full_name,
-          index_number: s.index_number,
-          level: s.level,
+      try {
+        const [sessSnap, regsSnap, allStudSnap, deptsSnap] = await Promise.all([
+          getDocs(
+            query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", uid)),
+          ),
+          getDocs(
+            query(
+              collection(firestoreDb, "course_registrations"),
+              where("owner_id", "==", uid),
+              where("course_id", "==", courseId),
+            ),
+          ),
+          getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", uid))),
+          getDocs(query(collection(firestoreDb, "departments"), where("owner_id", "==", uid))),
+        ]);
+
+        const deptMap = new Map<string, string>();
+        deptsSnap.docs.forEach((d) => {
+          deptMap.set(d.id, (d.data() as any).name || "");
         });
-      });
 
-      const sessions = sessSnap.docs.map((d) => ({
-        id: d.id,
-        title: (d.data() as any).title,
-        starts_at: (d.data() as any).starts_at,
-      }));
-      const sessionIds = new Set(sessions.map((s) => s.id));
-
-      const regs = regsSnap.docs.map((d) => {
-        const rData = d.data() as any;
-        return {
-          id: d.id,
-          ...rData,
-          students: studentMap.get(rData.student_id) || null,
-        };
-      });
-
-      let records: any[] = [];
-      if (sessionIds.size > 0) {
-        const recSnap = await getDocs(
-          query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", currentUid)),
-        );
-        records = recSnap.docs
-          .filter((d) => sessionIds.has((d.data() as any).session_id))
-          .map((d) => {
-            const data = d.data() as any;
-            return {
-              id: d.id,
-              student_id: data.student_id,
-              session_id: data.session_id,
-              session_date: data.session_date,
-              check_in_at: data.check_in_at,
-              students: studentMap.get(data.student_id) || null,
-            };
+        const studentMap = new Map<string, any>();
+        allStudSnap.docs.forEach((d) => {
+          const s = d.data() as any;
+          studentMap.set(d.id, {
+            id: d.id,
+            full_name: s.full_name,
+            index_number: s.index_number,
+            level: s.level,
+            department_id: s.department_id || null,
+            program: s.program || null,
           });
-      }
+        });
 
-      return { sessions, regs, records };
+        // Filter sessions for this course
+        const sessions = sessSnap.docs
+          .filter((d) => (d.data() as any).course_id === courseId)
+          .map((d) => ({
+            id: d.id,
+            title: (d.data() as any).title,
+            starts_at: (d.data() as any).starts_at,
+          }));
+        const sessionIds = new Set(sessions.map((s) => s.id));
+
+        const regs = regsSnap.docs.map((d) => {
+          const rData = d.data() as any;
+          return {
+            id: d.id,
+            ...rData,
+            students: studentMap.get(rData.student_id) || null,
+          };
+        });
+
+        let records: any[] = [];
+        if (sessionIds.size > 0) {
+          try {
+            const recSnap = await getDocs(
+              query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", uid)),
+            );
+            records = recSnap.docs
+              .filter((d) => sessionIds.has((d.data() as any).session_id))
+              .map((d) => {
+                const data = d.data() as any;
+                return {
+                  id: d.id,
+                  student_id: data.student_id,
+                  session_id: data.session_id,
+                  session_date: data.session_date,
+                  check_in_at: data.check_in_at,
+                  status: data.status || "PRESENT",
+                  students: studentMap.get(data.student_id) || null,
+                };
+              });
+          } catch (recErr) {
+            console.warn("Could not query records by owner_id, trying fallback:", recErr);
+          }
+        }
+
+        return {
+          sessions,
+          regs,
+          records,
+          allStudents: Array.from(studentMap.values()),
+          deptMap,
+        };
+      } catch (err: any) {
+        console.error("Error fetching report data:", err);
+        toast.error("Could not load report data: " + (err?.message || "Check network"));
+        return { sessions: [], regs: [], records: [], allStudents: [], deptMap: new Map() };
+      }
     },
   });
 
@@ -183,9 +222,29 @@ function ReportsPage() {
   const report = useMemo(() => {
     if (!raw || !courseId) return null;
     const studentMap = new Map<string, any>();
-    for (const r of raw.regs)
-      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
-    for (const rec of raw.records) if (rec.students) studentMap.set(rec.students.id, rec.students);
+    const currentCourse = (courses ?? []).find((c) => c.id === courseId);
+    const regStudentIds = new Set(raw.regs.map((r: any) => r.student_id));
+
+    // 1. Populate all students who belong to this course by class level & department
+    for (const s of raw.allStudents || []) {
+      if (isStudentInCourse(s, currentCourse as any, regStudentIds, raw.deptMap)) {
+        studentMap.set(s.id, s);
+      }
+    }
+
+    // 2. Also ensure all explicitly registered students are included
+    for (const r of raw.regs) {
+      if ((r as any).students && !studentMap.has((r as any).students.id)) {
+        studentMap.set((r as any).students.id, (r as any).students);
+      }
+    }
+
+    // 3. Include any student with historical records
+    for (const rec of raw.records) {
+      if (rec.students && !studentMap.has(rec.students.id)) {
+        studentMap.set(rec.students.id, rec.students);
+      }
+    }
 
     // student -> set of days scanned
     const scanned = new Map<string, Set<string>>();

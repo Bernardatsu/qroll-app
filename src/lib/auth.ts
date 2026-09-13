@@ -20,9 +20,23 @@ export interface AppUser {
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AppUser | null>(() => {
+    const fbUser = firebaseAuth.currentUser;
+    if (!fbUser) return null;
+    const providerId =
+      fbUser.providerData?.[0]?.providerId === "google.com" ? "google" : "password";
+    return {
+      id: fbUser.uid,
+      email: fbUser.email ?? undefined,
+      user_metadata: {
+        full_name: fbUser.displayName ?? fbUser.email?.split("@")[0] ?? "User",
+        avatar_url: fbUser.photoURL ?? undefined,
+      },
+      provider: providerId,
+    };
+  });
+  const [roles, setRoles] = useState<AppRole[]>(["super_admin"]);
+  const [loading, setLoading] = useState(!firebaseAuth.currentUser);
 
   useEffect(() => {
     let mounted = true;

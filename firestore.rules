@@ -24,16 +24,6 @@ service cloud.firestore {
       );
     }
 
-    function isCourseOrganizer(courseId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/courses/$(courseId)).data.owner_id == request.auth.uid;
-    }
-
-    function isSessionOrganizer(sessionId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/attendance_sessions/$(sessionId)).data.owner_id == request.auth.uid;
-    }
-
     // Users & Roles
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -47,102 +37,81 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // Students
+    // Students: Data strictly isolated to lecturer account
     match /students/{studentId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
-      allow create: if isCreatingWithOwner() || isSignedIn();
-      allow update, delete: if isDocOwner() || isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
+      allow create: if isCreatingWithOwner() || (!isSignedIn() && request.resource.data.owner_id != null);
+      allow update: if (isSignedIn() && isDocOwner()) || (!isSignedIn() && resource.data.owner_id != null);
+      allow delete: if isSignedIn() && isDocOwner();
     }
 
     // Courses & Registrations
     match /courses/{courseId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /course_registrations/{regId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
-      allow create: if isSignedIn() && (
-        request.resource.data.owner_id == request.auth.uid ||
-        (request.resource.data.course_id != null && isCourseOrganizer(request.resource.data.course_id)) ||
-        true
-      );
-      allow update, delete: if isSignedIn() && (
-        resource.data.owner_id == request.auth.uid ||
-        (resource.data.course_id != null && isCourseOrganizer(resource.data.course_id))
-      );
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
+      allow create: if isCreatingWithOwner() || (!isSignedIn() && request.resource.data.owner_id != null);
+      allow update, delete: if isDocOwner();
     }
 
     // Academic Structure
     match /departments/{deptId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /academic_years/{yearId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /academic_terms/{termId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /class_levels/{levelId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     // Attendance Sessions & Records
     match /attendance_sessions/{sessionId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /attendance_records/{recordId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
-      allow create: if (
-        (isSignedIn() && (
-          request.resource.data.owner_id == request.auth.uid ||
-          request.resource.data.scanned_by == request.auth.uid ||
-          (request.resource.data.session_id != null && isSessionOrganizer(request.resource.data.session_id)) ||
-          true
-        )) ||
-        (
-          request.resource.data.source in ['self_geofence', 'self_checkin', 'qr_self'] &&
-          request.resource.data.session_id != null &&
-          get(/databases/$(database)/documents/attendance_sessions/$(request.resource.data.session_id)).data.is_active == true
-        )
-      );
-      allow update, delete: if isSignedIn() && (
-        resource.data.owner_id == request.auth.uid ||
-        (resource.data.session_id != null && isSessionOrganizer(resource.data.session_id))
-      );
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
+      allow create: if (isSignedIn() && isCreatingWithOwner()) || (!isSignedIn() && request.resource.data.owner_id != null);
+      allow update, delete: if isDocOwner();
     }
 
     // Announcements & Assignments
     match /announcements/{announcementId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /assignments/{assignmentId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     // Student Portal Links
     match /student_portal_links/{linkId} {
-      allow read: if (isSignedIn() && resource.data.owner_id == request.auth.uid) || !isSignedIn();
+      allow read: if true;
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }

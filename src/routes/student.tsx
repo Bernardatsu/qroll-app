@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,11 @@ import {
   User,
   AlertCircle,
   ExternalLink,
+  Filter,
+  FileText,
+  Mail,
+  School,
+  BookCheck,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
@@ -72,14 +77,19 @@ interface StudentMe {
   program?: string;
   email?: string;
   qr_uuid?: string;
+  lecturers_count?: number;
 }
 
 interface CourseAttendanceRow {
   course_id: string;
   code: string;
   title: string;
+  level?: string;
+  department?: string;
   credit_hours: number;
   semester: string;
+  lecturer_name?: string;
+  lecturer_email?: string | null;
   sessions_total: number;
   attended: number;
   missed: number;
@@ -93,8 +103,10 @@ interface HistoryItem {
   id: string;
   session_id: string;
   session_title: string;
+  course_id?: string;
   course_code: string;
   course_title: string;
+  lecturer_name?: string;
   session_date: string;
   check_in_at: string;
   status: string;
@@ -106,6 +118,8 @@ interface NoticeItem {
   body: string;
   course_id?: string;
   course_code: string | null;
+  course_title?: string | null;
+  lecturer_name?: string;
   starts_on: string;
   created_at: string;
 }
@@ -116,6 +130,8 @@ interface AssignmentItem {
   details: string;
   course_id: string;
   course_code: string | null;
+  course_title?: string | null;
+  lecturer_name?: string;
   due_at: string | null;
   submission_url: string | null;
   created_at: string;
@@ -394,8 +410,18 @@ function StudentPortalPage() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanIdx = index.trim();
+    const cleanMail = email.trim();
+    if (!cleanIdx) {
+      toast.error("Please enter your student index number");
+      return;
+    }
+    if (!cleanMail) {
+      toast.error("Please enter your registered email address");
+      return;
+    }
     if (!password || password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      toast.error("New password must be at least 6 characters");
       return;
     }
     if (password !== confirmPassword) {
@@ -407,8 +433,8 @@ function StudentPortalPage() {
     try {
       const data = await callApi({
         action: "reset_password",
-        index: index.trim(),
-        email: email.trim(),
+        index: cleanIdx,
+        email: cleanMail,
         password,
       });
 
@@ -419,7 +445,7 @@ function StudentPortalPage() {
       }
 
       toast.success("Password reset successfully! Logging you in...");
-      await executeSignIn(index.trim(), password);
+      await executeSignIn(cleanIdx, password);
     } catch (err: any) {
       setBusy(false);
       toast.error(err.message || "Password reset failed");
@@ -428,11 +454,16 @@ function StudentPortalPage() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanIdx = index.trim();
+    if (!cleanIdx) {
+      toast.error("Please enter your student index number");
+      return;
+    }
     if (!password) {
       toast.error("Please enter your password");
       return;
     }
-    await executeSignIn(index.trim(), password);
+    await executeSignIn(cleanIdx, password);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -490,6 +521,46 @@ function StudentPortalPage() {
     setAssignments([]);
     toast.info("Signed out from student portal");
   };
+
+  // Multi-Lecturer Course Filter State
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>("all");
+
+  const filteredCourses = useMemo(() => {
+    if (selectedCourseFilter === "all") return courses;
+    return courses.filter((c) => c.course_id === selectedCourseFilter);
+  }, [courses, selectedCourseFilter]);
+
+  const filteredAnnouncements = useMemo(() => {
+    if (selectedCourseFilter === "all") return announcements;
+    return announcements.filter((a) => !a.course_id || a.course_id === selectedCourseFilter);
+  }, [announcements, selectedCourseFilter]);
+
+  const filteredAssignments = useMemo(() => {
+    if (selectedCourseFilter === "all") return assignments;
+    return assignments.filter((a) => !a.course_id || a.course_id === selectedCourseFilter);
+  }, [assignments, selectedCourseFilter]);
+
+  const filteredHistory = useMemo(() => {
+    if (selectedCourseFilter === "all") return history;
+    return history.filter((h) => h.course_id === selectedCourseFilter);
+  }, [history, selectedCourseFilter]);
+
+  // Lecturer summary across courses
+  const uniqueLecturers = useMemo(() => {
+    const map = new Map<string, { name: string; email?: string | null; courses: string[] }>();
+    courses.forEach((c) => {
+      const name = c.lecturer_name || "Academic Department";
+      if (!map.has(name)) {
+        map.set(name, { name, email: c.lecturer_email, courses: [c.code] });
+      } else {
+        const entry = map.get(name)!;
+        if (!entry.courses.includes(c.code)) {
+          entry.courses.push(c.code);
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [courses]);
 
   // Overall Running Attendance Calculation
   const totalAttendedSessions = courses.reduce((acc, c) => acc + c.attended, 0);
@@ -562,40 +633,53 @@ function StudentPortalPage() {
               <div className="h-2 bg-gradient-to-r from-blue-950 via-blue-800 to-blue-600" />
 
               {/* Mode Selector Tabs */}
-              {(step === "index" || step === "login" || step === "create") && (
-                <div className="p-2 bg-muted/60 border-b flex gap-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("index");
-                      setPassword("");
-                      setConfirmPassword("");
-                    }}
-                    className={`flex-1 py-2 px-2.5 rounded-md font-semibold transition text-center ${
-                      step === "index" || step === "create"
-                        ? "bg-background text-foreground shadow-xs border"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Set Password First
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("login");
-                      setPassword("");
-                      setConfirmPassword("");
-                    }}
-                    className={`flex-1 py-2 px-2.5 rounded-md font-semibold transition text-center ${
-                      step === "login"
-                        ? "bg-background text-foreground shadow-xs border"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Sign In with Password
-                  </button>
-                </div>
-              )}
+              <div className="p-2 bg-muted/60 border-b grid grid-cols-3 gap-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("login");
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
+                    step === "login"
+                      ? "bg-background text-foreground shadow-xs border"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("index");
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
+                    step === "index" || step === "create"
+                      ? "bg-background text-foreground shadow-xs border"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Set Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("reset");
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
+                    step === "reset"
+                      ? "bg-background text-foreground shadow-xs border"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Reset Password
+                </button>
+              </div>
 
               {step === "index" && (
                 <>
@@ -831,34 +915,25 @@ function StudentPortalPage() {
                     <div className="mx-auto size-12 rounded-full bg-primary/10 text-primary grid place-items-center mb-2">
                       <ShieldCheck className="size-6" />
                     </div>
-                    <CardTitle className="text-xl font-bold">Sign In to Portal</CardTitle>
+                    <CardTitle className="text-xl font-bold">Sign In to Student Portal</CardTitle>
                     <CardDescription className="text-xs">
-                      {me?.full_name ? (
-                        <>
-                          Welcome back, <b className="text-foreground">{me.full_name}</b>
-                        </>
-                      ) : (
-                        <>
-                          Sign in for Index: <b className="font-mono text-foreground">{index}</b>
-                        </>
-                      )}
+                      Enter your university index number and password to access your dashboard.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-3 bg-muted/40 rounded-lg border border-border/50 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Index Number:</span>
-                        <span className="font-mono font-semibold text-foreground">{index}</span>
-                      </div>
-                      {email && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Email:</span>
-                          <span className="font-medium text-foreground">{email}</span>
-                        </div>
-                      )}
-                    </div>
-
                     <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Student Index Number</Label>
+                        <Input
+                          placeholder="e.g. 4068924"
+                          value={index}
+                          onChange={(e) => setIndex(e.target.value)}
+                          required
+                          autoFocus={!index}
+                          className="h-10 font-mono text-sm uppercase tracking-wide"
+                        />
+                      </div>
+
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold">Password</Label>
@@ -869,7 +944,7 @@ function StudentPortalPage() {
                               setConfirmPassword("");
                               setStep("reset");
                             }}
-                            className="text-xs text-primary hover:underline"
+                            className="text-xs text-primary hover:underline font-medium"
                           >
                             Forgot password?
                           </button>
@@ -880,7 +955,7 @@ function StudentPortalPage() {
                             placeholder="Enter your password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            autoFocus
+                            autoFocus={!!index}
                             required
                             className="h-10 pr-10"
                           />
@@ -900,7 +975,7 @@ function StudentPortalPage() {
 
                       <Button
                         type="submit"
-                        className="w-full h-11 bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition shadow-sm"
+                        className="w-full h-11 bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition shadow-sm cursor-pointer"
                         disabled={busy}
                       >
                         {busy ? (
@@ -912,17 +987,18 @@ function StudentPortalPage() {
                         )}
                       </Button>
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full text-xs"
-                        onClick={() => {
-                          setStep("index");
-                          setPassword("");
-                        }}
-                      >
-                        Use different credentials
-                      </Button>
+                      <div className="pt-1 text-center space-y-1">
+                        <p className="text-xs text-muted-foreground">
+                          First time logging in?{" "}
+                          <button
+                            type="button"
+                            onClick={() => setStep("index")}
+                            className="text-primary font-semibold hover:underline"
+                          >
+                            Set Password First
+                          </button>
+                        </p>
+                      </div>
                     </form>
                   </CardContent>
                 </>
@@ -934,30 +1010,61 @@ function StudentPortalPage() {
                     <div className="mx-auto size-12 rounded-full bg-amber-100 text-amber-800 grid place-items-center mb-2">
                       <RefreshCw className="size-6" />
                     </div>
-                    <CardTitle className="text-xl font-bold">Reset Password</CardTitle>
-                    <CardDescription className="text-xs">
-                      Verify your registered email for index:{" "}
-                      <b className="font-mono text-foreground">{index}</b>
+                    <CardTitle className="text-xl font-bold">Reset Student Password</CardTitle>
+                    <CardDescription className="text-xs max-w-sm mx-auto">
+                      Provide your registered student email and index number to set a new password.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <form onSubmit={handleResetPassword} className="space-y-3.5">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">Registered Email</Label>
+                        <Label className="text-xs font-semibold">Student Index Number</Label>
+                        <Input
+                          placeholder="e.g. 4068924"
+                          value={index}
+                          onChange={(e) => setIndex(e.target.value)}
+                          required
+                          autoFocus={!index}
+                          className="h-10 font-mono text-sm uppercase tracking-wide"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Registered Email Address</Label>
                         <Input
                           type="email"
                           placeholder="your.email@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
+                          autoFocus={!!index}
                           className="h-10 text-sm"
                         />
+                        <p className="text-[11px] text-muted-foreground">
+                          Must match the registered email for this student index number.
+                        </p>
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">New Password (min 6 chars)</Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold">
+                            New Password (min 6 chars)
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="size-3" />
+                            ) : (
+                              <Eye className="size-3" />
+                            )}
+                            {showPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
                         <Input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -970,7 +1077,7 @@ function StudentPortalPage() {
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Confirm New Password</Label>
                         <Input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
@@ -982,10 +1089,10 @@ function StudentPortalPage() {
 
                       <Button
                         type="submit"
-                        className="w-full h-11 bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition"
+                        className="w-full h-11 bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition cursor-pointer"
                         disabled={busy}
                       >
-                        {busy ? "Resetting..." : "Reset Password & Sign In"}
+                        {busy ? "Verifying & Resetting..." : "Reset Password & Sign In"}
                       </Button>
 
                       <Button
@@ -1093,9 +1200,58 @@ function StudentPortalPage() {
               </div>
             )}
 
+            {/* Multi-Lecturer Course & Faculty Filter Bar */}
+            {courses.length > 0 && (
+              <div className="rounded-xl border bg-card p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Filter className="size-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-foreground block">
+                      Multi-Lecturer & Course Scope
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {courses.length} enrolled courses across{" "}
+                      <span className="font-semibold text-foreground">
+                        {uniqueLecturers.length} lecturer{uniqueLecturers.length === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    id="student-course-lecturer-filter"
+                    value={selectedCourseFilter}
+                    onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                    className="text-xs bg-background border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-auto"
+                  >
+                    <option value="all">All Courses & Lecturers ({courses.length})</option>
+                    {courses.map((c) => (
+                      <option key={c.course_id} value={c.course_id}>
+                        {c.code} — {c.title}{" "}
+                        {c.lecturer_name ? `(Lecturer: ${c.lecturer_name})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCourseFilter !== "all" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedCourseFilter("all")}
+                      className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground"
+                    >
+                      Reset Filter
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Navigation Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto p-1 bg-muted/60 rounded-xl gap-1">
+              <TabsList className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 h-auto p-1 bg-muted/60 rounded-xl gap-1">
                 <TabsTrigger
                   value="attendance"
                   className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
@@ -1104,11 +1260,11 @@ function StudentPortalPage() {
                   Attendance
                 </TabsTrigger>
                 <TabsTrigger
-                  value="qr"
+                  value="records"
                   className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
                 >
-                  <QrCode className="size-3.5" />
-                  My QR Pass
+                  <FileText className="size-3.5" />
+                  Personal Records
                 </TabsTrigger>
                 <TabsTrigger
                   value="courses"
@@ -1138,6 +1294,13 @@ function StudentPortalPage() {
                   )}
                 </TabsTrigger>
                 <TabsTrigger
+                  value="qr"
+                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
+                >
+                  <QrCode className="size-3.5" />
+                  My QR Pass
+                </TabsTrigger>
+                <TabsTrigger
                   value="settings"
                   className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
                 >
@@ -1151,17 +1314,21 @@ function StudentPortalPage() {
               {/* ------------------------------------------------------------- */}
               <TabsContent value="attendance" className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {courses.length === 0 ? (
+                  {filteredCourses.length === 0 ? (
                     <Card className="sm:col-span-2 p-8 text-center text-muted-foreground">
                       <GraduationCap className="size-8 mx-auto mb-2 opacity-40" />
-                      <p className="font-semibold">No registered courses found</p>
+                      <p className="font-semibold">
+                        {selectedCourseFilter === "all"
+                          ? "No registered courses found"
+                          : "No matching course found for this filter"}
+                      </p>
                       <p className="text-xs mt-1">
                         When your lecturers add you to course rosters, your attendance records will
                         appear here.
                       </p>
                     </Card>
                   ) : (
-                    courses.map((course) => {
+                    filteredCourses.map((course) => {
                       const isPassing = course.percentage >= 75;
                       return (
                         <Card
@@ -1174,18 +1341,44 @@ function StudentPortalPage() {
                         >
                           <CardHeader className="pb-3">
                             <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Badge variant="outline" className="font-mono text-xs font-bold">
                                     {course.code}
                                   </Badge>
+                                  {course.level && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="font-semibold text-[11px] bg-primary/10 text-primary"
+                                    >
+                                      {course.level.toUpperCase().startsWith("L")
+                                        ? course.level
+                                        : `L${course.level}`}
+                                    </Badge>
+                                  )}
                                   <span className="text-xs text-muted-foreground">
-                                    {course.credit_hours} Credits
+                                    {course.department ? `${course.department} · ` : ""}
+                                    {course.semester || "Semester"} · {course.credit_hours} credits
                                   </span>
                                 </div>
-                                <CardTitle className="text-base font-bold mt-1 text-foreground">
+                                <CardTitle className="text-base font-bold text-foreground">
                                   {course.title}
                                 </CardTitle>
+                                {course.lecturer_name && (
+                                  <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+                                    <User className="size-3.5 shrink-0" />
+                                    <span>Lecturer: {course.lecturer_name}</span>
+                                    {course.lecturer_email && (
+                                      <a
+                                        href={`mailto:${course.lecturer_email}`}
+                                        className="text-muted-foreground hover:text-primary transition"
+                                        title={`Contact ${course.lecturer_email}`}
+                                      >
+                                        <Mail className="size-3 ml-0.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
                               <div className="text-right shrink-0">
@@ -1257,13 +1450,13 @@ function StudentPortalPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    {history.length === 0 ? (
+                    {filteredHistory.length === 0 ? (
                       <div className="p-8 text-center text-xs text-muted-foreground">
                         No individual attendance check-ins logged yet.
                       </div>
                     ) : (
                       <div className="divide-y">
-                        {history.map((record) => {
+                        {filteredHistory.map((record) => {
                           const isLate = record.status === "LATE";
                           const isPresent =
                             record.status === "PRESENT" || record.status === "ON_TIME";
@@ -1273,13 +1466,21 @@ function StudentPortalPage() {
                               className="px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm hover:bg-muted/30 transition"
                             >
                               <div className="space-y-0.5 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-bold font-mono text-primary">
                                     {record.course_code || "CLASS"}
                                   </span>
                                   <span className="text-foreground font-medium truncate">
                                     {record.session_title || record.course_title}
                                   </span>
+                                  {record.lecturer_name && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] text-muted-foreground"
+                                    >
+                                      Lecturer: {record.lecturer_name}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="text-[11px] text-muted-foreground flex items-center gap-2">
                                   <span>{record.session_date}</span>
@@ -1310,6 +1511,210 @@ function StudentPortalPage() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* ------------------------------------------------------------- */}
+              {/* TAB: PERSONAL & MULTI-LECTURER ACADEMIC RECORDS               */}
+              {/* ------------------------------------------------------------- */}
+              <TabsContent value="records" className="space-y-5">
+                {/* Academic Identity & Stats */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card className="p-4 border shadow-xs space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">Student Index</span>
+                    <div className="font-mono text-lg font-bold text-primary">
+                      {me.index_number}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Verified Student Record
+                    </span>
+                  </Card>
+                  <Card className="p-4 border shadow-xs space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Enrolled Courses
+                    </span>
+                    <div className="text-lg font-bold text-foreground">
+                      {courses.length} Active Courses
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Across all semesters</span>
+                  </Card>
+                  <Card className="p-4 border shadow-xs space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Assigned Lecturers
+                    </span>
+                    <div className="text-lg font-bold text-foreground">
+                      {uniqueLecturers.length} Faculty Member
+                      {uniqueLecturers.length === 1 ? "" : "s"}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Instructors on record</span>
+                  </Card>
+                  <Card className="p-4 border shadow-xs space-y-1">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Overall Attendance
+                    </span>
+                    <div className="text-lg font-bold text-emerald-600">
+                      {overallPercentage}% Average
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {calculateAttendanceGrade(overallPercentage).label} Eligibility Standing
+                    </span>
+                  </Card>
+                </div>
+
+                {/* Comprehensive Multi-Lecturer Course Breakdown Table */}
+                <Card className="border shadow-xs overflow-hidden">
+                  <CardHeader className="pb-3 border-b bg-muted/20">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                          <BookCheck className="size-4 text-primary" />
+                          Multi-Lecturer Academic Record & Course Standing
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Complete consolidated overview of all courses assigned to you by your
+                          lecturers.
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline" className="w-fit text-xs font-mono">
+                        {courses.length} Course{courses.length === 1 ? "" : "s"} Total
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {courses.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-muted-foreground">
+                        No course records found across any lecturers.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-muted/40 text-muted-foreground border-b uppercase text-[10px] font-semibold tracking-wider">
+                            <tr>
+                              <th className="px-4 py-3">Course</th>
+                              <th className="px-4 py-3">Assigned Lecturer</th>
+                              <th className="px-4 py-3">Credits & Term</th>
+                              <th className="px-4 py-3 text-center">Sessions (Held/Attended)</th>
+                              <th className="px-4 py-3 text-center">Attendance %</th>
+                              <th className="px-4 py-3 text-right">Exam Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {courses.map((c) => {
+                              const isPassing = c.percentage >= 75;
+                              return (
+                                <tr key={c.course_id} className="hover:bg-muted/25 transition">
+                                  <td className="px-4 py-3 font-medium">
+                                    <div className="font-mono font-bold text-primary">{c.code}</div>
+                                    <div className="text-foreground text-xs">{c.title}</div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="font-semibold text-foreground">
+                                      {c.lecturer_name || "Academic Department"}
+                                    </div>
+                                    {c.lecturer_email && (
+                                      <a
+                                        href={`mailto:${c.lecturer_email}`}
+                                        className="text-[11px] text-muted-foreground hover:text-primary transition flex items-center gap-1"
+                                      >
+                                        <Mail className="size-2.5" />
+                                        {c.lecturer_email}
+                                      </a>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-muted-foreground">
+                                    <div>{c.credit_hours} Credit Hours</div>
+                                    <div className="text-[11px]">{c.semester}</div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="font-semibold text-foreground">
+                                      {c.attended}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {" "}
+                                      / {c.sessions_total}
+                                    </span>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {c.missed} missed · {c.late} late
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <div
+                                      className={`font-extrabold text-sm ${
+                                        isPassing ? "text-emerald-600" : "text-destructive"
+                                      }`}
+                                    >
+                                      {c.percentage}%
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <Badge
+                                      variant={isPassing ? "default" : "destructive"}
+                                      className="text-[10px]"
+                                    >
+                                      {isPassing ? "Eligible" : "At Risk"}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Assigned Faculty Summary Cards */}
+                {uniqueLecturers.length > 0 && (
+                  <Card className="border shadow-xs">
+                    <CardHeader className="pb-3 border-b">
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <School className="size-4 text-primary" />
+                        My Assigned Lecturers & Instructors
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Direct instructors managing your registered courses.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {uniqueLecturers.map((lec, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-lg border bg-muted/30 space-y-1.5 hover:bg-muted/50 transition text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="size-7 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xs">
+                                {lec.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-bold text-foreground truncate">{lec.name}</span>
+                            </div>
+                            {lec.email && (
+                              <a
+                                href={`mailto:${lec.email}`}
+                                className="text-[11px] text-primary hover:underline flex items-center gap-1 truncate"
+                              >
+                                <Mail className="size-3" />
+                                {lec.email}
+                              </a>
+                            )}
+                            <div className="pt-1 flex items-center gap-1 flex-wrap">
+                              <span className="text-[10px] text-muted-foreground">Courses:</span>
+                              {lec.courses.map((code) => (
+                                <Badge
+                                  key={code}
+                                  variant="secondary"
+                                  className="text-[10px] font-mono py-0"
+                                >
+                                  {code}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               {/* ------------------------------------------------------------- */}
@@ -1380,34 +1785,62 @@ function StudentPortalPage() {
                   <CardHeader className="pb-3 border-b">
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                       <BookOpen className="size-4 text-primary" />
-                      My Enrolled Courses ({courses.length})
+                      My Enrolled Courses ({filteredCourses.length})
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Official courses you are registered for this semester.
+                      Official courses you are registered for across your lecturers.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    {courses.length === 0 ? (
+                    {filteredCourses.length === 0 ? (
                       <div className="p-8 text-center text-xs text-muted-foreground">
-                        No enrolled courses found for this student record.
+                        {selectedCourseFilter === "all"
+                          ? "No enrolled courses found for this student record."
+                          : "No matching course found for this filter."}
                       </div>
                     ) : (
                       <div className="divide-y">
-                        {courses.map((c) => (
+                        {filteredCourses.map((c) => (
                           <div
                             key={c.course_id}
                             className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/25 transition"
                           >
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="outline" className="font-mono text-xs font-bold">
                                   {c.code}
                                 </Badge>
+                                {c.level && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="font-semibold text-[11px] bg-primary/10 text-primary"
+                                  >
+                                    {c.level.toUpperCase().startsWith("L")
+                                      ? c.level
+                                      : `L${c.level}`}
+                                  </Badge>
+                                )}
                                 <span className="text-xs text-muted-foreground">
-                                  {c.semester} Semester · {c.credit_hours} Credit Hours
+                                  {c.department ? `${c.department} · ` : ""}
+                                  {c.semester || "Semester"} · {c.credit_hours} credits
                                 </span>
                               </div>
                               <h4 className="font-bold text-sm text-foreground">{c.title}</h4>
+                              {c.lecturer_name && (
+                                <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+                                  <User className="size-3.5 shrink-0" />
+                                  <span>Lecturer: {c.lecturer_name}</span>
+                                  {c.lecturer_email && (
+                                    <a
+                                      href={`mailto:${c.lecturer_email}`}
+                                      className="text-muted-foreground hover:text-primary transition"
+                                      title={`Contact ${c.lecturer_email}`}
+                                    >
+                                      <Mail className="size-3 ml-0.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                               <p className="text-xs text-muted-foreground">
                                 {c.sessions_total} total session(s) conducted to date.
                               </p>
@@ -1443,45 +1876,65 @@ function StudentPortalPage() {
                   <CardHeader className="pb-3 border-b">
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                       <Megaphone className="size-4 text-primary" />
-                      Announcements
+                      Announcements ({filteredAnnouncements.length})
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Notices for your enrolled courses, sorted most recent first.
+                      Notices from your lecturers for your enrolled courses, sorted most recent
+                      first.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6 space-y-4">
-                    {announcements.length === 0 ? (
+                    {filteredAnnouncements.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground">
-                        No announcements posted for your enrolled courses yet.
+                        {selectedCourseFilter === "all"
+                          ? "No announcements posted for your enrolled courses yet."
+                          : "No announcements found matching this course/lecturer filter."}
                       </div>
                     ) : (
-                      announcements.map((notice) => (
+                      filteredAnnouncements.map((notice) => (
                         <div
                           key={notice.id}
                           className="rounded-xl border border-border p-4 space-y-2 bg-card hover:border-primary/30 transition shadow-xs"
                         >
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
                             <h4 className="font-bold text-sm text-foreground">{notice.title}</h4>
-                            {notice.course_code ? (
-                              <Badge variant="secondary" className="font-mono text-[10px]">
-                                {notice.course_code}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px]">
-                                General
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {notice.course_code ? (
+                                <Badge variant="secondary" className="font-mono text-[10px]">
+                                  {notice.course_code}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px]">
+                                  General
+                                </Badge>
+                              )}
+                              {notice.lecturer_name && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-primary border-primary/20"
+                                >
+                                  By: {notice.lecturer_name}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                             {notice.body}
                           </p>
-                          <div className="text-[11px] text-muted-foreground/80 pt-1 flex items-center gap-1.5">
-                            <Clock className="size-3" />
-                            {notice.starts_on
-                              ? new Date(notice.starts_on).toLocaleDateString(undefined, {
-                                  dateStyle: "medium",
-                                })
-                              : "Recent"}
+                          <div className="text-[11px] text-muted-foreground/80 pt-1 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="size-3" />
+                              {notice.starts_on
+                                ? new Date(notice.starts_on).toLocaleDateString(undefined, {
+                                    dateStyle: "medium",
+                                  })
+                                : "Recent"}
+                            </div>
+                            {notice.lecturer_name && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Instructor: {notice.lecturer_name}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))
@@ -1498,19 +1951,22 @@ function StudentPortalPage() {
                   <CardHeader className="pb-3 border-b">
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                       <ClipboardList className="size-4 text-primary" />
-                      Course Assignments & Deadlines
+                      Course Assignments & Deadlines ({filteredAssignments.length})
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Tasks for your enrolled courses, sorted with upcoming due dates first.
+                      Tasks from your instructors for your enrolled courses, sorted with upcoming
+                      due dates first.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6 space-y-4">
-                    {assignments.length === 0 ? (
+                    {filteredAssignments.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground">
-                        No assignments listed for your enrolled courses right now.
+                        {selectedCourseFilter === "all"
+                          ? "No assignments listed for your enrolled courses right now."
+                          : "No assignments found matching this course/lecturer filter."}
                       </div>
                     ) : (
-                      assignments.map((assign) => {
+                      filteredAssignments.map((assign) => {
                         const due = assign.due_at ? new Date(assign.due_at) : null;
                         const isOverdue = due ? due.getTime() < Date.now() : false;
                         return (
@@ -1524,13 +1980,21 @@ function StudentPortalPage() {
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   {assign.course_code && (
                                     <Badge
                                       variant="outline"
                                       className="font-mono text-xs font-semibold"
                                     >
                                       {assign.course_code}
+                                    </Badge>
+                                  )}
+                                  {assign.lecturer_name && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] text-primary border-primary/20"
+                                    >
+                                      Lecturer: {assign.lecturer_name}
                                     </Badge>
                                   )}
                                   <Badge

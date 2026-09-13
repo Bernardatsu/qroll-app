@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import { useAuth } from "@/lib/auth";
 import {
   collection,
   getDocs,
@@ -11,6 +12,8 @@ import {
   deleteDoc,
   doc,
   writeBatch,
+  query,
+  where,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,21 +91,23 @@ function SessionsPage() {
     url: string;
   } | null>(null);
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
 
-  const { data: courses } = useQuery({
+  const { data: courses, isLoading: coursesLoading } = useQuery({
     queryKey: ["courses-active", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
+      const uid = currentUid || firebaseAuth.currentUser?.uid;
+      if (!uid) return [];
       const snap = await getDocs(
-        query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
+        query(collection(firestoreDb, "courses"), where("owner_id", "==", uid)),
       );
       const list = snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as any) }))
         .filter((c) => !c.archived);
       return list.sort((a, b) => (a.code || "").localeCompare(b.code || ""));
     },
-    enabled: !!currentUid,
+    enabled: !!(currentUid || firebaseAuth.currentUser?.uid),
   });
 
   const { data: sessions } = useQuery({
@@ -278,20 +283,35 @@ function SessionsPage() {
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Course</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Course</Label>
+                  {(!courses || courses.length === 0) && (
+                    <Link to="/courses" className="text-xs text-primary underline">
+                      + Add Course
+                    </Link>
+                  )}
+                </div>
                 <Select
                   value={form.course_id}
                   onValueChange={(v) => setForm({ ...form, course_id: v })}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a course" />
+                  <SelectTrigger className="mt-1">
+                    <SelectValue
+                      placeholder={coursesLoading ? "Loading courses..." : "Pick a course"}
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {(courses ?? []).map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.code} — {c.title}
-                      </SelectItem>
-                    ))}
+                    {courses && courses.length > 0 ? (
+                      courses.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.code} — {c.title}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-3 text-xs text-center text-muted-foreground">
+                        No courses found. Please add a course first.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

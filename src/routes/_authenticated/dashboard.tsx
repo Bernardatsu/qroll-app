@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
-import { firestoreDb } from "@/integrations/firebase/config";
-import { collection, getDocs, getCountFromServer } from "firebase/firestore";
+import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,31 +84,91 @@ const QUICK_ACTIONS = [
 
 function Dashboard() {
   const { user, roles } = useAuth();
-  const { data, isLoading } = useQuery({
-    queryKey: ["dashboard-stats", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return { students: 0, courses: 0, sessions: 0, semesters: 0 };
-      const [studentsSnap, coursesSnap, sessionsSnap, termsSnap] = await Promise.all([
-        getCountFromServer(
-          query(collection(firestoreDb, "students"), where("owner_id", "==", user.id)),
-        ).catch(() => null),
-        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", user.id))),
-        getCountFromServer(
-          query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", user.id)),
-        ).catch(() => null),
-        getDocs(query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", user.id))),
-      ]);
-      const activeCourses = coursesSnap.docs.filter((d) => !(d.data() as any).archived).length;
-      const currentTerms = termsSnap.docs.filter((d) => (d.data() as any).is_current).length;
-      return {
-        students: studentsSnap ? studentsSnap.data().count : 0,
-        courses: activeCourses,
-        sessions: sessionsSnap ? sessionsSnap.data().count : 0,
-        semesters: currentTerms,
-      };
-    },
-    enabled: !!user?.id,
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
+
+  const [stats, setStats] = useState({
+    students: 0,
+    courses: 0,
+    sessions: 0,
+    semesters: 0,
   });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUid) {
+      setIsLoading(false);
+      return;
+    }
+
+    let loadedParts = 0;
+    const markLoaded = () => {
+      loadedParts++;
+      if (loadedParts >= 2) setIsLoading(false);
+    };
+
+    // Real-time listener for students
+    const unsubStudents = onSnapshot(
+      query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+      (snap) => {
+        setStats((prev) => ({ ...prev, students: snap.size }));
+        markLoaded();
+      },
+      (err) => {
+        console.warn("Students stats listener error:", err);
+        markLoaded();
+      },
+    );
+
+    // Real-time listener for courses (active only)
+    const unsubCourses = onSnapshot(
+      query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
+      (snap) => {
+        const active = snap.docs.filter((d) => !(d.data() as any).archived).length;
+        setStats((prev) => ({ ...prev, courses: active }));
+        markLoaded();
+      },
+      (err) => {
+        console.warn("Courses stats listener error:", err);
+        markLoaded();
+      },
+    );
+
+    // Real-time listener for attendance sessions
+    const unsubSessions = onSnapshot(
+      query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", currentUid)),
+      (snap) => {
+        setStats((prev) => ({ ...prev, sessions: snap.size }));
+        markLoaded();
+      },
+      (err) => {
+        console.warn("Sessions stats listener error:", err);
+        markLoaded();
+      },
+    );
+
+    // Real-time listener for academic terms (current only)
+    const unsubTerms = onSnapshot(
+      query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
+      (snap) => {
+        const currentTerms = snap.docs.filter((d) => (d.data() as any).is_current).length;
+        setStats((prev) => ({ ...prev, semesters: currentTerms }));
+        markLoaded();
+      },
+      (err) => {
+        console.warn("Terms stats listener error:", err);
+        markLoaded();
+      },
+    );
+
+    return () => {
+      unsubStudents();
+      unsubCourses();
+      unsubSessions();
+      unsubTerms();
+    };
+  }, [currentUid]);
+
+  const data = stats;
 
   return (
     <AppShell>

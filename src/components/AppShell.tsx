@@ -49,11 +49,10 @@ const nav: NavItem[] = [
   { to: "/semesters", label: "Semesters", icon: CalendarRange, adminOnly: true },
   { to: "/sessions", label: "Sessions", icon: CalendarClock },
   { to: "/scan", label: "Scanner", icon: ScanLine },
-  { to: "/portal-links", label: "Student Portal", icon: Share2, adminOnly: true },
+  { to: "/portal-links", label: "Student QR Portal", icon: Share2, adminOnly: true },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/history", label: "Academic History", icon: History },
-  { to: "/announcements", label: "Announcements", icon: Megaphone },
-  { to: "/assignments", label: "Assignments", icon: ClipboardList },
+  { to: "/announcements", label: "Announcements & Tasks", icon: Megaphone },
   { to: "/billing", label: "Billing & Plans", icon: CreditCard },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
