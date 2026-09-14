@@ -450,13 +450,37 @@ function ScanPage() {
       qc.invalidateQueries({ queryKey: ["records", activeSession] });
       return true;
     } catch (err: any) {
-      // Network dropped mid-request — stash the scan instead of losing it.
+      // Only genuine connectivity failures should queue offline.
+      // Firestore tags real network drops as "unavailable" or "deadline-exceeded".
+      // Everything else (permission-denied, unauthenticated, invalid-argument, etc.)
+      // is a real bug and must be shown, not silently stashed as "offline".
+      const code = err?.code as string | undefined;
+      const isNetworkFailure =
+        !isOnline() || code === "unavailable" || code === "deadline-exceeded";
+
+      if (isNetworkFailure) {
+        if (!replay) {
+          queueScan(sess.id, uuid, at);
+          setPending(listQueued().length);
+          setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
+          setStatus("Connection lost — scan saved, will sync automatically");
+          toast.message("Connection lost — scan saved on this device");
+        }
+        return false;
+      }
+
+      // Real error — surface it instead of mislabeling it as offline.
+      console.error("Scan failed:", err);
+      const friendly =
+        code === "permission-denied"
+          ? "Permission denied — check that this session belongs to your account"
+          : code === "unauthenticated"
+            ? "Signed out — please sign in again"
+            : err?.message || "Scan failed — see console for details";
       if (!replay) {
-        queueScan(sess.id, uuid, at);
-        setPending(listQueued().length);
-        setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
-        setStatus("Connection lost — scan saved, will sync automatically");
-        toast.message("Connection lost — scan saved on this device");
+        notify.error(friendly);
+        setLastScan({ name: uuid.slice(0, 14) + "…", status: "FAILED" });
+        setStatus(friendly);
       }
       return false;
     } finally {
