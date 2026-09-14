@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
-import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
+import { firestoreDb } from "@/integrations/firebase/config";
+import { useAuth } from "@/lib/auth";
 import {
   collection,
   doc,
@@ -90,7 +91,11 @@ function ScanPage() {
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  // Reactive auth state — firebaseAuth.currentUser is read synchronously and
+  // can be undefined before Firebase finishes restoring the session, which
+  // was causing scans to fail with permission-denied on fresh page loads.
+  const { user: authUser } = useAuth();
+  const currentUid = authUser?.id;
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions", currentUid],
