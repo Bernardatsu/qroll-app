@@ -713,7 +713,7 @@ function StudentPortalPage() {
                         </Label>
                         <Input
                           id="index-num"
-                          placeholder="e.g. 4068924"
+                          placeholder="e.g. 1029485"
                           value={index}
                           onChange={(e) => setIndex(e.target.value)}
                           autoFocus
@@ -937,7 +937,7 @@ function StudentPortalPage() {
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Student Index Number</Label>
                         <Input
-                          placeholder="e.g. 4068924"
+                          placeholder="e.g. 1029485"
                           value={index}
                           onChange={(e) => setIndex(e.target.value)}
                           required
@@ -1032,7 +1032,7 @@ function StudentPortalPage() {
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Student Index Number</Label>
                         <Input
-                          placeholder="e.g. 4068924"
+                          placeholder="e.g. 1029485"
                           value={index}
                           onChange={(e) => setIndex(e.target.value)}
                           required
@@ -1132,10 +1132,10 @@ function StudentPortalPage() {
           <div className="space-y-6">
             {/* Student Header Card */}
             <Card className="border shadow-xs overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-950 via-blue-900 to-blue-700 p-6 text-white">
+              <div className="bg-gradient-to-r from-blue-950 via-blue-900 to-blue-700 p-4 sm:p-6 text-white">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge className="bg-white/20 text-white hover:bg-white/30 border-none text-[11px] font-mono">
                         {me.index_number}
                       </Badge>
@@ -1143,7 +1143,7 @@ function StudentPortalPage() {
                         Verified Student
                       </Badge>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">{me.full_name}</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{me.full_name}</h1>
                     <p className="text-xs text-white/80">
                       {me.program || "Undergraduate Program"} · Level {me.level || "200"}
                       {me.email && ` · ${me.email}`}
@@ -1151,12 +1151,12 @@ function StudentPortalPage() {
                   </div>
 
                   {/* Attendance Grade Stat Box */}
-                  <div className="bg-white/10 backdrop-blur-xs rounded-xl p-4 border border-white/15 min-w-[200px] text-right sm:text-right">
+                  <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 sm:p-4 border border-white/15 w-full sm:w-auto sm:min-w-[200px] text-left sm:text-right">
                     <div className="text-xs text-white/75 font-medium">Running Attendance</div>
-                    <div className="text-3xl font-extrabold text-white mt-0.5">
+                    <div className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
                       {overallPercentage}%
                     </div>
-                    <div className="flex items-center justify-end gap-1.5 mt-1 text-xs">
+                    <div className="flex items-center sm:justify-end gap-1.5 mt-1 text-xs">
                       <span className="text-white/80">
                         {totalAttendedSessions} of {totalHeldSessions} sessions attended
                       </span>
@@ -1166,7 +1166,7 @@ function StudentPortalPage() {
 
                 <div className="mt-4 pt-3 border-t border-white/15">
                   <div className="flex justify-between items-center text-xs text-white/80 mb-1.5">
-                    <span>Overall Semester Attendance Standing</span>
+                    <span>Overall Semester Standing</span>
                     <span className="font-semibold">
                       {calculateAttendanceGrade(overallPercentage).label} Grade
                     </span>
@@ -1214,7 +1214,7 @@ function StudentPortalPage() {
 
             {/* Multi-Lecturer Course & Faculty Filter Bar */}
             {courses.length > 0 && (
-              <div className="rounded-xl border bg-card p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="rounded-xl border bg-card p-3 sm:p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <Filter className="size-4" />
@@ -1232,7 +1232,7 @@ function StudentPortalPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                   <select
                     id="student-course-lecturer-filter"
                     value={selectedCourseFilter}
@@ -1252,7 +1252,7 @@ function StudentPortalPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setSelectedCourseFilter("all")}
-                      className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground"
+                      className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground w-full sm:w-auto"
                     >
                       Reset Filter
                     </Button>
@@ -1263,63 +1263,65 @@ function StudentPortalPage() {
 
             {/* Navigation Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 h-auto p-1 bg-muted/60 rounded-xl gap-1">
-                <TabsTrigger
-                  value="attendance"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <CalendarCheck className="size-3.5" />
-                  Attendance
-                </TabsTrigger>
-                <TabsTrigger
-                  value="records"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <FileText className="size-3.5" />
-                  Personal Records
-                </TabsTrigger>
-                <TabsTrigger
-                  value="courses"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <BookOpen className="size-3.5" />
-                  Courses ({courses.length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="announcements"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <Megaphone className="size-3.5" />
-                  Announcements
-                  {announcements.length > 0 && (
-                    <span className="size-2 rounded-full bg-primary ml-0.5" />
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="assignments"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <ClipboardList className="size-3.5" />
-                  Assignments
-                  {assignments.length > 0 && (
-                    <span className="size-2 rounded-full bg-primary ml-0.5" />
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="qr"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <QrCode className="size-3.5" />
-                  My QR Pass
-                </TabsTrigger>
-                <TabsTrigger
-                  value="settings"
-                  className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5"
-                >
-                  <KeyRound className="size-3.5" />
-                  Settings
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 sm:overflow-visible">
+                <TabsList className="inline-flex sm:grid sm:grid-cols-4 lg:grid-cols-7 h-auto p-1 bg-muted/60 rounded-xl gap-1 min-w-max sm:min-w-full">
+                  <TabsTrigger
+                    value="attendance"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <CalendarCheck className="size-3.5" />
+                    Attendance
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="records"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <FileText className="size-3.5" />
+                    Personal Records
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="courses"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <BookOpen className="size-3.5" />
+                    Courses ({courses.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="announcements"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <Megaphone className="size-3.5" />
+                    Announcements
+                    {announcements.length > 0 && (
+                      <span className="size-2 rounded-full bg-primary ml-0.5" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="assignments"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <ClipboardList className="size-3.5" />
+                    Assignments
+                    {assignments.length > 0 && (
+                      <span className="size-2 rounded-full bg-primary ml-0.5" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="qr"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <QrCode className="size-3.5" />
+                    My QR Pass
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settings"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
+                  >
+                    <KeyRound className="size-3.5" />
+                    Settings
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* ------------------------------------------------------------- */}
               {/* TAB 1: ATTENDANCE RECORD (CORE PER-COURSE METRICS)             */}
