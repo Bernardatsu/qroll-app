@@ -37,6 +37,7 @@ import {
   Mail,
   School,
   BookCheck,
+  Printer,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
@@ -185,6 +186,17 @@ function StudentPortalPage() {
       setQrUrl(null);
     }
   }, [me]);
+
+  const printPass = () => {
+    if (!me || !qrUrl) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(
+      `<html><head><title>${me.index_number} - Universal QR Pass</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:40px;color:#0f172a}.badge{display:inline-block;border:2px solid #0f172a;border-radius:12px;padding:24px 32px;max-width:340px}img{width:240px;height:240px}h2{margin:0 0 8px;color:#1e3a8a}h3{margin:12px 0 4px;font-size:20px}p{margin:4px 0;color:#475569;font-size:13px}.tag{display:inline-block;background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:12px}</style></head><body><div class="badge"><div class="tag">UNIVERSAL STUDENT ATTENDANCE PASS</div><h2>QRoll Pass</h2><img src="${qrUrl}" /><h3>${me.full_name}</h3><p><strong>${me.index_number}</strong> · Level ${me.level || "100"}</p><p>${me.program || "Undergraduate Degree"}</p><p style="font-size:11px;color:#64748b;margin-top:12px">One unique QR code valid for all courses & lecturers</p></div></body></html>`,
+    );
+    w.document.close();
+    setTimeout(() => w.print(), 400);
+  };
 
   // Session auto-restore on page load
   useEffect(() => {
@@ -2044,7 +2056,86 @@ function StudentPortalPage() {
               </TabsContent>
 
               {/* ------------------------------------------------------------- */}
-              {/* TAB 6: PASSWORD & ACCOUNT SETTINGS                            */}
+              {/* TAB 6: UNIVERSAL QR PASS (ONE CODE FOR ALL COURSES)           */}
+              {/* ------------------------------------------------------------- */}
+              <TabsContent value="qr" className="space-y-4">
+                <Card className="border shadow-xs overflow-hidden max-w-xl mx-auto">
+                  <CardHeader className="pb-3 border-b text-center bg-muted/20">
+                    <div className="flex items-center justify-center gap-2 mb-1 flex-wrap">
+                      <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold">
+                        Universal Student Pass
+                      </Badge>
+                      <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 text-xs font-semibold">
+                        One Code for All Courses
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-xl font-bold flex items-center justify-center gap-2">
+                      <QrCode className="size-5 text-primary" />
+                      My Universal QR Pass
+                    </CardTitle>
+                    <CardDescription className="text-xs max-w-md mx-auto">
+                      Each student has one unique QR code for all courses. Present this single code
+                      to any lecturer to record your attendance.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="p-6 text-center space-y-4">
+                    {qrUrl ? (
+                      <div className="p-4 bg-white rounded-2xl shadow-sm border inline-block mx-auto">
+                        <img
+                          src={qrUrl}
+                          alt={`Universal QR Pass for ${me.full_name}`}
+                          className="mx-auto size-56 sm:size-64 object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="size-56 sm:size-64 bg-muted animate-pulse rounded-2xl mx-auto" />
+                    )}
+
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-bold text-foreground">{me.full_name}</h3>
+                      <div className="font-mono text-sm font-bold bg-primary/10 text-primary px-3 py-1 rounded inline-block">
+                        {me.index_number}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Level {me.level || "100"} · {me.program || "Undergraduate Degree"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground max-w-md mx-auto text-left space-y-1.5 border">
+                      <div className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                        Universal QR Code Guarantee
+                      </div>
+                      <p>
+                        You do not need separate QR codes for each course or lecturer. This single
+                        code is uniquely tied to your student index number and identifies you across
+                        all registered courses, classes, and lecturers.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-2 max-w-md mx-auto">
+                      {qrUrl && (
+                        <a
+                          href={qrUrl}
+                          download={`QRoll-${me.index_number}-Universal-Pass.png`}
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold bg-secondary hover:bg-secondary/80 text-secondary-foreground py-2.5 px-3 rounded-lg border transition shadow-xs"
+                        >
+                          <Download className="size-3.5" />
+                          Save PNG
+                        </a>
+                      )}
+                      <Button onClick={printPass} className="w-full text-xs py-2.5">
+                        <Printer className="size-3.5 mr-1" />
+                        Print Pass
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* ------------------------------------------------------------- */}
+              {/* TAB 7: PASSWORD & ACCOUNT SETTINGS                            */}
               {/* ------------------------------------------------------------- */}
               <TabsContent value="settings" className="space-y-4">
                 <div className="grid gap-6 sm:grid-cols-2">

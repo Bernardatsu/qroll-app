@@ -182,6 +182,7 @@ function StudentsPage() {
   };
 
   const [levelToDelete, setLevelToDelete] = useState<string | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const requestRemoveLevel = (name: string) => {
     const count = (students ?? []).filter((s: any) => String(s.level) === name).length;
@@ -253,11 +254,25 @@ function StudentsPage() {
         `Limit reached: Maximum 400 students allowed per class/level. Level ${targetLevel} currently has ${countInLevel} students.`,
       );
     }
+    // Ensure each student has ONE unique QR code for all courses and lecturers
+    let existingQrUuid = "";
+    const cleanIndex = form.index_number.trim();
+    try {
+      const existingSnap = await getDocs(
+        query(collection(firestoreDb, "students"), where("index_number", "==", cleanIndex)),
+      );
+      if (!existingSnap.empty) {
+        existingQrUuid = (existingSnap.docs[0].data() as any)?.qr_uuid || "";
+      }
+    } catch (err) {
+      console.warn("Could not check existing student qr_uuid:", err);
+    }
+
     const payload: any = {
       ...form,
       full_name: form.full_name.trim(),
-      index_number: form.index_number.trim(),
-      qr_uuid: crypto.randomUUID(),
+      index_number: cleanIndex,
+      qr_uuid: existingQrUuid || crypto.randomUUID(),
       owner_id: uid,
     };
     if (!payload.department_id) delete payload.department_id;
@@ -280,18 +295,16 @@ function StudentsPage() {
     }
   };
 
-  const remove = async (id: string) => {
-    if (
-      !confirm(
-        "⚠️ WARNING: Are you sure you want to permanently delete this student?\n\nThis will permanently delete the student's profile, portal link, and historical attendance data. This action cannot be undone!",
-      )
-    )
-      return;
+  const executeDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    const { id, name } = studentToDelete;
+    setStudentToDelete(null);
     try {
       await deleteDoc(doc(firestoreDb, "students", id));
-      qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success("Student deleted");
+      await qc.invalidateQueries({ queryKey: ["students"] });
+      toast.success(`Student "${name}" deleted`);
     } catch (err: any) {
+      console.error("Failed to delete student:", err);
       toast.error(err?.message || "Failed to delete student");
     }
   };
@@ -556,21 +569,52 @@ function StudentsPage() {
   const deleteAll = async () => {
     const toastId = toast.loading("Deleting all students...");
     const currentUid = firebaseAuth.currentUser?.uid;
-    if (!currentUid) {
-      toast.error("Not signed in", { id: toastId });
-      return;
-    }
     try {
-      const snap = await getDocs(
-        query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
-      );
-      const batch = writeBatch(firestoreDb);
-      snap.docs.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-      qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success(`Deleted ${snap.docs.length} students`, { id: toastId });
+      const idSet = new Set<string>();
+      if (currentUid) {
+        try {
+          const snap = await getDocs(
+            query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+          );
+          snap.docs.forEach((d) => idSet.add(d.id));
+        } catch (err) {
+          console.warn("Could not query students by owner_id for deleteAll:", err);
+        }
+      }
+
+      // Also include any currently visible students
+      (students ?? []).forEach((s: any) => {
+        if (s.id) idSet.add(s.id);
+      });
+
+      const allIds = Array.from(idSet);
+      if (allIds.length === 0) {
+        toast.info("No students found to delete", { id: toastId });
+        return;
+      }
+
+      // Delete in batches of 200 to safely stay under Firestore's 500-op limit
+      for (let i = 0; i < allIds.length; i += 200) {
+        const chunk = allIds.slice(i, i + 200);
+        const batch = writeBatch(firestoreDb);
+        chunk.forEach((id) => batch.delete(doc(firestoreDb, "students", id)));
+        await batch.commit();
+      }
+
+      await qc.invalidateQueries({ queryKey: ["students"] });
+      toast.success(`Successfully deleted all ${allIds.length} students`, { id: toastId });
     } catch (err: any) {
-      toast.error(err?.message || "Failed to delete students", { id: toastId });
+      console.error("Batch delete failed, attempting individual fallback deletes:", err);
+      try {
+        const fallbackIds = (students ?? []).map((s: any) => s.id).filter(Boolean);
+        await Promise.allSettled(
+          fallbackIds.map((id: string) => deleteDoc(doc(firestoreDb, "students", id))),
+        );
+        await qc.invalidateQueries({ queryKey: ["students"] });
+        toast.success("Students deleted", { id: toastId });
+      } catch (fallbackErr: any) {
+        toast.error(err?.message || "Failed to delete students", { id: toastId });
+      }
     }
   };
 
@@ -651,7 +695,12 @@ function StudentsPage() {
                 >
                   <Pencil className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => remove(s.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setStudentToDelete({ id: s.id, name: s.full_name })}
+                  title={`Delete ${s.full_name}`}
+                >
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               </td>
@@ -1040,6 +1089,34 @@ function StudentsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Student Confirmation Dialog */}
+      <AlertDialog open={!!studentToDelete} onOpenChange={(o) => !o && setStudentToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-destructive" />
+              Delete Student?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <b>{studentToDelete?.name}</b>?
+              <br />
+              <br />
+              This will remove the student profile, portal link, and historical attendance data for
+              this student. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={executeDeleteStudent}
+            >
+              Yes, delete student
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
@@ -1110,6 +1187,11 @@ function QrButton({ student }: { student: any }) {
               <div className="text-xs text-muted-foreground">
                 Level {student.level}{" "}
                 {student.departments?.name ? `· ${student.departments.name}` : ""}
+              </div>
+              <div className="pt-1">
+                <span className="inline-block text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md py-0.5 px-2">
+                  Universal Pass · Valid across all courses & lecturers
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-2">

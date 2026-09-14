@@ -291,6 +291,48 @@ function ScanPage() {
         });
         if (match) {
           student = { id: match.id, ...(match.data() as any) };
+        } else {
+          // Universal QR Fallback: Search globally across all student passes
+          try {
+            const globalByQr = await getDocs(
+              query(collection(firestoreDb, "students"), where("qr_uuid", "==", uuid)),
+            );
+            const globalDoc = !globalByQr.empty
+              ? globalByQr.docs[0]
+              : (
+                  await getDocs(
+                    query(collection(firestoreDb, "students"), where("index_number", "==", uuid)),
+                  )
+                ).docs[0];
+
+            if (globalDoc) {
+              const gData = globalDoc.data() as any;
+              // Check if current lecturer has this student under their own roster by index number
+              const lecturerMatch = studSnap.docs.find((d) => {
+                const sData = d.data() as any;
+                return (
+                  sData.index_number &&
+                  gData.index_number &&
+                  String(sData.index_number).trim().toLowerCase() ===
+                    String(gData.index_number).trim().toLowerCase()
+                );
+              });
+
+              if (lecturerMatch) {
+                student = { id: lecturerMatch.id, ...(lecturerMatch.data() as any) };
+                // Keep qr_uuid synchronized on lecturer's copy
+                if (lecturerMatch.data()?.qr_uuid !== uuid && gData.qr_uuid === uuid) {
+                  updateDoc(doc(firestoreDb, "students", lecturerMatch.id), {
+                    qr_uuid: uuid,
+                  }).catch(() => {});
+                }
+              } else {
+                student = { id: globalDoc.id, ...gData };
+              }
+            }
+          } catch (err) {
+            console.warn("Global student QR fallback query:", err);
+          }
         }
       }
       if (!student) {

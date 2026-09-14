@@ -1,12 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signInWithPopup,
-  updateProfile,
-} from "firebase/auth";
+import { signInWithPopup } from "firebase/auth";
 import {
   firebaseAuth,
   onAuthStateChanged,
@@ -14,19 +8,10 @@ import {
   syncUserToFirestore,
 } from "@/integrations/firebase/config";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, EyeOff, Loader2, Mail, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import qrollLogo from "@/assets/qroll-logo.png";
 import qrollLogin from "@/assets/qroll-login.png";
@@ -39,17 +24,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Forgot password dialog
-  const [forgotOpen, setForgotOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (firebaseAuth.currentUser) {
@@ -67,110 +42,6 @@ function AuthPage() {
       unsubFb();
     };
   }, [navigate]);
-
-  const signIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !password) {
-      toast.error("Please provide both email and password.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const cred = await signInWithEmailAndPassword(firebaseAuth, cleanEmail, password);
-      await syncUserToFirestore(cred.user);
-      toast.success("Welcome back to QRoll!");
-      navigate({ to: "/dashboard" });
-    } catch (err: any) {
-      const code = err?.code || "";
-      if (
-        code === "auth/invalid-credential" ||
-        code === "auth/user-not-found" ||
-        code === "auth/wrong-password"
-      ) {
-        toast.error(
-          "Invalid email or password. If you haven't created an account yet, click 'Create account' above.",
-        );
-      } else {
-        toast.error(err?.message || "Sign in failed.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoSignIn = async () => {
-    setEmail("lecturer@qroll.edu");
-    setPassword("QrollTutorPass2026!#");
-    setLoading(true);
-    try {
-      let cred;
-      try {
-        cred = await signInWithEmailAndPassword(
-          firebaseAuth,
-          "lecturer@qroll.edu",
-          "QrollTutorPass2026!#",
-        );
-      } catch (err: any) {
-        if (err?.code === "auth/user-not-found" || err?.code === "auth/invalid-credential") {
-          cred = await createUserWithEmailAndPassword(
-            firebaseAuth,
-            "lecturer@qroll.edu",
-            "QrollTutorPass2026!#",
-          );
-          await updateProfile(cred.user, { displayName: "Dr. Bernard Atsu" });
-        } else {
-          throw err;
-        }
-      }
-      await syncUserToFirestore(cred.user);
-      toast.success("Signed in as Lecturer Dr. Bernard Atsu!");
-      navigate({ to: "/dashboard" });
-    } catch (err: any) {
-      toast.error(err?.message || "Demo sign in failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = email.trim();
-    const cleanName = fullName.trim();
-
-    if (!cleanEmail || !password) {
-      toast.error("Please provide both email and password.");
-      return;
-    }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters long.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const cred = await createUserWithEmailAndPassword(firebaseAuth, cleanEmail, password);
-      if (cleanName) {
-        await updateProfile(cred.user, { displayName: cleanName });
-      }
-      await syncUserToFirestore(cred.user);
-      toast.success("Account created successfully! Welcome to QRoll.");
-      navigate({ to: "/dashboard" });
-    } catch (err: any) {
-      const code = err?.code || "";
-      if (code === "auth/email-already-in-use") {
-        toast.error("An account with this email already exists. Please sign in instead.");
-        setTab("signin");
-      } else if (code === "auth/weak-password") {
-        toast.error("Password is too weak. Please use at least 8 characters.");
-      } else {
-        toast.error(err?.message || "Account creation failed.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -191,26 +62,6 @@ function AuthPage() {
       }
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const targetEmail = resetEmail.trim() || email.trim();
-    if (!targetEmail) {
-      toast.error("Please enter your email address.");
-      return;
-    }
-
-    setResetLoading(true);
-    try {
-      await sendPasswordResetEmail(firebaseAuth, targetEmail);
-      toast.success("Password reset instructions sent. Please check your inbox.");
-      setForgotOpen(false);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to send reset email.");
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -327,7 +178,7 @@ function AuthPage() {
                       variant="outline"
                       className="w-full flex items-center justify-center gap-2 py-5 font-medium shadow-sm hover:bg-accent cursor-pointer"
                       onClick={handleGoogleSignIn}
-                      disabled={googleLoading || loading}
+                      disabled={googleLoading}
                     >
                       {googleLoading ? (
                         <>
@@ -359,88 +210,9 @@ function AuthPage() {
                       )}
                     </Button>
 
-                    <div className="relative my-3 text-center text-xs text-muted-foreground">
-                      <span className="bg-card px-2 relative z-10">or continue with email</span>
-                      <div className="absolute inset-x-0 top-1/2 border-t" />
-                    </div>
-
-                    <form onSubmit={signIn} className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signin-email">Email</Label>
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="lecturer@university.edu"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          autoComplete="email"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="signin-password">Password</Label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setResetEmail(email);
-                              setForgotOpen(true);
-                            }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <Input
-                            id="signin-password"
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            autoComplete="current-password"
-                            className="pr-10"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? "Hide password" : "Show password"}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      <Button type="submit" className="w-full" disabled={loading || googleLoading}>
-                        {loading ? (
-                          <>
-                            <Loader2 className="size-4 mr-2 animate-spin" />
-                            Signing in...
-                          </>
-                        ) : (
-                          "Sign in with Email"
-                        )}
-                      </Button>
-
-                      <div className="pt-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="w-full text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
-                          onClick={handleDemoSignIn}
-                          disabled={loading || googleLoading}
-                        >
-                          <ShieldAlert className="size-3.5 mr-1.5 text-primary" />
-                          Instant Tutor Access (1-Click Demo Login)
-                        </Button>
-                      </div>
-                    </form>
+                    <p className="text-center text-xs text-muted-foreground leading-relaxed pt-1">
+                      Sign in securely using your institutional Google account.
+                    </p>
 
                     <div className="pt-2 text-center text-xs text-muted-foreground">
                       Don&apos;t have an account yet?{" "}
@@ -462,7 +234,7 @@ function AuthPage() {
                       variant="outline"
                       className="w-full flex items-center justify-center gap-2 py-5 font-medium shadow-sm hover:bg-accent cursor-pointer"
                       onClick={handleGoogleSignIn}
-                      disabled={googleLoading || loading}
+                      disabled={googleLoading}
                     >
                       {googleLoading ? (
                         <>
@@ -494,79 +266,10 @@ function AuthPage() {
                       )}
                     </Button>
 
-                    <div className="relative my-3 text-center text-xs text-muted-foreground">
-                      <span className="bg-card px-2 relative z-10">or register with email</span>
-                      <div className="absolute inset-x-0 top-1/2 border-t" />
-                    </div>
-
-                    <form onSubmit={signUp} className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-name">Full Name</Label>
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          placeholder="Prof. Kwame Mensah"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          autoComplete="name"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-email">Email</Label>
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="lecturer@university.edu"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          autoComplete="email"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="signup-password">Password</Label>
-                        <div className="relative">
-                          <Input
-                            id="signup-password"
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            autoComplete="new-password"
-                            className="pr-10"
-                            required
-                            minLength={8}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            aria-label={showPassword ? "Hide password" : "Show password"}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          Must be at least 8 characters. Mix letters, numbers, and symbols.
-                        </p>
-                      </div>
-
-                      <Button type="submit" className="w-full" disabled={loading || googleLoading}>
-                        {loading ? (
-                          <>
-                            <Loader2 className="size-4 mr-2 animate-spin" />
-                            Creating account...
-                          </>
-                        ) : (
-                          "Create account with Email"
-                        )}
-                      </Button>
-                    </form>
+                    <p className="text-center text-xs text-muted-foreground leading-relaxed pt-1">
+                      New to QRoll? Sign in with your Google account to automatically set up your
+                      lecturer profile in seconds.
+                    </p>
 
                     <div className="pt-2 text-center text-xs text-muted-foreground">
                       Already have an account?{" "}
@@ -585,50 +288,6 @@ function AuthPage() {
           </div>
         </div>
       </div>
-
-      {/* Forgot password dialog */}
-      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <Mail className="size-5 text-primary" />
-              <DialogTitle>Reset your password</DialogTitle>
-            </div>
-            <DialogDescription>
-              Enter the email address associated with your account. We will send you a secure link
-              to reset your password.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleResetPassword} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="reset-email">Email address</Label>
-              <Input
-                id="reset-email"
-                type="email"
-                placeholder="lecturer@university.edu"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setForgotOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={resetLoading}>
-                {resetLoading ? (
-                  <>
-                    <Loader2 className="size-4 mr-1.5 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Send Reset Link"
-                )}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

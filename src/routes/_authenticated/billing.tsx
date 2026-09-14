@@ -26,13 +26,12 @@ export const Route = createFileRoute("/_authenticated/billing")({
       {
         name: "description",
         content:
-          "Manage your QRoll subscription: 7-day free trial, then monthly, per-semester, or yearly premium plans via Paystack.",
+          "Manage your QRoll subscription: 7-day free trial, then monthly, per-semester, or yearly premium plans.",
       },
       { property: "og:title", content: "Billing & Plans — QRoll" },
       {
         property: "og:description",
-        content:
-          "7-day free trial, then monthly, per-semester, or yearly QRoll plans with Paystack.",
+        content: "7-day free trial, then monthly, per-semester, or yearly QRoll plans.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -170,7 +169,7 @@ function BillingPage() {
             <h1 className="text-2xl md:text-3xl font-bold">Billing & Plans</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Every account starts with a <b>7-day free trial</b> with all features included.
-              Upgrade anytime via Paystack (Mobile Money & Cards).
+              Upgrade anytime with Mobile Money or Bank Cards.
             </p>
           </div>
           <Link to={"/dashboard" as string} className="w-full sm:w-auto">
@@ -184,7 +183,7 @@ function BillingPage() {
         {verifying && (
           <Alert className="border-primary/40 bg-primary/5">
             <RefreshCw className="size-4 animate-spin text-primary" />
-            <AlertTitle>Verifying your payment with Paystack...</AlertTitle>
+            <AlertTitle>Verifying your payment...</AlertTitle>
             <AlertDescription>
               Please wait a moment while we activate your subscription.
             </AlertDescription>
@@ -194,7 +193,7 @@ function BillingPage() {
         <Alert className="border-emerald-500/30 bg-emerald-500/5">
           <ShieldCheck className="size-4 text-emerald-600" />
           <AlertTitle className="text-emerald-800 dark:text-emerald-300 font-semibold">
-            Paystack Live Payments Connected
+            Live Payments Connected
           </AlertTitle>
           <AlertDescription className="text-emerald-700 dark:text-emerald-400 text-xs">
             Secure, instant payment processing via Ghana Mobile Money (MTN MoMo, Telecel Cash, AT
@@ -242,9 +241,7 @@ function BillingPage() {
               <CardContent className="space-y-4">
                 <div>
                   <div className="text-3xl font-bold">{formatGhs(p.amountGhs)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.cadence} · Plan code: <span className="font-mono">{p.paystackPlanCode}</span>
-                  </div>
+                  <div className="text-xs text-muted-foreground">{p.cadence}</div>
                 </div>
                 <ul className="space-y-1.5">
                   {p.features.map((f) => (
@@ -261,7 +258,7 @@ function BillingPage() {
                 >
                   <CreditCard className="size-4 mr-1.5" />{" "}
                   {busy === p.code
-                    ? "Redirecting to Paystack…"
+                    ? "Redirecting to checkout…"
                     : `Pay ${formatGhs(p.amountGhs)} (MoMo / Card)`}
                 </Button>
               </CardContent>
@@ -270,8 +267,8 @@ function BillingPage() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center">
-          Payment is processed securely by Paystack. All prices in Ghana Cedis (GHS). Automatic
-          receipts are sent to your registered email.
+          Payment is processed securely. All prices in Ghana Cedis (GHS). Automatic receipts are
+          sent to your registered email.
         </p>
       </div>
     </AppShell>

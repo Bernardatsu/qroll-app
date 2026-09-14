@@ -1,11 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { linkWithPopup, unlink } from "firebase/auth";
+import { linkWithPopup, unlink, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { firebaseAuth, googleProvider } from "@/integrations/firebase/config";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -20,6 +30,9 @@ import {
   Trash2,
   RefreshCw,
   Devices as DevicesIcon,
+  KeyRound,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
@@ -46,6 +59,12 @@ function SettingsPage() {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const currentDeviceId = getDeviceId();
+
+  // Password Setup / Change Modal
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const fetchDevices = async () => {
     if (!user?.id) return;
@@ -118,11 +137,69 @@ function SettingsPage() {
     void fetchDevices();
   }, [user?.id]);
 
-  const hasGoogle = user?.provider === "google" || identities.some((i) => i.provider === "google");
-  const hasEmail =
-    user?.provider === "password" ||
-    !!user?.email ||
-    identities.some((i) => i.provider === "email");
+  const hasGoogle =
+    user?.provider === "google" ||
+    identities.some((i) => i.provider === "google" || i.provider === "google.com");
+
+  const hasPassword = identities.some((i) => i.provider === "email" || i.provider === "password");
+
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    const current = firebaseAuth.currentUser;
+    if (!current) {
+      toast.error("You must be signed in.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await updatePassword(current, newPassword);
+      toast.success(
+        "Password saved successfully! You can now sign in using either Email/Password or Continue with Google.",
+      );
+      setPasswordModalOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+      refresh();
+    } catch (err: any) {
+      if (err?.code === "auth/requires-recent-login") {
+        toast.error(
+          "For security, please use the email setup link below or re-sign in recently to set your password directly.",
+        );
+      } else {
+        toast.error(err?.message || "Failed to set password.");
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    const email = firebaseAuth.currentUser?.email;
+    if (!email) {
+      toast.error("No email found for this account.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await sendPasswordResetEmail(firebaseAuth, email);
+      toast.success(`Password setup instructions sent to ${email}! Check your inbox.`);
+      setPasswordModalOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send email link.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const linkGoogle = async () => {
     const current = firebaseAuth.currentUser;
@@ -189,33 +266,54 @@ function SettingsPage() {
               <Link2 className="size-5 text-primary" /> Connected sign-in methods
             </CardTitle>
             <CardDescription>
-              Link Google to your existing password account so you can use either method — no
-              duplicate accounts, no lost data.
+              Connect both Google and Email & Password so you can sign in whichever way is easiest.
+              Both methods access the exact same lecturer account and courses.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-muted/30 gap-3">
               <div className="flex items-center gap-3">
-                <Mail className="size-5 text-muted-foreground" />
+                <Mail className="size-5 text-muted-foreground shrink-0" />
                 <div>
                   <div className="font-medium text-sm">Email & Password</div>
                   <div className="text-xs text-muted-foreground">
-                    Sign in with your email address
+                    {hasPassword
+                      ? "Manual email login enabled with active password"
+                      : "No password set yet (signed in via Google)"}
                   </div>
                 </div>
               </div>
-              {hasEmail ? (
-                <Badge variant="secondary" className="gap-1">
-                  <CheckCircle2 className="size-3" /> Active
-                </Badge>
-              ) : (
-                <Badge variant="outline">Not set</Badge>
-              )}
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {hasPassword ? (
+                  <>
+                    <Badge variant="secondary" className="gap-1">
+                      <CheckCircle2 className="size-3" /> Active
+                    </Badge>
+                    <Button size="sm" variant="outline" onClick={() => setPasswordModalOpen(true)}>
+                      <KeyRound className="size-3.5 mr-1" />
+                      Change Password
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-300 bg-amber-50"
+                    >
+                      Not set
+                    </Badge>
+                    <Button size="sm" variant="default" onClick={() => setPasswordModalOpen(true)}>
+                      <KeyRound className="size-3.5 mr-1" />
+                      Set Password for Email Login
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-muted/30 gap-3">
               <div className="flex items-center gap-3">
-                <svg className="size-5" viewBox="0 0 24 24">
+                <svg className="size-5 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -237,27 +335,29 @@ function SettingsPage() {
                   <div className="font-medium text-sm">Google</div>
                   <div className="text-xs text-muted-foreground">
                     {hasGoogle
-                      ? "You can sign in with Google"
+                      ? "Connected to Google Sign-In"
                       : "Add Google as a second way to sign in"}
                   </div>
                 </div>
               </div>
-              {hasGoogle ? (
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="gap-1">
-                    <CheckCircle2 className="size-3" /> Linked
-                  </Badge>
-                  {hasEmail && (
-                    <Button variant="ghost" size="sm" onClick={unlinkGoogle} disabled={busy}>
-                      Unlink
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <Button size="sm" onClick={linkGoogle} disabled={busy}>
-                  Link Google
-                </Button>
-              )}
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {hasGoogle ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <CheckCircle2 className="size-3" /> Linked
+                    </Badge>
+                    {hasPassword && (
+                      <Button variant="ghost" size="sm" onClick={unlinkGoogle} disabled={busy}>
+                        Unlink
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Button size="sm" onClick={linkGoogle} disabled={busy}>
+                    Link Google
+                  </Button>
+                )}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground pt-2">
@@ -410,6 +510,82 @@ function SettingsPage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Set / Change Password Dialog */}
+        <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <KeyRound className="size-5 text-primary" />
+                <DialogTitle>
+                  {hasPassword ? "Change Password" : "Set Password for Email Login"}
+                </DialogTitle>
+              </div>
+              <DialogDescription>
+                {hasPassword
+                  ? "Enter a new password for your account."
+                  : "Set a password for your account so you can sign in with your email address or Continue with Google anytime. Both methods access the exact same account."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSavePassword} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Repeat new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={handleSendResetEmail}
+                  className="text-xs text-primary hover:underline text-left"
+                >
+                  Send password setup email instead
+                </button>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPasswordModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={passwordLoading}>
+                    {passwordLoading ? (
+                      <>
+                        <Loader2 className="size-4 mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Password"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );

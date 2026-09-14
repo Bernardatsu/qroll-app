@@ -242,12 +242,12 @@ const SECTIONS: GuideSection[] = [
     ],
   },
   {
-    id: "billing-paystack",
+    id: "billing-plans",
     category: "admin",
-    title: "8. Billing, Plans & Paystack Payments",
+    title: "8. Billing, Plans & Subscription",
     badge: "Billing",
     icon: CreditCard,
-    summary: "Free trial details, Paystack plans, and payment methods.",
+    summary: "Free trial details, plans, and payment methods.",
     steps: [
       {
         title: "7-Day Free Trial with All Features",
@@ -259,7 +259,7 @@ const SECTIONS: GuideSection[] = [
       },
       {
         title: "Pay via Mobile Money or Card",
-        desc: "Payments are processed securely by Paystack. Supports MTN Mobile Money, Telecel Cash, AT Money, Visa, Mastercard, and Bank Transfer.",
+        desc: "Payments are processed securely. Supports MTN Mobile Money, Telecel Cash, AT Money, Visa, Mastercard, and Bank Transfer.",
       },
       {
         title: "Instant Activation",
@@ -375,8 +375,8 @@ function ManualPage() {
             </h2>
             <p className="text-sm sm:text-base text-primary-foreground/85 leading-relaxed">
               Find detailed explanations for every tool in the QRoll suite: session creation, QR
-              code generation, classroom projection, camera scanning, Excel reports, and Paystack
-              subscriptions.
+              code generation, classroom projection, camera scanning, Excel reports, and
+              subscription plans.
             </p>
           </div>
 
