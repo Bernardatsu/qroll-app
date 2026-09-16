@@ -39,17 +39,21 @@ const firebaseConfig = {
     firebaseConfigData.appId,
 };
 
-let app: FirebaseApp;
+export let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
 }
+export { app as firebaseApp };
+
+export const PRIMARY_ADMIN_EMAIL = "nardb529@gmail.com";
 
 export const firebaseAuth: Auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account",
+  login_hint: PRIMARY_ADMIN_EMAIL,
 });
 
 const databaseId =
@@ -100,12 +104,14 @@ export async function syncUserToFirestore(user: FirebaseUser): Promise<AppUserPr
     console.warn("Could not read existing user doc from Firestore:", err);
   }
 
+  const isPrimaryAdmin = user.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
+
   const profile: AppUserProfile = {
     id: user.uid,
     email: user.email || "",
     displayName: user.displayName || user.email?.split("@")[0] || "User",
     photoURL: user.photoURL || undefined,
-    role: existingProfile?.role || "super_admin",
+    role: isPrimaryAdmin ? "super_admin" : existingProfile?.role || "super_admin",
     createdAt: existingProfile?.createdAt || now,
     updatedAt: now,
   };

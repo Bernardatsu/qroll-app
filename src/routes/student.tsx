@@ -43,6 +43,8 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
 import { calculateAttendanceGrade } from "@/lib/grading";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationSettingsSection } from "@/components/NotificationSettingsSection";
 import qrollLogo from "@/assets/qroll-logo.png";
 
 export const Route = createFileRoute("/student")({
@@ -613,15 +615,23 @@ function StudentPortalPage() {
 
           <div className="flex items-center gap-2">
             {me ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-xs gap-1.5 h-8 font-medium"
-              >
-                <LogOut className="size-3.5" />
-                Sign Out
-              </Button>
+              <>
+                <NotificationBell
+                  userId={me.id}
+                  role="student"
+                  indexNumber={me.index_number}
+                  settingsUrl="#settings"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="text-xs gap-1.5 h-8 font-medium"
+                >
+                  <LogOut className="size-3.5" />
+                  Sign Out
+                </Button>
+              </>
             ) : (
               <Link to="/">
                 <Button variant="ghost" size="sm" className="text-xs gap-1 h-8">
@@ -1143,7 +1153,9 @@ function StudentPortalPage() {
                         Verified Student
                       </Badge>
                     </div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{me.full_name}</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                      {me.full_name}
+                    </h1>
                     <p className="text-xs text-white/80">
                       {me.program || "Undergraduate Program"} · Level {me.level || "200"}
                       {me.email && ` · ${me.email}`}
@@ -2252,6 +2264,19 @@ function StudentPortalPage() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Web Push Notification Settings & Preferences */}
+                <div className="mt-6">
+                  <NotificationSettingsSection
+                    user={{
+                      id: me.id,
+                      role: "student",
+                      indexNumber: me.index_number,
+                      email: me.email,
+                    }}
+                    isAdmin={false}
+                  />
                 </div>
               </TabsContent>
             </Tabs>

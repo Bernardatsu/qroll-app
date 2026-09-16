@@ -32,6 +32,7 @@ import {
   type UserDevice,
 } from "@/lib/device-manager";
 import { DeviceLimitDialog } from "@/components/DeviceLimitDialog";
+import { NotificationBell } from "@/components/NotificationBell";
 import { toast } from "sonner";
 import { clearUserAppCache } from "@/lib/query-client";
 
@@ -154,7 +155,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [deviceLimitOpen, setDeviceLimitOpen] = useState(false);
   const [activeDevices, setActiveDevices] = useState<UserDevice[]>([]);
+  const [idToken, setIdToken] = useState<string | undefined>(undefined);
   const role = roles[0] ?? "no role";
+
+  useEffect(() => {
+    if (user?.id) {
+      firebaseAuth.currentUser
+        ?.getIdToken()
+        .then(setIdToken)
+        .catch(() => {});
+    }
+  }, [user?.id]);
 
   const signOut = async () => {
     clearUserAppCache();
@@ -243,6 +254,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {user?.id && (
+              <NotificationBell
+                userId={user.id}
+                role={role}
+                authToken={idToken}
+                settingsUrl="/_authenticated/settings"
+              />
+            )}
             <Link to={"/dashboard" as string} aria-label="Dashboard">
               <Button
                 variant="ghost"

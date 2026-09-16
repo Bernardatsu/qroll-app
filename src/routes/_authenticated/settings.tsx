@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { NotificationSettingsSection } from "@/components/NotificationSettingsSection";
 import {
   getUserDevices,
   revokeDevice,
@@ -39,13 +40,23 @@ export const Route = createFileRoute("/_authenticated/settings")({
 type Identity = { provider: string; email?: string };
 
 function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isAdmin, roles } = useAuth();
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [busy, setBusy] = useState(false);
   const [devices, setDevices] = useState<UserDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [idToken, setIdToken] = useState<string | undefined>(undefined);
   const currentDeviceId = getDeviceId();
+
+  useEffect(() => {
+    if (user?.id) {
+      firebaseAuth.currentUser
+        ?.getIdToken()
+        .then(setIdToken)
+        .catch(() => {});
+    }
+  }, [user?.id]);
 
   const fetchDevices = async () => {
     if (!user?.id) return;
@@ -352,6 +363,18 @@ function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {user?.id && (
+          <NotificationSettingsSection
+            user={{
+              id: user.id,
+              role: roles[0] || "lecturer",
+              email: user.email,
+              authToken: idToken,
+            }}
+            isAdmin={isAdmin}
+          />
+        )}
 
         <Card>
           <CardHeader>

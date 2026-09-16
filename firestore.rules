@@ -6,15 +6,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'nardb529@gmail.com' ||
+        request.auth.token.email == 'b44438453@gmail.com'
+      );
+    }
+
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 
     function isDocOwner() {
-      return isSignedIn() && (
+      return isSuperAdmin() || (isSignedIn() && (
         resource.data.owner_id == request.auth.uid ||
         resource.data.created_by == request.auth.uid
-      );
+      ));
     }
 
     function isCreatingWithOwner() {
@@ -123,18 +130,18 @@ service cloud.firestore {
 
     // Subscriptions & Payments
     match /subscriptions/{subId} {
-      allow read: if isSignedIn() && resource.data.owner_id == request.auth.uid;
-      allow write: if isSignedIn() && (
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.owner_id == request.auth.uid);
+      allow write: if isSuperAdmin() || (isSignedIn() && (
         request.resource.data.owner_id == request.auth.uid ||
         (resource != null && resource.data.owner_id == request.auth.uid)
-      );
+      ));
     }
 
     // User Devices (Multi-device tracking up to 4 devices)
     match /user_devices/{deviceId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.user_id == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || request.resource.data.user_id == request.auth.uid);
+      allow read: if isSuperAdmin() || (isSignedIn() && (resource == null || resource.data.user_id == request.auth.uid));
+      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.user_id == request.auth.uid);
+      allow update, delete: if isSuperAdmin() || (isSignedIn() && (resource.data.user_id == request.auth.uid || request.resource.data.user_id == request.auth.uid));
     }
 
     match /payment_events/{eventId} {
@@ -145,6 +152,22 @@ service cloud.firestore {
     // Rate limits (Internal server-side tracking only via Admin SDK)
     match /rate_limits/{limitId} {
       allow read, write: if false;
+    }
+
+    // Web Push Notification System (Managed server-side via Admin SDK & authenticated routes)
+    match /notification_subscriptions/{subId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /notification_preferences/{userId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if false;
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
     }
 
     match /{document=**} {

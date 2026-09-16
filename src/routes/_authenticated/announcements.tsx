@@ -190,7 +190,7 @@ export function AnnouncementsAndAssignmentsPage() {
 
     setAnnounceBusy(true);
     try {
-      await addDoc(collection(firestoreDb, "announcements"), {
+      const aDocRef = await addDoc(collection(firestoreDb, "announcements"), {
         title: announceTitle.trim(),
         body: announceBody.trim(),
         levels: announceLevels,
@@ -200,6 +200,30 @@ export function AnnouncementsAndAssignmentsPage() {
         created_at: new Date().toISOString(),
         owner_id: uid,
       });
+
+      // Dispatch Web Push notification to enrolled students
+      const cCode =
+        announceCourseId !== "all" ? courseMap.get(announceCourseId)?.split(" — ")[0] : undefined;
+      firebaseAuth.currentUser
+        ?.getIdToken()
+        .then((idToken) => {
+          if (idToken) {
+            fetch("/api/public/notifications?action=trigger-event", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+              body: JSON.stringify({
+                eventType: "ANNOUNCEMENT_PUBLISH",
+                announcementId: aDocRef.id,
+                courseId: announceCourseId === "all" ? undefined : announceCourseId,
+                courseCode: cCode,
+                title: announceTitle.trim(),
+                body: announceBody.trim(),
+              }),
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+
       toast.success("Announcement published to student portal");
       setAnnounceTitle("");
       setAnnounceBody("");
@@ -225,7 +249,7 @@ export function AnnouncementsAndAssignmentsPage() {
 
     setAssignBusy(true);
     try {
-      await addDoc(collection(firestoreDb, "assignments"), {
+      const assignDocRef = await addDoc(collection(firestoreDb, "assignments"), {
         title: assignTitle.trim(),
         details: assignDetails.trim(),
         submission_url: assignUrl.trim() || null,
@@ -235,6 +259,30 @@ export function AnnouncementsAndAssignmentsPage() {
         created_at: new Date().toISOString(),
         owner_id: uid,
       });
+
+      // Dispatch Web Push notification to enrolled students
+      const cCode =
+        assignCourseId !== "all" ? courseMap.get(assignCourseId)?.split(" — ")[0] : undefined;
+      firebaseAuth.currentUser
+        ?.getIdToken()
+        .then((idToken) => {
+          if (idToken) {
+            fetch("/api/public/notifications?action=trigger-event", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+              body: JSON.stringify({
+                eventType: "ASSIGNMENT_PUBLISH",
+                assignmentId: assignDocRef.id,
+                courseId: assignCourseId === "all" ? undefined : assignCourseId,
+                courseCode: cCode,
+                title: assignTitle.trim(),
+                dueAt: assignDueAt || undefined,
+              }),
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+
       toast.success("Assignment published to student portal");
       setAssignTitle("");
       setAssignDetails("");

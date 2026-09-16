@@ -188,6 +188,27 @@ function SessionsPage() {
         starts_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       });
+      // Asynchronously trigger Web Push to enrolled students
+      const selectedCourse = courses.find((c: any) => c.id === form.course_id);
+      firebaseAuth.currentUser
+        ?.getIdToken()
+        .then((idToken) => {
+          if (idToken) {
+            fetch("/api/public/notifications?action=trigger-event", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+              body: JSON.stringify({
+                eventType: "ATTENDANCE_OPEN",
+                sessionId: docRef.id,
+                courseId: form.course_id,
+                courseCode: selectedCourse?.code || "Course",
+                sessionTitle: form.title || selectedCourse?.title || "Attendance Session",
+              }),
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+
       toast.success("Session created — reuse it every class day");
       setOpen(false);
       setForm({
@@ -217,6 +238,26 @@ function SessionsPage() {
     }
     try {
       await updateDoc(doc(firestoreDb, "attendance_sessions", s.id), updates);
+      if (status === "OPEN") {
+        firebaseAuth.currentUser
+          ?.getIdToken()
+          .then((idToken) => {
+            if (idToken) {
+              fetch("/api/public/notifications?action=trigger-event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+                body: JSON.stringify({
+                  eventType: "ATTENDANCE_OPEN",
+                  sessionId: s.id,
+                  courseId: s.course_id,
+                  courseCode: s.courses?.code || "Course",
+                  sessionTitle: s.title || s.courses?.title || "Attendance Session",
+                }),
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
       toast.success(status === "OPEN" ? "Session reopened for today" : "Session closed");
       qc.invalidateQueries({ queryKey: ["sessions"] });
     } catch (err: any) {
