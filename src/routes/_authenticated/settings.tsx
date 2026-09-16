@@ -142,6 +142,10 @@ function SettingsPage() {
       toast.success("Google account linked successfully!");
       refresh();
     } catch (e: any) {
+      if (e?.code === "auth/popup-closed-by-user" || e?.code === "auth/cancelled-popup-request") {
+        toast.info("Google linking was cancelled.");
+        return;
+      }
       toast.error(e?.message || "Could not link Google account");
     } finally {
       setBusy(false);
