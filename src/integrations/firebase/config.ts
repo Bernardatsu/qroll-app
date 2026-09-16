@@ -47,7 +47,12 @@ if (!getApps().length) {
 }
 export { app as firebaseApp };
 
-export const PRIMARY_ADMIN_EMAIL = "nardb529@gmail.com";
+export const PRIMARY_ADMIN_EMAIL = "b44438453@gmail.com";
+export const SECONDARY_ADMIN_EMAIL = "nardb529@gmail.com";
+export const ADMIN_EMAILS = [
+  PRIMARY_ADMIN_EMAIL.toLowerCase(),
+  SECONDARY_ADMIN_EMAIL.toLowerCase(),
+];
 
 export const firebaseAuth: Auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -104,7 +109,7 @@ export async function syncUserToFirestore(user: FirebaseUser): Promise<AppUserPr
     console.warn("Could not read existing user doc from Firestore:", err);
   }
 
-  const isPrimaryAdmin = user.email?.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase();
+  const isPrimaryAdmin = ADMIN_EMAILS.includes((user.email || "").toLowerCase());
 
   const profile: AppUserProfile = {
     id: user.uid,
