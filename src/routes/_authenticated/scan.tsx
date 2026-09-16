@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2,
   Camera,
@@ -32,17 +33,17 @@ import {
   RefreshCw,
   SwitchCamera,
   Lock,
-  WifiOff,
-  UploadCloud,
+  UserCheck,
+  Clock,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { clearQueue, isOnline, listQueued, queueScan, removeQueued } from "@/lib/offline-queue";
 
-type Search = { session?: string };
+type SearchParams = { session?: string };
 
 export const Route = createFileRoute("/_authenticated/scan")({
   head: () => ({ meta: [{ title: "Scanner — QRoll" }] }),
-  validateSearch: (s: Record<string, unknown>): Search => ({
+  validateSearch: (s: Record<string, unknown>): SearchParams => ({
     session: typeof s.session === "string" ? s.session : undefined,
   }),
   component: ScanPage,
@@ -50,7 +51,7 @@ export const Route = createFileRoute("/_authenticated/scan")({
 
 const QR_REGION_ID = "qr-reader";
 
-/** Short confirmation tone so the operator knows a code was captured. */
+/** Crisp confirmation audio tone so the operator knows a code was captured immediately. */
 let audioCtx: AudioContext | null = null;
 function beep() {
   try {
@@ -72,25 +73,52 @@ function beep() {
   }
 }
 
+/** Haptic feedback on mobile devices for smooth native feel */
+function vibrate() {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(60);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+interface LastScanInfo {
+  name: string;
+  status: string;
+  indexNumber?: string;
+  time?: string;
+  type: "success" | "warning" | "error" | "info";
+}
+
 function ScanPage() {
   const { session: sessionId } = Route.useSearch();
   const qc = useQueryClient();
   const [activeSession, setActiveSession] = useState<string | undefined>(sessionId);
   const [scanning, setScanning] = useState(false);
-  const [status, setStatus] = useState<string>("Idle");
+  const [status, setStatus] = useState<string>("Ready to scan");
   const [camError, setCamError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [manual, setManual] = useState("");
-  const [lastScan, setLastScan] = useState<{ name: string; status: string } | null>(null);
+  const [lastScan, setLastScan] = useState<LastScanInfo | null>(null);
+  const [, setProcessingCode] = useState<string | null>(null);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const sessionRef = useRef<any>(null);
   const recentScans = useRef<Map<string, number>>(new Map());
   const inFlight = useRef<Set<string>>(new Set());
-  const [online, setOnline] = useState(true);
-  const [pending, setPending] = useState(0);
-  const [syncing, setSyncing] = useState(false);
 
   const currentUid = firebaseAuth.currentUser?.uid;
+
+  // Clear any residual offline scan storage from previous versions immediately
+  useEffect(() => {
+    try {
+      localStorage.removeItem("qroll.offline.scans.v1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions", currentUid],
@@ -161,10 +189,42 @@ function ScanPage() {
     },
     enabled: !!activeSession,
   });
+
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
 
+  // Lecturer's student roster cached in-memory for instant 0ms recognition
+  const { data: allStudents } = useQuery({
+    queryKey: ["lecturer-students-all", currentUid],
+    queryFn: async () => {
+      if (!currentUid) return [];
+      const studSnap = await getDocs(
+        query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+      );
+      return studSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    },
+    enabled: !!currentUid,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Pre-loaded registered students for the active course
+  const { data: registeredStudentIds } = useQuery({
+    queryKey: ["course-registrations-set", session?.course_id],
+    queryFn: async () => {
+      if (!session?.course_id) return new Set<string>();
+      const regSnap = await getDocs(
+        query(
+          collection(firestoreDb, "course_registrations"),
+          where("course_id", "==", session.course_id),
+        ),
+      );
+      return new Set(regSnap.docs.map((d) => (d.data() as any).student_id).filter(Boolean));
+    },
+    enabled: !!session?.course_id,
+  });
+
+  // Real-time attendance records for today's session
   const { data: records } = useQuery({
     queryKey: ["records", activeSession, currentUid],
     queryFn: async () => {
@@ -206,162 +266,112 @@ function ScanPage() {
     refetchInterval: 3000,
   });
 
-  // Fast in-memory cache for instant student recognition during continuous high-speed scanning
-  const { data: cachedStudents } = useQuery({
-    queryKey: ["session-students-cache", session?.course_id, currentUid],
-    queryFn: async () => {
-      if (!session?.course_id || !currentUid) return [];
-      const regSnap = await getDocs(
-        query(
-          collection(firestoreDb, "course_registrations"),
-          where("course_id", "==", session.course_id),
-        ),
-      );
-      const studentIds = regSnap.docs.map((d) => (d.data() as any).student_id).filter(Boolean);
-      if (studentIds.length === 0) return [];
-      const studSnap = await getDocs(
-        query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
-      );
-      return studSnap.docs
-        .filter((d) => studentIds.includes(d.id))
-        .map((d) => ({ id: d.id, ...(d.data() as any) }));
-    },
-    enabled: !!session?.course_id && !!currentUid,
-  });
+  // Fast set of student IDs already scanned today for instant duplicate detection
+  const scannedTodayMap = useMemo(() => {
+    const map = new Map<string, any>();
+    if (records) {
+      for (const r of records) {
+        map.set(r.student_id, r);
+      }
+    }
+    return map;
+  }, [records]);
 
-  const processQr = async (
-    raw: string,
-    opts?: { at?: string; replay?: boolean },
-  ): Promise<boolean> => {
+  const processQr = async (raw: string): Promise<boolean> => {
     const uuid = raw.trim();
     const sess = sessionRef.current;
     if (!uuid || !sess) return false;
-    const replay = opts?.replay === true;
-    // Per-code lock (not a global lock) so a queue of students can be scanned
-    // back-to-back without the camera stalling on the previous student.
-    if (!replay && inFlight.current.has(uuid)) return false;
+
+    // Per-code lock so different students in a queue can be scanned back-to-back without camera stall
+    if (inFlight.current.has(uuid)) return false;
+
     const now = Date.now();
-    if (!replay) {
-      const last = recentScans.current.get(uuid) ?? 0;
-      if (now - last < 2500) return false;
-      recentScans.current.set(uuid, now);
-      inFlight.current.add(uuid);
-      beep();
-    }
+    const last = recentScans.current.get(uuid) ?? 0;
+    // Debounce duplicate scans of the exact same code within 2 seconds
+    if (now - last < 2000) return false;
 
-    // Fast in-memory match: zero-latency feedback for registered students
-    const localMatch = (cachedStudents as any[])?.find(
-      (s: any) => s.qr_uuid === uuid || s.index_number === uuid,
-    );
+    recentScans.current.set(uuid, now);
+    inFlight.current.add(uuid);
+    setProcessingCode(uuid);
 
-    // No network? Keep the scan locally and replay it when we're back online.
-    if (!replay && !isOnline()) {
-      queueScan(sess.id, uuid);
-      setPending(listQueued().length);
-      setLastScan({
-        name: localMatch?.full_name ?? uuid.slice(0, 14) + "…",
-        status: "SAVED OFFLINE",
-      });
-      setStatus(`Offline — saved ${localMatch?.full_name ?? "scan"}`);
-      toast.message("Offline — scan saved on this device");
-      inFlight.current.delete(uuid);
-      return true;
-    }
+    // Audio & tactile feedback on capture
+    beep();
+    vibrate();
 
-    const at = opts?.at ?? new Date().toISOString();
-    const notify = {
-      error: (m: string) => !replay && toast.error(m),
-      success: (m: string) => !replay && toast.success(m),
-      message: (m: string) => !replay && toast.message(m),
-    };
+    const timestampStr = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
     try {
-      // Try from memory first, otherwise query Firestore
-      let student = localMatch;
+      // 1. Instant in-memory lookup in lecturer's roster
+      const normalized = uuid.toLowerCase();
+      let student = (allStudents as any[])?.find(
+        (s: any) =>
+          s.qr_uuid === uuid ||
+          s.index_number === uuid ||
+          s.id === uuid ||
+          (s.index_number && String(s.index_number).trim().toLowerCase() === normalized) ||
+          (s.qr_uuid && String(s.qr_uuid).trim().toLowerCase() === normalized),
+      );
+
+      // 2. Global fallback search across student passes if not in local roster
       if (!student) {
-        if (!currentUid) {
-          notify.error("User session expired. Please sign in again.");
-          return true;
-        }
-        const studSnap = await getDocs(
-          query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
-        );
-        const match = studSnap.docs.find((d) => {
-          const sData = d.data() as any;
-          return sData.qr_uuid === uuid || sData.index_number === uuid || d.id === uuid;
-        });
-        if (match) {
-          student = { id: match.id, ...(match.data() as any) };
-        } else {
-          // Universal QR Fallback: Search globally across all student passes
-          try {
-            const globalByQr = await getDocs(
-              query(collection(firestoreDb, "students"), where("qr_uuid", "==", uuid)),
-            );
-            const globalDoc = !globalByQr.empty
-              ? globalByQr.docs[0]
-              : (
-                  await getDocs(
-                    query(collection(firestoreDb, "students"), where("index_number", "==", uuid)),
-                  )
-                ).docs[0];
+        try {
+          const globalByQr = await getDocs(
+            query(collection(firestoreDb, "students"), where("qr_uuid", "==", uuid)),
+          );
+          const globalDoc = !globalByQr.empty
+            ? globalByQr.docs[0]
+            : (
+                await getDocs(
+                  query(collection(firestoreDb, "students"), where("index_number", "==", uuid)),
+                )
+              ).docs[0];
 
-            if (globalDoc) {
-              const gData = globalDoc.data() as any;
-              // Check if current lecturer has this student under their own roster by index number
-              const lecturerMatch = studSnap.docs.find((d) => {
-                const sData = d.data() as any;
-                return (
-                  sData.index_number &&
-                  gData.index_number &&
-                  String(sData.index_number).trim().toLowerCase() ===
-                    String(gData.index_number).trim().toLowerCase()
-                );
-              });
-
-              if (lecturerMatch) {
-                student = { id: lecturerMatch.id, ...(lecturerMatch.data() as any) };
-                // Keep qr_uuid synchronized on lecturer's copy
-                if (lecturerMatch.data()?.qr_uuid !== uuid && gData.qr_uuid === uuid) {
-                  updateDoc(doc(firestoreDb, "students", lecturerMatch.id), {
-                    qr_uuid: uuid,
-                  }).catch(() => {});
-                }
-              } else {
-                student = { id: globalDoc.id, ...gData };
-              }
-            }
-          } catch (err) {
-            console.warn("Global student QR fallback query:", err);
+          if (globalDoc) {
+            const gData = globalDoc.data() as any;
+            student = { id: globalDoc.id, ...gData };
           }
+        } catch (err) {
+          console.warn("Global student QR fallback query:", err);
         }
       }
+
       if (!student) {
         setStatus(`Unknown QR: ${uuid.slice(0, 12)}…`);
-        notify.error("Unknown QR code");
-        return true; // not a network problem — don't keep retrying
+        toast.error("Unknown QR code — student not recognized");
+        setLastScan({
+          name: "Unknown QR Code",
+          indexNumber: uuid.slice(0, 16),
+          status: "NOT RECOGNIZED",
+          time: timestampStr,
+          type: "error",
+        });
+        return false;
       }
 
-      // A course created for one class/level cannot be used by another level
+      // 3. Course Level Validation
       const courseLevel = String(sess.courses?.level ?? "").trim();
       const studentLevel = String((student as any).level ?? "").trim();
       if (courseLevel && studentLevel && courseLevel !== studentLevel) {
-        notify.error(
-          `${student.full_name} is level ${studentLevel} — this class is for level ${courseLevel} only`,
+        toast.error(
+          `${student.full_name} is level ${studentLevel} — class is for level ${courseLevel}`,
         );
-        setLastScan({ name: student.full_name, status: "WRONG LEVEL" });
+        setLastScan({
+          name: student.full_name,
+          indexNumber: student.index_number,
+          status: `WRONG LEVEL (${studentLevel})`,
+          time: timestampStr,
+          type: "warning",
+        });
         setStatus(`Wrong level: ${student.full_name}`);
         return true;
       }
 
-      const regSnap = await getDocs(
-        query(
-          collection(firestoreDb, "course_registrations"),
-          where("course_id", "==", sess.course_id),
-          where("student_id", "==", student.id),
-        ),
-      );
-      if (regSnap.empty) {
-        // Auto-enroll the student in this course so the scan goes through
+      // 4. Auto-enroll student in course if not registered
+      if (sess.course_id && registeredStudentIds && !registeredStudentIds.has(student.id)) {
         try {
           await addDoc(collection(firestoreDb, "course_registrations"), {
             course_id: sess.course_id,
@@ -369,126 +379,122 @@ function ScanPage() {
             registered_at: new Date().toISOString(),
             owner_id: sess.owner_id || currentUid,
           });
-          notify.message(`Auto-registered ${student.full_name} for this course`);
+          registeredStudentIds.add(student.id);
         } catch (regErr: any) {
-          notify.error(`Could not auto-register ${student.full_name}: ${regErr.message}`);
-          setStatus(`Registration failed: ${student.full_name}`);
-          return false;
+          console.warn("Auto-register error:", regErr);
         }
       }
 
-      const day = at.slice(0, 10);
+      const day = new Date().toISOString().slice(0, 10);
+      const at = new Date().toISOString();
       const singleScanMode = (sess.mode ?? "single") === "single";
 
-      const recSnap = await getDocs(
-        query(
-          collection(firestoreDb, "attendance_records"),
-          where("session_id", "==", sess.id),
-          where("student_id", "==", student.id),
-          where("session_date", "==", day),
-        ),
-      );
-      const existingDoc = recSnap.docs[0];
-      const existing = existingDoc ? { id: existingDoc.id, ...(existingDoc.data() as any) } : null;
-
-      if (!existing) {
-        try {
-          await addDoc(collection(firestoreDb, "attendance_records"), {
-            session_id: sess.id,
-            student_id: student.id,
-            session_date: day,
-            check_in_at: at,
-            status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
-            scanned_by: currentUid ?? null,
-            owner_id: sess.owner_id || currentUid,
-            created_at: new Date().toISOString(),
-          });
-        } catch (error: any) {
-          notify.error(error.message);
-          setStatus(`Error: ${error.message}`);
-          return false;
+      // 5. Check attendance record for today
+      let existingRecord = scannedTodayMap.get(student.id);
+      if (!existingRecord) {
+        // Double-check Firestore in case of recent write
+        const recSnap = await getDocs(
+          query(
+            collection(firestoreDb, "attendance_records"),
+            where("session_id", "==", sess.id),
+            where("student_id", "==", student.id),
+            where("session_date", "==", day),
+          ),
+        );
+        if (!recSnap.empty) {
+          existingRecord = { id: recSnap.docs[0].id, ...(recSnap.docs[0].data() as any) };
         }
-        const label = singleScanMode ? "Recorded" : "Checked in";
-        notify.success(`✓ ${label}: ${student.full_name}`);
+      }
+
+      if (!existingRecord) {
+        // Record new attendance directly
+        await addDoc(collection(firestoreDb, "attendance_records"), {
+          session_id: sess.id,
+          student_id: student.id,
+          session_date: day,
+          check_in_at: at,
+          status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
+          scanned_by: currentUid ?? null,
+          owner_id: sess.owner_id || currentUid,
+          created_at: at,
+        });
+
+        const label = singleScanMode ? "Recorded" : "Checked In";
+        toast.success(`✓ ${label}: ${student.full_name}`);
         setLastScan({
           name: student.full_name,
+          indexNumber: student.index_number,
           status: singleScanMode ? "RECORDED" : "CHECKED IN",
+          time: timestampStr,
+          type: "success",
         });
         setStatus(`${label}: ${student.full_name}`);
-      } else if (singleScanMode || existing.status === "PRESENT" || existing.check_out_at) {
-        notify.message(`Already recorded today: ${student.full_name}`);
-        setLastScan({ name: student.full_name, status: "ALREADY RECORDED" });
-        setStatus(`Already recorded today: ${student.full_name}`);
+      } else if (
+        singleScanMode ||
+        existingRecord.status === "PRESENT" ||
+        existingRecord.check_out_at
+      ) {
+        // Student already recorded today
+        toast.info(`Already recorded today: ${student.full_name}`);
+        setLastScan({
+          name: student.full_name,
+          indexNumber: student.index_number,
+          status: "ALREADY RECORDED",
+          time: timestampStr,
+          type: "info",
+        });
+        setStatus(`Already recorded: ${student.full_name}`);
       } else {
-        const checkIn = new Date(existing.check_in_at!).getTime();
-        const minsSince = Math.floor((Date.parse(at) - checkIn) / 60000);
+        // In/Out mode sign-out
+        const checkIn = new Date(existingRecord.check_in_at!).getTime();
+        const minsSince = Math.floor((Date.now() - checkIn) / 60000);
         if (minsSince < 30) {
           const wait = 30 - minsSince;
-          notify.error(
-            `Sign-out not allowed yet for ${student.full_name} — ${wait} more minute${wait === 1 ? "" : "s"}`,
+          toast.error(
+            `Sign-out locked for ${student.full_name} — wait ${wait} more min${wait === 1 ? "" : "s"}`,
           );
-          setLastScan({ name: student.full_name, status: "SIGN-OUT LOCKED" });
-          setStatus(`Sign-out locked for ${student.full_name}`);
+          setLastScan({
+            name: student.full_name,
+            indexNumber: student.index_number,
+            status: "SIGN-OUT LOCKED",
+            time: timestampStr,
+            type: "warning",
+          });
+          setStatus(`Sign-out locked: ${student.full_name}`);
           return true;
         }
+
         const duration = Math.max(1, minsSince);
-        try {
-          await updateDoc(doc(firestoreDb, "attendance_records", existing.id), {
-            check_out_at: at,
-            duration_minutes: duration,
-            status: "PRESENT",
-          });
-        } catch (error: any) {
-          notify.error(error.message);
-          setStatus(`Error: ${error.message}`);
-          return false;
-        }
-        notify.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
-        setLastScan({ name: student.full_name, status: `SIGNED OUT (${duration}m)` });
+        await updateDoc(doc(firestoreDb, "attendance_records", existingRecord.id), {
+          check_out_at: at,
+          duration_minutes: duration,
+          status: "PRESENT",
+        });
+
+        toast.success(`✓ Signed out: ${student.full_name} (${duration}m)`);
+        setLastScan({
+          name: student.full_name,
+          indexNumber: student.index_number,
+          status: `SIGNED OUT (${duration}m)`,
+          time: timestampStr,
+          type: "success",
+        });
         setStatus(`Signed out: ${student.full_name}`);
       }
-      qc.invalidateQueries({ queryKey: ["records", activeSession] });
+
+      // Instantly refresh attendance table
+      qc.invalidateQueries({ queryKey: ["records", activeSession, currentUid] });
       return true;
     } catch (err: any) {
-      // Network dropped mid-request — stash the scan instead of losing it.
-      if (!replay) {
-        queueScan(sess.id, uuid, at);
-        setPending(listQueued().length);
-        setLastScan({ name: uuid.slice(0, 14) + "…", status: "SAVED OFFLINE" });
-        setStatus("Connection lost — scan saved, will sync automatically");
-        toast.message("Connection lost — scan saved on this device");
-      }
+      console.error("Scan processing error:", err);
+      const errMsg = err?.message || "Failed to process scan";
+      toast.error(errMsg);
+      setStatus(`Error: ${errMsg}`);
       return false;
     } finally {
       inFlight.current.delete(uuid);
+      setProcessingCode(null);
     }
-  };
-
-  /** Replay every stored scan for this session, oldest first. */
-  const syncQueue = async (silent = false) => {
-    const items = listQueued(activeSession);
-    if (!items.length || !sessionRef.current) {
-      if (!silent) toast.message("Nothing to sync");
-      return;
-    }
-    if (!isOnline()) {
-      if (!silent) toast.error("Still offline — try again once you have a connection");
-      return;
-    }
-    setSyncing(true);
-    let done = 0;
-    for (const item of items.sort((a, b) => a.at.localeCompare(b.at))) {
-      const ok = await processQr(item.code, { at: item.at, replay: true });
-      if (ok) {
-        removeQueued(item.id);
-        done += 1;
-      }
-    }
-    setPending(listQueued().length);
-    setSyncing(false);
-    qc.invalidateQueries({ queryKey: ["records", activeSession] });
-    if (done) toast.success(`Synced ${done} offline scan${done === 1 ? "" : "s"}`);
-    else if (!silent) toast.error("Could not sync yet — will retry");
   };
 
   const closeSession = async () => {
@@ -500,7 +506,7 @@ function ScanPage() {
         status: "CLOSED",
         ends_at: new Date().toISOString(),
       });
-      toast.success("Session closed");
+      toast.success("Session closed successfully");
       qc.invalidateQueries({ queryKey: ["open-sessions"] });
       qc.invalidateQueries({ queryKey: ["session", activeSession] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
@@ -513,35 +519,39 @@ function ScanPage() {
     try {
       if (scannerRef.current) {
         const state = scannerRef.current.getState?.();
-        if (state === 2) await scannerRef.current.stop();
+        if (state === 2) {
+          await scannerRef.current.stop();
+        }
         await scannerRef.current.clear();
       }
     } catch {
-      /* noop */
+      /* ignore */
     }
     scannerRef.current = null;
     setScanning(false);
-    setStatus("Stopped");
+    setStatus("Camera stopped");
   };
 
   const startCamera = async (preferredFacing?: "environment" | "user") => {
     if (!activeSession) {
-      toast.error("Select a session first");
+      toast.error("Please select an active session first");
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      const m = "This browser does not support camera access. Use Chrome/Safari on HTTPS.";
+      const m =
+        "Camera access is not supported on this browser. Please use Chrome or Safari over HTTPS.";
       setCamError(m);
       toast.error(m);
       return;
     }
     setCamError(null);
-    setStatus("Requesting camera…");
+    setStatus("Starting camera…");
+
     try {
       await stopCamera();
 
       const el = document.getElementById(QR_REGION_ID);
-      if (!el) throw new Error("Scanner container missing");
+      if (!el) throw new Error("Scanner container element missing");
 
       const facing = preferredFacing ?? facingMode;
       setFacingMode(facing);
@@ -552,10 +562,10 @@ function ScanPage() {
       });
 
       const config = {
-        fps: 30,
+        fps: 20, // 20 fps gives smooth rendering and fast detection without thermal throttling
         qrbox: (vw: number, vh: number) => {
-          const m = Math.floor(Math.min(vw, vh) * 0.75);
-          return { width: m, height: m };
+          const edge = Math.floor(Math.min(vw, vh) * 0.72);
+          return { width: Math.max(edge, 180), height: Math.max(edge, 180) };
         },
         aspectRatio: 1,
       };
@@ -568,7 +578,7 @@ function ScanPage() {
           () => {},
         );
       } catch {
-        // Fallback: not all devices honor `exact`; retry without it
+        // Fallback without exact constraint (many laptops/devices do not support exact facingMode)
         await scannerRef.current.start(
           { facingMode } as MediaTrackConstraints,
           config as any,
@@ -576,12 +586,13 @@ function ScanPage() {
           () => {},
         );
       }
+
       setScanning(true);
-      setStatus("Scanning… point a QR code at the camera");
+      setStatus("Scanning active — hold QR code in frame");
     } catch (e: any) {
       const msg =
         e?.name === "NotAllowedError"
-          ? "Camera permission denied. Allow camera access in your browser settings."
+          ? "Camera permission was denied. Please allow camera permissions in your browser bar."
           : e?.name === "NotFoundError"
             ? "No camera found on this device."
             : (e?.message ?? String(e));
@@ -595,7 +606,9 @@ function ScanPage() {
   const flipCamera = async () => {
     const next = facingMode === "environment" ? "user" : "environment";
     setFacingMode(next);
-    if (scanning) await startCamera(next);
+    if (scanning) {
+      await startCamera(next);
+    }
   };
 
   useEffect(() => {
@@ -610,32 +623,6 @@ function ScanPage() {
     }
   }, [activeSession, openSessions]);
 
-  // Connectivity watcher: flush the offline queue the moment we're back online.
-  useEffect(() => {
-    setOnline(isOnline());
-    setPending(listQueued().length);
-    const goOnline = () => {
-      setOnline(true);
-      toast.success("Back online — syncing saved scans");
-      void syncQueue(true);
-    };
-    const goOffline = () => {
-      setOnline(false);
-      toast.message("You're offline — scans will be saved on this device");
-    };
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession]);
-
-  useEffect(() => {
-    setPending(listQueued(activeSession).length);
-  }, [activeSession]);
-
   const submitManual = (e: React.FormEvent) => {
     e.preventDefault();
     if (manual.trim()) {
@@ -646,136 +633,192 @@ function ScanPage() {
 
   return (
     <AppShell>
-      <h1 className="text-2xl md:text-3xl font-bold mb-2">Attendance Scanner</h1>
-      <p className="text-sm text-muted-foreground mb-4">
-        Pick a session, tap <strong>Start scanning</strong>, and point QR codes at the camera —
-        scans are recorded automatically for today's date.
-      </p>
-
-      {(!online || pending > 0) && (
-        <div
-          className={`mb-4 rounded-lg border p-3 flex flex-wrap items-center gap-3 text-sm ${
-            online ? "border-warning/40 bg-warning/10" : "border-destructive/40 bg-destructive/10"
-          }`}
-        >
-          <WifiOff className="size-4 shrink-0" />
-          <div className="flex-1 min-w-[12rem]">
-            <div className="font-medium">
-              {online ? "Offline scans waiting to sync" : "You are offline"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {pending > 0
-                ? `${pending} scan${pending === 1 ? "" : "s"} saved on this device.`
-                : "Scans keep working — they are saved here and uploaded automatically."}
-            </div>
-          </div>
-          {pending > 0 && (
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => void syncQueue()} disabled={syncing || !online}>
-                <UploadCloud className="size-4 mr-1" />
-                {syncing ? "Syncing…" : "Sync now"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (!confirm("Discard the saved offline scans? They will be lost permanently."))
-                    return;
-                  clearQueue(activeSession);
-                  setPending(listQueued(activeSession).length);
-                }}
-              >
-                Discard
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="mb-4">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Attendance Scanner</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Instant high-speed QR verification for your active class session.
+        </p>
+      </div>
 
       <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Session</CardTitle>
+        <Card className="border-border">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Camera className="size-4 text-primary" />
+              Live Scanner
+            </CardTitle>
+            {scanning && (
+              <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Active
+              </span>
+            )}
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Select
-              value={activeSession ?? ""}
-              onValueChange={(v) => {
-                void stopCamera();
-                setActiveSession(v);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pick an open session" />
-              </SelectTrigger>
-              <SelectContent>
-                {(openSessions ?? []).map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.courses?.code} — {s.title ?? new Date(s.starts_at).toLocaleString()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Select Class Session
+              </label>
+              <Select
+                value={activeSession ?? ""}
+                onValueChange={(v) => {
+                  void stopCamera();
+                  setActiveSession(v);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pick an open session" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(openSessions ?? []).map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.courses?.code} — {s.title ?? new Date(s.starts_at).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {session && (
-              <div className="rounded-lg border p-3 bg-muted/30">
-                <div className="font-semibold text-sm">
-                  {session.courses?.code} — {session.courses?.title}
-                  {session.courses?.level ? ` · Level ${session.courses.level}` : ""}
+              <div className="rounded-lg border border-border/80 p-3 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-sm">
+                    {session.courses?.code} — {session.courses?.title}
+                  </div>
+                  {session.courses?.level && (
+                    <Badge variant="outline" className="text-xs">
+                      Level {session.courses.level}
+                    </Badge>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date().toLocaleDateString()} ·{" "}
+                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                  <Clock className="size-3" />
+                  {new Date().toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  ·{" "}
                   {(session as any).mode === "inout"
-                    ? "Sign in + sign out"
-                    : "Single scan = present"}
+                    ? "Sign In & Sign Out"
+                    : "Single Scan Check-In"}
                 </div>
               </div>
             )}
 
-            <div
-              id={QR_REGION_ID}
-              className="rounded-lg overflow-hidden bg-black mx-auto w-full max-w-sm"
-              style={{ aspectRatio: "1 / 1", minHeight: 280 }}
-            />
+            {/* Video Viewport Container */}
+            <div className="relative rounded-xl overflow-hidden bg-black mx-auto w-full max-w-sm aspect-square shadow-inner flex items-center justify-center">
+              <div id={QR_REGION_ID} className="w-full h-full" />
 
-            <div className="text-xs text-center text-muted-foreground">
-              <span className={scanning ? "text-success font-medium" : ""}>{status}</span>
+              {!scanning && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-zinc-950/80 text-zinc-300">
+                  <Camera className="size-12 stroke-[1.2] text-zinc-500 mb-3" />
+                  <p className="text-sm font-medium">Camera is offline</p>
+                  <p className="text-xs text-zinc-500 mt-1 max-w-[220px]">
+                    Tap "Start Scanner" to open the camera and scan student passes
+                  </p>
+                </div>
+              )}
+
+              {scanning && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  {/* Subtle viewfinder reticle corners */}
+                  <div className="relative w-3/4 h-3/4 border-2 border-emerald-500/40 rounded-2xl">
+                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-emerald-400 rounded-tl"></div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-emerald-400 rounded-tr"></div>
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-emerald-400 rounded-bl"></div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-emerald-400 rounded-br"></div>
+                  </div>
+                </div>
+              )}
             </div>
 
+            <div className="text-xs text-center text-muted-foreground min-h-[1.25rem]">
+              <span
+                className={scanning ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}
+              >
+                {status}
+              </span>
+            </div>
+
+            {/* Last Scan Confirmation Banner */}
             {lastScan && (
-              <div className="rounded-md border border-success/40 bg-success/10 p-2 text-sm text-center">
-                <span className="font-semibold">{lastScan.name}</span> — {lastScan.status}
+              <div
+                className={`rounded-lg border p-3 text-sm transition-all animate-in fade-in-50 duration-200 ${
+                  lastScan.type === "success"
+                    ? "border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200"
+                    : lastScan.type === "warning"
+                      ? "border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200"
+                      : lastScan.type === "info"
+                        ? "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20 text-blue-900 dark:text-blue-200"
+                        : "border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-sm flex items-center gap-1.5">
+                    <UserCheck className="size-4 shrink-0" />
+                    {lastScan.name}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] uppercase font-bold tracking-wider ${
+                      lastScan.type === "success"
+                        ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                        : lastScan.type === "warning"
+                          ? "border-amber-500/40 text-amber-700 dark:text-amber-300"
+                          : lastScan.type === "info"
+                            ? "border-blue-500/40 text-blue-700 dark:text-blue-300"
+                            : "border-rose-500/40 text-rose-700 dark:text-rose-300"
+                    }`}
+                  >
+                    {lastScan.status}
+                  </Badge>
+                </div>
+                {(lastScan.indexNumber || lastScan.time) && (
+                  <div className="text-xs opacity-75 mt-1 flex items-center justify-between font-mono">
+                    <span>{lastScan.indexNumber}</span>
+                    <span>{lastScan.time}</span>
+                  </div>
+                )}
               </div>
             )}
 
             {camError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive text-xs p-3 flex gap-2">
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs p-3 flex gap-2">
                 <AlertTriangle className="size-4 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-medium">Camera could not start</div>
-                  <div className="opacity-80">{camError}</div>
+                  <div className="opacity-80 mt-0.5">{camError}</div>
                 </div>
               </div>
             )}
 
+            {/* Scanner Controls */}
             <div className="flex gap-2">
               {!scanning ? (
-                <Button onClick={() => startCamera()} className="flex-1" disabled={!activeSession}>
-                  <Camera className="size-4 mr-1" />
-                  Start scanning
+                <Button
+                  onClick={() => startCamera()}
+                  className="flex-1 font-medium"
+                  disabled={!activeSession}
+                >
+                  <Camera className="size-4 mr-2" />
+                  Start Scanner
                 </Button>
               ) : (
-                <Button onClick={stopCamera} variant="destructive" className="flex-1">
-                  <Square className="size-4 mr-1" />
-                  Stop scanning
+                <Button onClick={stopCamera} variant="destructive" className="flex-1 font-medium">
+                  <Square className="size-4 mr-2" />
+                  Stop Scanner
                 </Button>
               )}
               {scanning && (
                 <>
-                  <Button variant="outline" onClick={flipCamera} title="Flip camera">
+                  <Button variant="outline" onClick={flipCamera} title="Switch Front/Back Camera">
                     <SwitchCamera className="size-4" />
                   </Button>
-                  <Button variant="outline" onClick={() => startCamera()} title="Restart camera">
+                  <Button variant="outline" onClick={() => startCamera()} title="Reset Camera">
                     <RefreshCw className="size-4" />
                   </Button>
                 </>
@@ -784,58 +827,91 @@ function ScanPage() {
                 <Button
                   variant="outline"
                   onClick={closeSession}
-                  title="Close session"
-                  className="text-destructive"
+                  title="Close Session"
+                  className="text-destructive hover:bg-destructive/10"
                 >
                   <Lock className="size-4" />
                 </Button>
               )}
             </div>
 
-            <form onSubmit={submitManual} className="flex gap-2 pt-2 border-t">
-              <Input
-                placeholder="Manual UUID / index # (fallback)"
-                value={manual}
-                onChange={(e) => setManual(e.target.value)}
-              />
-              <Button type="submit" variant="outline">
-                Scan
+            {/* Manual Index Entry Fallback */}
+            <form onSubmit={submitManual} className="flex gap-2 pt-3 border-t">
+              <div className="relative flex-1">
+                <Search className="size-3.5 absolute left-2.5 top-3 text-muted-foreground" />
+                <Input
+                  placeholder="Index # or QR UUID fallback..."
+                  value={manual}
+                  onChange={(e) => setManual(e.target.value)}
+                  className="pl-8 text-sm"
+                />
+              </div>
+              <Button type="submit" variant="secondary" disabled={!manual.trim()}>
+                Mark Present
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Today's scans ({records?.length ?? 0})</CardTitle>
+        {/* Real-time Today's Attendance Roster */}
+        <Card className="border-border flex flex-col">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base font-semibold">Today's Attendance</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Real-time verified check-ins for this session
+              </p>
+            </div>
+            <Badge variant="secondary" className="font-mono text-xs">
+              {records?.length ?? 0} {records?.length === 1 ? "student" : "students"}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y max-h-[600px] overflow-y-auto">
+          <CardContent className="p-0 flex-1 flex flex-col">
+            <div className="divide-y divide-border max-h-[620px] overflow-y-auto flex-1">
               {(records ?? []).map((r: any) => (
-                <div key={r.id} className="p-3 flex items-center justify-between">
+                <div
+                  key={r.id}
+                  className="p-3.5 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                >
                   <div>
-                    <div className="font-medium text-sm">{r.students?.full_name}</div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {r.students?.index_number}
+                    <div className="font-medium text-sm text-foreground">
+                      {r.students?.full_name ?? "Student"}
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                      {r.students?.index_number ?? r.student_id}
                     </div>
                   </div>
                   <div className="text-right">
                     {r.status === "PRESENT" && (
-                      <span className="inline-flex items-center text-success text-xs">
-                        <CheckCircle2 className="size-3 mr-1" />
+                      <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                        <CheckCircle2 className="size-3.5 mr-1" />
                         SCANNED{r.duration_minutes ? ` · ${r.duration_minutes}m` : ""}
                       </span>
                     )}
                     {r.status === "IN_PROGRESS" && (
-                      <span className="text-xs text-warning-foreground bg-warning/30 px-2 py-0.5 rounded">
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
                         SIGNED IN
                       </span>
+                    )}
+                    {r.check_in_at && (
+                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                        {new Date(r.check_in_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
               ))}
               {!records?.length && (
-                <div className="p-8 text-center text-sm text-muted-foreground">No scans yet</div>
+                <div className="py-16 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
+                  <UserCheck className="size-8 text-muted-foreground/40 mb-2" />
+                  <p className="font-medium">No students checked in yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
+                    Start the scanner or enter index numbers manually to record attendance.
+                  </p>
+                </div>
               )}
             </div>
           </CardContent>

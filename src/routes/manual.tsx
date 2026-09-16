@@ -161,7 +161,7 @@ const SECTIONS: GuideSection[] = [
   {
     id: "camera-scanner",
     category: "lecturer",
-    title: "5. Multi-Camera QR Scanner & Offline Mode",
+    title: "5. Multi-Camera High-Speed QR Scanner",
     badge: "Scanner Tool",
     icon: ScanLine,
     summary: "Use your laptop or phone camera to scan student QR codes at the lecture door.",
@@ -183,8 +183,8 @@ const SECTIONS: GuideSection[] = [
         desc: "If a student forgot their phone/badge, type their index number in the manual input box and click 'Mark Present'.",
       },
       {
-        title: "Offline Sync Support",
-        desc: "If internet connection is lost, the scanner keeps operating locally in offline mode. When internet is restored, all cached check-ins automatically sync to the cloud.",
+        title: "Instant Cloud Verification",
+        desc: "Every scan is verified and logged immediately to the cloud with real-time roster updates and duplicate-scan prevention.",
       },
     ],
   },
@@ -288,8 +288,8 @@ const SECTIONS: GuideSection[] = [
         desc: "No! Projector session QR codes rotate continuously. Only students physically present inside the lecture hall looking at the screen can scan the active token.",
       },
       {
-        title: "What if there is no internet in the lecture hall?",
-        desc: "QRoll works offline! The scanner tool queues all scans on your local device and syncs them as soon as you reconnect to Wi-Fi or mobile data.",
+        title: "Can I use mobile data hotspot for scanning?",
+        desc: "Yes! QRoll is optimized for low-bandwidth operation, verifying scans instantly with minimal data usage over any mobile hotspot or Wi-Fi.",
       },
     ],
   },

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import qrollLogo from "@/assets/qroll-logo.png";
 import qrollLogin from "@/assets/qroll-login.png";
@@ -25,11 +25,6 @@ function AuthPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [isInIframe, setIsInIframe] = useState(false);
-
-  useEffect(() => {
-    setIsInIframe(typeof window !== "undefined" && window.self !== window.top);
-  }, []);
 
   useEffect(() => {
     if (firebaseAuth.currentUser) {
@@ -56,25 +51,15 @@ function AuthPage() {
       toast.success(`Signed in as ${result.user.displayName || result.user.email || "User"}`);
       navigate({ to: "/dashboard" });
     } catch (err: unknown) {
-      const errorObj = err as { code?: string; message?: string };
-      if (
-        errorObj?.code === "auth/popup-closed-by-user" ||
-        errorObj?.code === "auth/cancelled-popup-request"
-      ) {
-        // User closed or dismissed the popup window - this is normal user behavior, not an error
-        toast.info("Google sign-in window was closed. Click 'Continue with Google' to try again.");
-        return;
-      }
-
-      if (errorObj?.code === "auth/popup-blocked") {
-        toast.error(
-          "Google sign-in popup was blocked by your browser. Please allow popups or open in a new tab.",
-        );
-        return;
-      }
-
       console.error("Google sign in error:", err);
-      toast.error(errorObj?.message || "Failed to sign in with Google.");
+      const errorObj = err as { code?: string; message?: string };
+      if (errorObj?.code === "auth/popup-closed-by-user") {
+        toast.info("Google sign-in was cancelled.");
+      } else if (errorObj?.code === "auth/popup-blocked") {
+        toast.error("Google sign-in popup was blocked. Please allow popups for this site.");
+      } else {
+        toast.error(errorObj?.message || "Failed to sign in with Google.");
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -298,23 +283,6 @@ function AuthPage() {
                     </div>
                   </TabsContent>
                 </Tabs>
-
-                {isInIframe && (
-                  <div className="mt-4 pt-3 border-t border-border/60 text-center">
-                    <p className="text-[11px] text-muted-foreground">
-                      Running in preview mode? If Google popup closes immediately,{" "}
-                      <a
-                        href={typeof window !== "undefined" ? window.location.href : "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        open in a new tab
-                        <ExternalLink className="size-3" />
-                      </a>
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>

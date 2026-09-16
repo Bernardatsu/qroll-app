@@ -5,8 +5,7 @@ import { clearUserAppCache } from "./query-client";
 
 export type AppRole = "super_admin" | "admin" | "lecturer" | "teaching_assistant";
 
-export const PRIMARY_ADMIN_EMAIL = "b44438453@gmail.com";
-export const ADMIN_EMAILS = ["b44438453@gmail.com", "nardb529@gmail.com"];
+export const PRIMARY_ADMIN_EMAIL = "nardb529@gmail.com";
 export const DEMO_LECTURER_EMAIL = "lecturer@qroll.edu";
 export const DEMO_LECTURER_PASS = "QrollTutorPass2026!#";
 

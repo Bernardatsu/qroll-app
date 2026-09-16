@@ -36,7 +36,7 @@ export const PLANS: {
       "Excel, CSV & PDF reports",
       "Live projector QR code check-in",
       "Multi-camera QR scanner",
-      "Offline sync mode",
+      "High-speed real-time verification",
     ],
   },
   {
