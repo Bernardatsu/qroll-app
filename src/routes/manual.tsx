@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import qrollLogo from "@/assets/qroll-logo.png";
 import {
   BookOpen,
   CalendarClock,
@@ -329,9 +330,7 @@ function ManualPage() {
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur px-4 py-3 sm:px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground font-bold">
-              <BookOpen className="size-5" />
-            </div>
+            <img src={qrollLogo} alt="QRoll Logo" className="h-9 w-auto object-contain shrink-0" />
             <div>
               <h1 className="text-base sm:text-lg font-bold leading-tight">
                 QRoll System User Manual
@@ -500,28 +499,6 @@ function ManualPage() {
               </Card>
             ))
           )}
-        </div>
-
-        {/* Bottom Quick Navigation Links */}
-        <div className="rounded-xl border bg-card p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="font-bold text-base">Ready to start managing your classroom?</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Jump straight to the dashboard or start a live scanner session.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link to={"/scan" as string}>
-              <Button size="sm" className="text-xs">
-                <ScanLine className="size-4 mr-1.5" /> Open Scanner
-              </Button>
-            </Link>
-            <Link to={"/sessions" as string}>
-              <Button size="sm" variant="outline" className="text-xs">
-                <CalendarClock className="size-4 mr-1.5" /> View Sessions
-              </Button>
-            </Link>
-          </div>
         </div>
       </main>
     </div>

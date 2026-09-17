@@ -1,627 +1,151 @@
-# QRoll
-
-Use the best and nicest low cost in token template for this project, My School's name is KWAME NKRUMAH UNIVERSITY OF SCIENCE AND TECHNOLOGY (KNUST) . NOW THE PROMPT: BUILD A COMPLETE PRODUCTION-READY UNIVERSITY QR ATTENDANCE MANAGEMENT SYSTEM
-
-OVERVIEW
-
-Create a fully functional, secure, scalable, production-ready University Attendance Management Platform.
-
-The platform will be used by:
-
-Administrators
-
-Lecturers
-
-Teaching Assistants
-
-The system must support:
-
-Level 100
-
-Level 200
-
-Level 300
-
-Level 400
-
-The system must support:
-
-Multiple Courses
-
-Multiple Departments
-
-Multiple Academic Years
-
-Multiple Semesters
-
-Multiple Teaching Assistants
-
-Multiple Concurrent Scanners
-
-The system must be mobile-friendly, responsive, installable as a PWA, and optimized for both phones and computers.
-
-PRIMARY OBJECTIVE
-
-Every registered student will have a secure QR code.
-
-Teaching Assistants will scan student QR codes during attendance sessions.
-
-Attendance must be recorded accurately, securely, and permanently.
-
-The system must prevent:
-
-Duplicate attendance
-
-Attendance fraud
-
-Unauthorized editing
-
-Data corruption
-
-Data loss
-
-================================================
-FREE TECHNOLOGY STACK (MANDATORY)
-
-Use only free or open-source solutions whenever possible.
-
-Frontend:
-
-React
-
-TypeScript
-
-Tailwind CSS
-
-Backend:
-
-Supabase
-
-Database:
-
-PostgreSQL (Supabase)
-
-Authentication:
-
-Supabase Auth
-
-Storage:
-
-Supabase Storage
-
-Charts:
-
-Open-source chart libraries
-
-QR Generation:
-
-Open-source QR libraries
-
-QR Scanning:
-
-Open-source QR scanner libraries
-
-PDF Export:
-
-Open-source PDF libraries
-
-Excel Export:
-
-Open-source XLSX libraries
-
-Build the system so that no paid APIs are required.
-
-Do not use:
-
-Stripe
-
-Twilio
-
-Paid QR services
-
-Paid analytics tools
-
-Paid OCR services
-
-Any service requiring mandatory monthly subscriptions
-
-==================================================
-USER ROLES
-
-SUPER ADMIN
-
-Can:
-
-Manage entire system
-
-Manage users
-
-Manage courses
-
-Manage students
-
-Manage lecturers
-
-Manage teaching assistants
-
-Manage semesters
-
-Manage academic years
-
-Manage backups
-
-Restore archives
-
-View audit logs
-
-Edit attendance records
-
-ADMIN
-
-Can:
-
-Manage students
-
-Manage courses
-
-Manage sessions
-
-Generate reports
-
-LECTURER
-
-Can:
-
-View attendance
-
-View reports
-
-Export reports
-
-TEACHING ASSISTANT
-
-Can:
-
-Create attendance sessions
-
-Open attendance scanner
-
-Scan QR codes
-
-View session attendance
-
-Cannot:
-
-Delete records
-
-Edit records
-
-==================================================
-STUDENT MANAGEMENT
-
-Store:
-
-Full Name
-
-Index Number
-
-Department
-
-Program
-
-Level
-
-Email
-
-Academic Year
-
-Status
-
-Support:
-
-Manual student creation
-
-Bulk Excel import
-
-CSV import
-
-Automatically:
-
-Validate records
-
-Detect duplicates
-
-Generate QR identifiers
-
-Generate QR codes
-
-==================================================
-QR SECURITY
-
-Never store:
-
-Student Name
-
-Index Number
-
-inside QR codes.
-
-Instead generate secure UUID identifiers.
-
-Example:
-
-QR_ID = UUID
-
-When scanned:
-
-Read UUID
-
-Lookup student
-
-Process attendance
-
-Prevent QR tampering.
-
-==================================================
-COURSE MANAGEMENT
-
-Store:
-
-Course Code
-
-Course Title
-
-Level
-
-Department
-
-Lecturer
-
-Academic Year
-
-Semester
-
-Credit Hours
-
-Support:
-
-Course creation
-
-Course editing
-
-Course archiving
-
-==================================================
-COURSE REGISTRATION
-
-Students may register for multiple courses.
-
-Courses may contain multiple students.
-
-Implement many-to-many relationship.
-
-Attendance may only be recorded if:
-
-Student is registered for selected course.
-
-Otherwise reject attendance.
-
-==================================================
-ATTENDANCE WORKFLOW
-
-Teaching Assistant workflow:
-
-Login
-
-Select Academic Year
-
-Select Semester
-
-Select Level
-
-Select Course
-
-Select Session
-
-Open Scanner
-
-==================================================
-TWO-SCAN ATTENDANCE SYSTEM
-
-FIRST SCAN
-
-Create attendance record.
-
-Record:
-
-Student ID
-
-Session ID
-
-Check-In Timestamp
-
-Status:
-
-IN_PROGRESS
-
-SECOND SCAN
-
-Update existing record.
-
-Record:
-
-Check-Out Timestamp
-
-Duration
-
-Status:
-
-PRESENT
-
-THIRD SCAN
-
-Reject.
-
-Display:
-
-Attendance already completed for this session.
-
-==================================================
-ATTENDANCE STATUS
-
-Supported statuses:
-
-PRESENT
-
-ABSENT
-
-IN_PROGRESS
-
-LATE_ARRIVAL
-
-LEFT_EARLY
-
-==================================================
-LATE ARRIVAL DETECTION
-
-Allow configurable grace period.
-
-Automatically calculate:
-
-Late Minutes
-
-==================================================
-EARLY DEPARTURE DETECTION
-
-Automatically calculate:
-
-Early Departure Minutes
-
-==================================================
-AUTOMATIC ABSENCE DETECTION
-
-When session closes:
-
-Students without attendance records become:
-
-ABSENT
-
-==================================================
-ATTENDANCE PERCENTAGE
-
-Calculate:
-
-(Present Sessions ÷ Total Sessions) × 100
-
-Default minimum:
-
-75%
-
-Flag students below threshold.
-
-==================================================
-REPORTING
-
-Generate:
-
-Daily Reports
-
-Course Reports
-
-Level Reports
-
-Semester Reports
-
-Student Reports
-
-Attendance Percentage Reports
-
-Absentee Reports
-
-Late Arrival Reports
-
-Early Departure Reports
-
-Export:
-
-PDF
-
-Excel
-
-CSV
-
-==================================================
-DASHBOARD
-
-Display:
-
-Total Students
-
-Total Courses
-
-Total Sessions
-
-Present Students
-
-Absent Students
-
-Students Currently In Class
-
-Late Arrivals
-
-Early Departures
-
-Attendance Percentages
-
-Update in real time.
-
-==================================================
-AUDIT LOGGING
-
-Log:
-
-User
-
-Role
-
-Action
-
-Timestamp
-
-Previous Value
-
-New Value
-
-Track all critical actions.
-
-==================================================
-BACKUPS
-
-Implement:
-
-Real-time saving
-
-Daily backups
-
-Weekly backups
-
-Manual backups
-
-Backup verification
-
-==================================================
-SEMESTER ARCHIVING
-
-At semester end:
-
-Allow Super Admin to:
-
-Close Semester
-
-Lock Attendance Records
-
-Export All Reports
-
-Create Full Backup
-
-Archive Semester
-
-After archiving:
-
-New semester starts with empty attendance sessions.
-
-Students remain in system.
-
-Courses remain in system.
-
-Historical records remain accessible.
-
-Provide:
-
-"Archive Semester" button.
-
-Provide:
-
-"Restore Archived Semester" option.
-
-Do NOT permanently delete historical attendance by default.
-
-==================================================
-PERFORMANCE REQUIREMENTS
-
-Support:
-
-10,000+ students
-
-100+ courses
-
-Millions of attendance records
-
-Attendance scan response:
-
-Less than 2 seconds.
-
-System must remain reliable under concurrent scanning.
-
-==================================================
-SECURITY
-
-Implement:
-
-Role Based Access Control
-
-Supabase Row Level Security
-
-JWT Authentication
-
-Secure API Access
-
-Audit Logs
-
-Database Constraints
-
-Duplicate Prevention
-
-Atomic Transactions
-
-==================================================
-FINAL GOAL
-
-Generate a complete production-ready university attendance management system with all database schemas, authentication, dashboards, reports, QR generation, QR scanning, attendance tracking, backups, semester archiving, security policies, APIs, responsive UI, PWA support, and deployment configuration fully implemented and connected to Supabase. .... One additional cost-saving feature you can ask Lovable to build:
-
-"Database Cleanup Wizard"
-
-Instead of deleting records, it should:
-
-Archive old semesters.
-
-Compress exports.
-
-Remove temporary scan logs older than a configurable period (e.g., 90 days).
-
-Keep only essential historical data.
-
-That reduces storage usage while preserving attendance history.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://qroll-app.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/c59c5c67-29c7-46a7-9d5a-e5c13162beda).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+# QRoll — University QR Attendance Management System
+
+QRoll is a production-grade, high-performance web platform for university attendance management, real-time QR code roll-calls, course tracking, student enrollment, and multi-device lecturer dashboards. Built with modern TypeScript, React, TanStack Router, Tailwind CSS, and Firebase (Firestore, Authentication, and Cloud Messaging).
+
+---
+
+## 📁 Repository Directory & File Architecture
+
+This document describes every folder and file across the project, outlining its specific contribution and architectural role in the web application.
+
+---
+
+### Root Configuration & Project Files
+
+| File / Directory | Contribution & Description |
+| :--- | :--- |
+| `package.json` | Manifest declaring npm dependencies, project metadata, and development/production build scripts (`dev`, `build`, `start`). |
+| `tsconfig.json` | TypeScript compiler configuration establishing path aliases (`@/*` pointing to `src/*`), strict type checks, and JSX settings. |
+| `vite.config.ts` | Vite build system configuration with plugins for TanStack Router, React, and path resolution. |
+| `components.json` | Configuration file for shadcn/ui component definitions, theme tokens, and Tailwind integration. |
+| `metadata.json` | Application metadata for Google AI Studio, defining platform capabilities and device permissions. |
+| `firestore.rules` | Security rules for Cloud Firestore securing student rosters, courses, attendance sessions, and lecturer accounts. |
+| `firebase-blueprint.json` | Firestore database schema blueprint and structural definitions. |
+| `.env.example` | Template defining required environment variables without sensitive secrets. |
+| `public/` | Static directory served directly by Vite and Express. Contains icons, manifest, service workers, and favicons. |
+| `public/firebase-messaging-sw.js` | Dedicated Service Worker for Firebase Cloud Messaging (FCM) handling background push notifications. |
+| `public/manifest.webmanifest` | PWA manifest defining app icons, theme colors, and standalone mobile display modes. |
+
+---
+
+### `src/` — Application Source Code
+
+#### 1. Core Framework & Entry Points
+* `src/start.ts` — Client bootstrap initializing the React application into the DOM.
+* `src/router.tsx` — TanStack Router initialization configuring route tree, preloading, and authentication context.
+* `src/routeTree.gen.ts` — Auto-generated type-safe route tree generated by TanStack Router file-system conventions.
+* `src/server.ts` — Custom Express server providing full-stack SSR/API routing, Vite development middleware, and static asset distribution.
+* `src/styles.css` — Global CSS stylesheet importing Tailwind CSS directives, typography rules, custom scrollbars, and design tokens.
+
+---
+
+#### 2. `src/assets/` — Static Media & Brand Assets
+* `src/assets/qroll-logo.png` & `qroll-logo-fast.webp` — Official QRoll brand logo used in headers, modals, exports, and badges.
+* `src/assets/qroll-login.png` & `qroll-login-fast.webp` — Visual illustration displayed on the lecturer login and authentication screen.
+* `src/assets/students-banner.png` & `students-banner-fast.webp` — Header banner displayed on the student portal login page.
+* `src/assets/qroll-icon.png` — High-resolution app launcher icon for PWA installation and favicons.
+* `src/assets/qroll-splash.png` — Splash screen asset rendered on mobile initialization.
+* `src/assets/qroll-banner.png` & `qroll-wide-banner.png` — High-resolution marketing and portal banner images.
+* `src/assets/qroll-loading.json` — Lottie vector animation for smooth loading states.
+* `src/assets/qroll-intro-landscape.mp4`, `qroll-intro-video---portrait.mp4` — Brand introductory product videos.
+* `src/assets/qroll-promo.mp4`, `qroll-promo-landscape.mp4`, `qroll-promo-portrait.mp4` — High-definition promo video assets.
+* `src/assets/9315935.webp` — Optimized supporting graphic asset.
+
+---
+
+#### 3. `src/components/` — Application Components & Layouts
+* `src/components/AppShell.tsx` — Primary authenticated layout wrapper for lecturers, including responsive navigation, sidebar, topbar, user profile, and active semester indicator.
+* `src/components/PublicFooter.tsx` — Standard footer rendered across all public-facing pages (Student portal, manual, login, legal terms).
+* `src/components/NotificationBell.tsx` — Interactive notification bell with badge counter and slide-over/dialog history list for lecture reminders and check-in alerts.
+* `src/components/NotificationSettingsSection.tsx` — Lecturer preference manager for push notification permissions, FCM tokens, and sound preferences.
+* `src/components/DeviceLimitDialog.tsx` — Security modal preventing unauthorized account sharing by enforcing the 6-device per account concurrency limit.
+* `src/components/BrandVideo.tsx` — Responsive media player component for rendering QRoll promotional and instructional videos.
+* `src/components/SplashScreen.tsx` — Smooth application startup splash screen.
+
+---
+
+#### 4. `src/components/ui/` — Design System Primitives (Radix UI + Tailwind)
+A modular UI library ensuring visual consistency, accessibility (a11y), and responsive interactions:
+* `accordion.tsx`, `alert-dialog.tsx`, `alert.tsx`, `aspect-ratio.tsx`, `avatar.tsx`, `badge.tsx`, `breadcrumb.tsx`, `button.tsx`, `calendar.tsx`, `card.tsx`, `carousel.tsx`, `chart.tsx`, `checkbox.tsx`, `collapsible.tsx`, `command.tsx`, `context-menu.tsx`, `dialog.tsx`, `drawer.tsx`, `dropdown-menu.tsx`, `form.tsx`, `hover-card.tsx`, `input-otp.tsx`, `input.tsx`, `label.tsx`, `menubar.tsx`, `navigation-menu.tsx`, `pagination.tsx`, `popover.tsx`, `progress.tsx`, `radio-group.tsx`, `resizable.tsx`, `scroll-area.tsx`, `select.tsx`, `separator.tsx`, `sheet.tsx`, `sidebar.tsx`, `skeleton.tsx`, `slider.tsx`, `sonner.tsx`, `switch.tsx`, `table.tsx`, `tabs.tsx`, `textarea.tsx`, `toggle-group.tsx`, `toggle.tsx`, `tooltip.tsx`.
+
+---
+
+#### 5. `src/config/` & `src/hooks/`
+* `src/config/public-backend.ts` — Dynamically determines backend origins and public URLs for API endpoints and redirects.
+* `src/hooks/use-mobile.tsx` — React hook detecting viewport dimensions to adjust touch targets, drawer menus, and responsive tables for mobile devices.
+
+---
+
+#### 6. `src/integrations/` — Third-Party Integrations
+* `src/integrations/firebase/config.ts` — Initializes client-side Firebase App, Firestore database, and Firebase Authentication instances.
+* `src/integrations/firebase/admin.server.ts` — Server-side Firebase Admin SDK configuration for privileged administrative operations.
+* `src/integrations/firebase/firestore-rest.ts` — Lightweight REST fallback for Firestore queries in serverless or edge runtime environments.
+* `src/integrations/lovable/index.ts` — Integration helpers for the Lovable deployment platform.
+
+---
+
+#### 7. `src/lib/` — Business Logic, Utilities, and Helpers
+* `src/lib/auth.ts` — Authentication provider and hook (`useAuth`) managing lecturer session state, sign-in, sign-up, password reset, and sign-out.
+* `src/lib/device-manager.ts` — Multi-device tracking logic enforcing the 6-device concurrent session limit using browser fingerprints and Firestore device records.
+* `src/lib/exporters.ts` — Universal data export engine generating PDF reports, Excel (`.xlsx`), and CSV files. Features embedded QRoll logos and institutional headers on all generated documents.
+* `src/lib/fcm-client.ts` — Client-side Firebase Cloud Messaging helper registering push notification Service Workers and generating device tokens.
+* `src/lib/notifications.server.ts` — Server-side notification dispatcher sending push notifications via Firebase Admin messaging.
+* `src/lib/grading.ts` — Academic grading calculations transforming attendance percentages into university grading scales.
+* `src/lib/billing.ts` — Subscription tier checks, feature gating, and billing limits.
+* `src/lib/paystack.functions.ts` — Paystack payment processing, checkout initialization, and plan upgrades.
+* `src/lib/class-matching.ts` — Algorithmic course matching and student index number lookups.
+* `src/lib/error-capture.ts` & `src/lib/error-page.ts` — Error boundary handlers and friendly fallback rendering.
+* `src/lib/lovable-error-reporting.ts` — Runtime telemetry and error logger.
+* `src/lib/public-origin.ts` — Sanitizes and formats public origin links for QR codes and student portal links.
+* `src/lib/query-client.ts` — TanStack Query client configuration with caching and retry policies.
+* `src/lib/utils.ts` — Tailwind class merge utility (`cn`) powered by `clsx` and `tailwind-merge`.
+
+---
+
+#### 8. `src/routes/` — Application Routes & Pages
+
+##### A. Public & Student Facing Routes
+* `src/routes/__root.tsx` — Root layout rendering global providers (Auth, QueryClient, Toaster, Helmet) and TanStack Router outlet.
+* `src/routes/index.tsx` — Public landing page presenting the QRoll platform, feature breakdown, live demo triggers, and sign-in shortcuts.
+* `src/routes/auth.tsx` — Lecturer sign-in, account registration, and password recovery interface.
+* `src/routes/student.tsx` — Central Student Portal with password-based authentication. Allows students to check registered courses, view attendance statistics, download official QR badges, submit assignments, view announcements, and change passwords.
+* `src/routes/check-in.tsx` — Student self-check-in screen scanned from the classroom projector. Enforces GPS geofencing radius validation and records attendance with the student's index number.
+* `src/routes/manual.tsx` — Comprehensive interactive user manual, system documentation, and step-by-step feature guides.
+* `src/routes/portal.$token.tsx` & `src/routes/portal.$token.index.tsx` — Tokenized student QR retrieval portal. Students enter their index number to immediately look up and download their official attendance QR pass.
+* `src/routes/portal.$token.register.tsx` — Self-registration page allowing new students to enroll into their lecturer's course and generate a personal QR pass.
+* `src/routes/privacy.tsx` — Privacy policy detailing student and faculty data handling, geofencing confidentiality, and storage security.
+* `src/routes/terms.tsx` — Platform terms of service and university acceptable use policies.
+
+##### B. Protected Lecturer Dashboard Routes (`src/routes/_authenticated/`)
+* `src/routes/_authenticated/route.tsx` — Authentication guard redirecting unauthenticated users to `/auth`.
+* `src/routes/_authenticated/dashboard.tsx` — Primary lecturer overview with real-time stats, total scans, active courses, recent activity feeds, and quick actions.
+* `src/routes/_authenticated/scan.tsx` — Real-time live camera scanner interface for lecturers and T.A.s to scan student QR codes smoothly without offline lag.
+* `src/routes/_authenticated/sessions.tsx` — Live lecture session manager featuring the classroom projector mode (dynamic on-screen QR codes with GPS geofencing).
+* `src/routes/_authenticated/courses.tsx` — Course management screen for creating, editing, and organizing courses, academic levels, and department associations.
+* `src/routes/_authenticated/courses.$courseId.tsx` — Detailed course view showing roster, attendance rates, registered students, and session history.
+* `src/routes/_authenticated/students.tsx` — Comprehensive student roster manager supporting batch CSV/Excel imports, individual student editing, and QR pass generation.
+* `src/routes/_authenticated/reports.tsx` — Analytics and export dashboard providing filterable attendance matrices, charts, and branded PDF/Excel exports.
+* `src/routes/_authenticated/portal-links.tsx` — Student portal link generator. Creates shareable permanent links and classroom projection QR codes.
+* `src/routes/_authenticated/departments.tsx` — Department structure manager for organizing university departments and faculties.
+* `src/routes/_authenticated/semesters.tsx` — Academic calendar manager for switching active semesters and archiving past terms.
+* `src/routes/_authenticated/announcements.tsx` — Class broadcast center for publishing course announcements to the student portal.
+* `src/routes/_authenticated/assignments.tsx` — Assignment manager for distributing tasks and reviewing student submissions.
+* `src/routes/_authenticated/history.tsx` — Complete historical log of all past attendance scans and classroom sessions.
+* `src/routes/_authenticated/billing.tsx` — Subscription and plan management interface with Paystack checkout integration.
+* `src/routes/_authenticated/settings.tsx` — User preferences, active device session management (with device disconnect controls), and profile settings.
+
+##### C. Server API Endpoints (`src/routes/api/public/`)
+* `src/routes/api/public/student-auth.ts` — Secure server-side authentication proxy handling student portal sign-up, sign-in, password changes, and data retrieval.
+* `src/routes/api/public/notifications.ts` — Server-side endpoint for dispatching Firebase Cloud Messaging push notifications.
+* `src/routes/api/public/webhooks/paystack.ts` — Webhook handler verifying and processing Paystack transaction callbacks.
+
+---
+
+## 🚀 Key Features
+
+* **High-Speed Camera Scanner**: High-performance camera scanner with continuous multi-scan and duplicate prevention.
+* **Classroom Projector Mode**: Generates on-screen QR codes with geofenced location verification (Haversine radius) so students scan to check in with their index number.
+* **Brand-Integrated File Exports**: Every exported PDF report, student QR pass, and digital badge features the official QRoll logo.
+* **Responsive Mobile-First Interface**: Optimized for small-screen portrait smartphones with clean vertical stacking and touch targets.
+* **Device Security Guard**: Strict concurrency limit allowing up to 6 registered devices per account, protecting lecturer licenses.
+* **Offline Resilient & Fast Loading**: Modern `.webp` media formats, code splitting, and TanStack query caching for instant screen transitions.

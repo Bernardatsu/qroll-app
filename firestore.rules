@@ -26,8 +26,10 @@ service cloud.firestore {
 
     function isCreatingWithOwner() {
       return isSignedIn() && (
+        isSuperAdmin() ||
         request.resource.data.owner_id == request.auth.uid ||
-        request.resource.data.created_by == request.auth.uid
+        request.resource.data.created_by == request.auth.uid ||
+        request.resource.data.scanned_by == request.auth.uid
       );
     }
 
@@ -44,74 +46,65 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // Students: Data strictly isolated to lecturer account
+    // Students: Accessible across sessions and courses
     match /students/{studentId} {
       allow read: if true;
-      allow create: if isCreatingWithOwner() || (!isSignedIn() && request.resource.data.owner_id != null);
-      allow update: if (isSignedIn() && isDocOwner()) || (!isSignedIn() && resource.data.owner_id != null);
+      allow create, update: if true;
       allow delete: if isSignedIn();
     }
 
     // Courses & Registrations
     match /courses/{courseId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
-      allow create: if isCreatingWithOwner();
-      allow update, delete: if isSignedIn();
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSignedIn();
     }
 
     match /course_registrations/{regId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
-      allow create: if isCreatingWithOwner() || (!isSignedIn() && request.resource.data.owner_id != null);
-      allow update, delete: if isSignedIn();
+      allow read, write: if true;
     }
 
     // Academic Structure
     match /departments/{deptId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
     match /academic_years/{yearId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
     match /academic_terms/{termId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
     match /class_levels/{levelId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
-    // Attendance Sessions & Records
+    // Attendance Sessions & Records (Used by scanner, check-in, and lecturer dashboards)
     match /attendance_sessions/{sessionId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
-      allow create: if isCreatingWithOwner();
-      allow update, delete: if isDocOwner();
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSignedIn();
     }
 
     match /attendance_records/{recordId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
-      allow create: if (isSignedIn() && isCreatingWithOwner()) || (!isSignedIn() && request.resource.data.owner_id != null);
-      allow update, delete: if isDocOwner();
+      allow read, write: if true;
     }
 
     // Announcements & Assignments
     match /announcements/{announcementId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
+      allow read: if true;
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }
 
     match /assignments/{assignmentId} {
-      allow read: if (isSignedIn() && isDocOwner()) || (!isSignedIn());
+      allow read: if true;
       allow create: if isCreatingWithOwner();
       allow update, delete: if isDocOwner();
     }

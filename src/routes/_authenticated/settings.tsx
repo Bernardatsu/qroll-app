@@ -261,7 +261,7 @@ function SettingsPage() {
                 <Laptop className="size-5 text-primary" /> Logged-in Devices
               </CardTitle>
               <CardDescription className="text-xs">
-                Maximum <b>4 devices</b> can be logged in per account simultaneously.
+                Maximum <b>6 devices</b> can be logged in per account simultaneously.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">

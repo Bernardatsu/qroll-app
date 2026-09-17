@@ -46,6 +46,7 @@ import { calculateAttendanceGrade } from "@/lib/grading";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationSettingsSection } from "@/components/NotificationSettingsSection";
 import qrollLogo from "@/assets/qroll-logo.png";
+import studentsBanner from "@/assets/students-banner-fast.webp";
 
 export const Route = createFileRoute("/student")({
   ssr: false,
@@ -194,10 +195,94 @@ function StudentPortalPage() {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(
-      `<html><head><title>${me.index_number} - Universal QR Pass</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:40px;color:#0f172a}.badge{display:inline-block;border:2px solid #0f172a;border-radius:12px;padding:24px 32px;max-width:340px}img{width:240px;height:240px}h2{margin:0 0 8px;color:#1e3a8a}h3{margin:12px 0 4px;font-size:20px}p{margin:4px 0;color:#475569;font-size:13px}.tag{display:inline-block;background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:12px}</style></head><body><div class="badge"><div class="tag">UNIVERSAL STUDENT ATTENDANCE PASS</div><h2>QRoll Pass</h2><img src="${qrUrl}" /><h3>${me.full_name}</h3><p><strong>${me.index_number}</strong> · Level ${me.level || "100"}</p><p>${me.program || "Undergraduate Degree"}</p><p style="font-size:11px;color:#64748b;margin-top:12px">One unique QR code valid for all courses & lecturers</p></div></body></html>`,
+      `<html><head><title>${me.index_number} - Universal QR Pass</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:40px;color:#0f172a}.badge{display:inline-block;border:2px solid #0f172a;border-radius:16px;padding:24px 32px;max-width:340px}.logo-img{width:48px;height:48px;margin-bottom:6px;object-fit:contain}img.qr{width:240px;height:240px}h2{margin:0 0 8px;color:#1e3a8a}h3{margin:12px 0 4px;font-size:20px}p{margin:4px 0;color:#475569;font-size:13px}.tag{display:inline-block;background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:12px}</style></head><body><div class="badge"><img src="${qrollLogo}" class="logo-img" alt="QRoll" /><div class="tag">UNIVERSAL STUDENT ATTENDANCE PASS</div><h2>QRoll Pass</h2><img class="qr" src="${qrUrl}" /><h3>${me.full_name}</h3><p><strong>${me.index_number}</strong> · Level ${me.level || "100"}</p><p>${me.program || "Undergraduate Degree"}</p><p style="font-size:11px;color:#64748b;margin-top:12px">One unique QR code valid for all courses & lecturers · Powered by QRoll</p></div></body></html>`,
     );
     w.document.close();
     setTimeout(() => w.print(), 400);
+  };
+
+  const downloadBrandedBadge = async () => {
+    if (!me || !qrUrl) return;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 760;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 600, 760);
+
+      // Top brand header
+      ctx.fillStyle = "#1e3a8a";
+      ctx.fillRect(0, 0, 600, 90);
+
+      // Draw QRoll logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise((resolve) => {
+        logoImg.onload = () => {
+          try {
+            ctx.drawImage(logoImg, 30, 20, 50, 50);
+          } catch {
+            // ignore
+          }
+          resolve(true);
+        };
+        logoImg.onerror = () => resolve(true);
+        logoImg.src = qrollLogo;
+      });
+
+      // Header text
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText("QRoll Student QR Pass", 95, 46);
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillText("Official Attendance Identification", 95, 68);
+
+      // Student info
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 26px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(me.full_name, 300, 140);
+
+      ctx.fillStyle = "#1e3a8a";
+      ctx.font = "bold 18px monospace";
+      ctx.fillText(`INDEX: ${me.index_number}`, 300, 175);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(`Level ${me.level} · ${me.program || "Undergraduate"}`, 300, 202);
+
+      // Draw QR Code
+      const qrImg = new Image();
+      await new Promise((resolve) => {
+        qrImg.onload = () => {
+          ctx.drawImage(qrImg, 110, 230, 380, 380);
+          resolve(true);
+        };
+        qrImg.onerror = () => resolve(true);
+        qrImg.src = qrUrl;
+      });
+
+      // Footer
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px sans-serif";
+      ctx.fillText("Show this QR to lecturer or scan projector QR to check in", 300, 670);
+      ctx.fillText("Powered by QRoll · Verified University System", 300, 695);
+
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `QRoll-${me.index_number}-Pass.png`;
+      a.click();
+    } catch {
+      const a = document.createElement("a");
+      a.href = qrUrl;
+      a.download = `QRoll-${me.index_number}.png`;
+      a.click();
+    }
   };
 
   // Session auto-restore on page load
@@ -652,7 +737,30 @@ function StudentPortalPage() {
           /* ========================================================================= */
           <div className="max-w-md mx-auto py-4 sm:py-8">
             <Card className="shadow-lg border-primary/10 overflow-hidden">
-              <div className="h-2 bg-gradient-to-r from-blue-950 via-blue-800 to-blue-600" />
+              {/* Student Portal Header Banner Image */}
+              <div className="relative w-full h-36 sm:h-40 overflow-hidden bg-gradient-to-r from-blue-950 to-indigo-900">
+                <img
+                  src={studentsBanner}
+                  alt="Student Portal Banner"
+                  className="w-full h-full object-cover opacity-85"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={qrollLogo}
+                      alt="QRoll"
+                      className="h-6 w-auto object-contain brightness-200"
+                    />
+                    <span className="text-white font-bold text-base sm:text-lg tracking-tight drop-shadow-sm">
+                      Student Access Portal
+                    </span>
+                  </div>
+                  <p className="text-white/80 text-xs mt-0.5 font-medium">
+                    Attendance records, personalized QR pass & course updates
+                  </p>
+                </div>
+              </div>
 
               {/* Mode Selector Tabs */}
               <div className="p-2 bg-muted/60 border-b grid grid-cols-3 gap-1 text-xs">
@@ -684,7 +792,7 @@ function StudentPortalPage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Set Password
+                  Sign Up
                 </button>
                 <button
                   type="button"
@@ -709,10 +817,10 @@ function StudentPortalPage() {
                     <div className="mx-auto size-12 rounded-full bg-primary/10 text-primary grid place-items-center mb-2">
                       <GraduationCap className="size-6" />
                     </div>
-                    <CardTitle className="text-xl font-bold">Set Student Password</CardTitle>
+                    <CardTitle className="text-xl font-bold">Student Sign Up</CardTitle>
                     <CardDescription className="text-xs max-w-sm mx-auto">
-                      Enter your university index number and registered email to set your permanent
-                      login password.
+                      Enter your university index number and registered email to create your
+                      password and activate your student portal.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -802,7 +910,7 @@ function StudentPortalPage() {
                           </span>
                         ) : (
                           <span className="flex items-center gap-2">
-                            <KeyRound className="size-4" /> Set Password & Enter Portal
+                            <KeyRound className="size-4" /> Sign Up & Enter Portal
                           </span>
                         )}
                       </Button>
@@ -1788,15 +1896,14 @@ function StudentPortalPage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-3 w-full max-w-xs">
+                    <div className="flex flex-col gap-2.5 items-center justify-center w-full max-w-xs">
                       {qrUrl && (
-                        <a
-                          href={qrUrl}
-                          download={`QRoll-${me.index_number}.png`}
-                          className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition shadow-sm"
+                        <Button
+                          onClick={downloadBrandedBadge}
+                          className="w-full h-10 gap-2 font-semibold"
                         >
-                          <Download className="size-4" /> Download QR Image
-                        </a>
+                          <Download className="size-4" /> Download Official QR Badge
+                        </Button>
                       )}
                     </div>
                   </CardContent>
@@ -2128,20 +2235,20 @@ function StudentPortalPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2 max-w-md mx-auto">
+                    <div className="flex flex-col gap-2.5 pt-2 w-full max-w-xs mx-auto">
                       {qrUrl && (
-                        <a
-                          href={qrUrl}
-                          download={`QRoll-${me.index_number}-Universal-Pass.png`}
-                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold bg-secondary hover:bg-secondary/80 text-secondary-foreground py-2.5 px-3 rounded-lg border transition shadow-xs"
+                        <Button
+                          onClick={downloadBrandedBadge}
+                          variant="secondary"
+                          className="w-full text-xs h-10 gap-2 font-medium"
                         >
                           <Download className="size-3.5" />
-                          Save PNG
-                        </a>
+                          Save Official Badge (PNG)
+                        </Button>
                       )}
-                      <Button onClick={printPass} className="w-full text-xs py-2.5">
-                        <Printer className="size-3.5 mr-1" />
-                        Print Pass
+                      <Button onClick={printPass} className="w-full text-xs h-10 gap-2 font-medium">
+                        <Printer className="size-3.5" />
+                        Print Official Pass
                       </Button>
                     </div>
                   </CardContent>

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PublicFooter } from "@/components/PublicFooter";
+import qrollLogo from "@/assets/qroll-logo.png";
 
 export const Route = createFileRoute("/portal/$token/register")({
   ssr: false,
@@ -290,72 +291,156 @@ function RegisterPage() {
     }
   };
 
-  const downloadPng = () => {
-    const a = document.createElement("a");
-    a.href = qrDataUrl;
-    a.download = `${created!.index_number}-qr.png`;
-    a.click();
+  const downloadPng = async () => {
+    if (!created || !qrDataUrl) return;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 760;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 600, 760);
+
+      // Top brand header
+      ctx.fillStyle = "#1e3a8a";
+      ctx.fillRect(0, 0, 600, 90);
+
+      // Draw QRoll logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise((resolve) => {
+        logoImg.onload = () => {
+          try {
+            ctx.drawImage(logoImg, 30, 20, 50, 50);
+          } catch {
+            // ignore
+          }
+          resolve(true);
+        };
+        logoImg.onerror = () => resolve(true);
+        logoImg.src = qrollLogo;
+      });
+
+      // Header text
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText("QRoll Student QR Pass", 95, 46);
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillText("Official Attendance Identification", 95, 68);
+
+      // Student info
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 26px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(created.full_name, 300, 140);
+
+      ctx.fillStyle = "#1e3a8a";
+      ctx.font = "bold 18px monospace";
+      ctx.fillText(`INDEX: ${created.index_number}`, 300, 175);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(`Level ${created.level} · ${created.department}`, 300, 202);
+
+      // Draw QR Code
+      const qrImg = new Image();
+      await new Promise((resolve) => {
+        qrImg.onload = () => {
+          ctx.drawImage(qrImg, 110, 230, 380, 380);
+          resolve(true);
+        };
+        qrImg.onerror = () => resolve(true);
+        qrImg.src = qrDataUrl;
+      });
+
+      // Footer
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px sans-serif";
+      ctx.fillText("Show this QR to lecturer or scan projector QR to check in", 300, 670);
+      ctx.fillText("Powered by QRoll · Verified University System", 300, 695);
+
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `QRoll-${created.index_number}-badge.png`;
+      a.click();
+    } catch {
+      const a = document.createElement("a");
+      a.href = qrDataUrl;
+      a.download = `${created!.index_number}-qr.png`;
+      a.click();
+    }
   };
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
-      <div className="flex-1 flex flex-col items-center p-6">
-        <div className="w-full max-w-md mt-4 mb-4">
+      <div className="flex-1 flex flex-col items-center p-3 sm:p-6 w-full max-w-[360px] sm:max-w-md mx-auto">
+        <div className="w-full flex items-center justify-between mt-2 mb-4">
           <Link to="/portal/$token" params={{ token }}>
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="size-4 mr-1" />
-              Back to portal
+            <Button variant="ghost" size="sm" className="text-xs h-8 px-2">
+              <ArrowLeft className="size-3.5 mr-1" />
+              Back
             </Button>
           </Link>
+          <div className="flex items-center gap-1.5">
+            <img src={qrollLogo} alt="QRoll" className="size-6 object-contain" />
+            <span className="font-bold text-xs tracking-tight text-foreground">QRoll Portal</span>
+          </div>
         </div>
 
         {!created ? (
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="size-5 text-primary" /> New student registration
+          <Card className="w-full shadow-sm">
+            <CardHeader className="p-4 sm:p-6 pb-3">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <UserPlus className="size-4 sm:size-5 text-primary" /> New student registration
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 Register yourself once. You will be added to your class automatically and get your
                 personal QR code.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <form onSubmit={handleFormSubmit} className="space-y-3">
-                <div>
-                  <Label>Full name</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Full name</Label>
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="e.g. John Doe"
                     required
+                    className="h-10 text-sm"
                   />
                 </div>
-                <div>
-                  <Label>Index number</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Index number</Label>
                   <Input
                     value={index}
                     onChange={(e) => setIndex(e.target.value)}
                     placeholder="e.g. 20700000"
                     required
+                    className="h-10 text-sm font-mono uppercase"
                   />
                 </div>
-                <div>
-                  <Label>Email</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Email</Label>
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="student@example.com"
                     required
+                    className="h-10 text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label>Level</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Level</Label>
                     <Select value={level} onValueChange={setLevel} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
+                      <SelectTrigger className="h-10 text-sm">
+                        <SelectValue placeholder="Select level" />
                       </SelectTrigger>
                       <SelectContent>
                         {levels.map((l) => (
@@ -366,10 +451,10 @@ function RegisterPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Department</Label>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Department</Label>
                     <Select value={departmentId} onValueChange={setDepartmentId}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 text-sm">
                         <SelectValue placeholder="Department" />
                       </SelectTrigger>
                       <SelectContent>
@@ -382,12 +467,13 @@ function RegisterPage() {
                     </Select>
                   </div>
                 </div>
-                <div>
-                  <Label>Program / Major (optional)</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Program / Major (optional)</Label>
                   <Input
                     value={program}
                     onChange={(e) => setProgram(e.target.value)}
                     placeholder="e.g. BSc Computer Science"
+                    className="h-10 text-sm"
                   />
                 </div>
 
@@ -400,27 +486,33 @@ function RegisterPage() {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full h-10 font-semibold" disabled={loading}>
                   {loading ? "Checking details..." : "Review & Register"}
                 </Button>
               </form>
             </CardContent>
           </Card>
         ) : (
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>{created.full_name}</CardTitle>
-              <CardDescription>
+          <Card className="w-full shadow-sm">
+            <CardHeader className="p-4 sm:p-6 text-center">
+              <CardTitle className="text-lg font-bold">{created.full_name}</CardTitle>
+              <CardDescription className="text-xs">
                 {created.index_number} · Level {created.level} · {created.department}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center p-4 bg-white rounded-lg border">
-                <img src={qrDataUrl} alt="Student QR Code" className="size-64" />
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
+              <div className="flex justify-center p-3 bg-white rounded-xl border shadow-inner">
+                <img
+                  src={qrDataUrl}
+                  alt="Student QR Code"
+                  className="size-56 max-w-full object-contain"
+                />
               </div>
-              <Button onClick={downloadPng} className="w-full">
-                <Download className="size-4 mr-1" /> Download PNG
-              </Button>
+              <div className="flex flex-col gap-2.5 w-full">
+                <Button onClick={downloadPng} className="w-full h-10 font-semibold">
+                  <Download className="size-4 mr-2" /> Download Branded Badge (PNG)
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground text-center">
                 Save this image to your phone gallery. You can show it in any lecture session to
                 verify attendance.

@@ -12,7 +12,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 
-export const MAX_DEVICES_PER_ACCOUNT = 4;
+export const MAX_DEVICES_PER_ACCOUNT = 6;
 
 export interface UserDevice {
   id: string; // `${userId}_${deviceId}`

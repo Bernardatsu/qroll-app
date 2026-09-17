@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import {
   Select,
   SelectContent,
@@ -109,7 +110,8 @@ function ScanPage() {
   const recentScans = useRef<Map<string, number>>(new Map());
   const inFlight = useRef<Set<string>>(new Set());
 
-  const currentUid = firebaseAuth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUid = user?.id || firebaseAuth.currentUser?.uid;
 
   // Clear any residual offline scan storage from previous versions immediately
   useEffect(() => {
@@ -123,21 +125,43 @@ function ScanPage() {
   const { data: openSessions } = useQuery({
     queryKey: ["open-sessions", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
       const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-      const [sessSnap, coursesSnap] = await Promise.all([
-        getDocs(
-          query(
-            collection(firestoreDb, "attendance_sessions"),
-            where("owner_id", "==", currentUid),
-            where("status", "==", "OPEN"),
-          ),
-        ),
-        getDocs(query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid))),
-      ]);
-      const courseMap = new Map(coursesSnap.docs.map((d) => [d.id, d.data() as any]));
+      let sessDocs: any[] = [];
+      if (currentUid) {
+        try {
+          const sessSnap = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_sessions"),
+              where("owner_id", "==", currentUid),
+              where("status", "==", "OPEN"),
+            ),
+          );
+          sessDocs = sessSnap.docs;
+        } catch (e) {
+          console.warn("Owner session query error:", e);
+        }
+      }
+      if (sessDocs.length === 0) {
+        try {
+          const allOpenSnap = await getDocs(
+            query(collection(firestoreDb, "attendance_sessions"), where("status", "==", "OPEN")),
+          );
+          sessDocs = allOpenSnap.docs;
+        } catch (e) {
+          console.warn("All open session query error:", e);
+        }
+      }
+
+      let courseMap = new Map<string, any>();
+      try {
+        const coursesSnap = await getDocs(collection(firestoreDb, "courses"));
+        courseMap = new Map(coursesSnap.docs.map((d) => [d.id, d.data() as any]));
+      } catch (e) {
+        console.warn("Courses fetch warning:", e);
+      }
+
       const list = await Promise.all(
-        sessSnap.docs.map(async (d) => {
+        sessDocs.map(async (d) => {
           const data = d.data() as any;
           if (data.starts_at && data.starts_at < cutoff) {
             try {
@@ -164,7 +188,6 @@ function ScanPage() {
         .filter((s) => s.status === "OPEN")
         .sort((a, b) => (b.starts_at || "").localeCompare(a.starts_at || ""));
     },
-    enabled: !!currentUid,
   });
 
   const { data: session } = useQuery({
@@ -198,13 +221,27 @@ function ScanPage() {
   const { data: allStudents } = useQuery({
     queryKey: ["lecturer-students-all", currentUid],
     queryFn: async () => {
-      if (!currentUid) return [];
-      const studSnap = await getDocs(
-        query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
-      );
-      return studSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      let studDocs: any[] = [];
+      if (currentUid) {
+        try {
+          const studSnap = await getDocs(
+            query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+          );
+          studDocs = studSnap.docs;
+        } catch (e) {
+          console.warn("Students by owner query warning:", e);
+        }
+      }
+      if (studDocs.length === 0) {
+        try {
+          const allStudSnap = await getDocs(collection(firestoreDb, "students"));
+          studDocs = allStudSnap.docs;
+        } catch (e) {
+          console.warn("All students query warning:", e);
+        }
+      }
+      return studDocs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     },
-    enabled: !!currentUid,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -226,9 +263,9 @@ function ScanPage() {
 
   // Real-time attendance records for today's session
   const { data: records } = useQuery({
-    queryKey: ["records", activeSession, currentUid],
+    queryKey: ["records", activeSession],
     queryFn: async () => {
-      if (!activeSession || !currentUid) return [];
+      if (!activeSession) return [];
       const today = new Date().toISOString().slice(0, 10);
       const recSnap = await getDocs(
         query(
@@ -242,13 +279,18 @@ function ScanPage() {
       );
       const studentMap = new Map<string, any>();
       if (studentIds.length > 0) {
-        const sSnap = await getDocs(
-          query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+        const studentDocs = await Promise.all(
+          studentIds.map(async (sid) => {
+            try {
+              const sDoc = await getDoc(doc(firestoreDb, "students", sid));
+              return sDoc.exists() ? { id: sDoc.id, ...(sDoc.data() as any) } : null;
+            } catch {
+              return null;
+            }
+          }),
         );
-        sSnap.docs.forEach((d) => {
-          if (studentIds.includes(d.id)) {
-            studentMap.set(d.id, d.data() as any);
-          }
+        studentDocs.forEach((st) => {
+          if (st) studentMap.set(st.id, st);
         });
       }
       const list = recSnap.docs.map((d) => {
@@ -262,7 +304,7 @@ function ScanPage() {
       });
       return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     },
-    enabled: !!activeSession && !!currentUid,
+    enabled: !!activeSession,
     refetchInterval: 3000,
   });
 
@@ -370,6 +412,8 @@ function ScanPage() {
         return true;
       }
 
+      const authUid = user?.id || firebaseAuth.currentUser?.uid || sess.owner_id || "system";
+
       // 4. Auto-enroll student in course if not registered
       if (sess.course_id && registeredStudentIds && !registeredStudentIds.has(student.id)) {
         try {
@@ -377,7 +421,8 @@ function ScanPage() {
             course_id: sess.course_id,
             student_id: student.id,
             registered_at: new Date().toISOString(),
-            owner_id: sess.owner_id || currentUid,
+            owner_id: authUid || sess.owner_id || "system",
+            created_by: authUid || null,
           });
           registeredStudentIds.add(student.id);
         } catch (regErr: any) {
@@ -392,17 +437,21 @@ function ScanPage() {
       // 5. Check attendance record for today
       let existingRecord = scannedTodayMap.get(student.id);
       if (!existingRecord) {
-        // Double-check Firestore in case of recent write
-        const recSnap = await getDocs(
-          query(
-            collection(firestoreDb, "attendance_records"),
-            where("session_id", "==", sess.id),
-            where("student_id", "==", student.id),
-            where("session_date", "==", day),
-          ),
-        );
-        if (!recSnap.empty) {
-          existingRecord = { id: recSnap.docs[0].id, ...(recSnap.docs[0].data() as any) };
+        try {
+          // Double-check Firestore in case of recent write
+          const recSnap = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_records"),
+              where("session_id", "==", sess.id),
+              where("student_id", "==", student.id),
+              where("session_date", "==", day),
+            ),
+          );
+          if (!recSnap.empty) {
+            existingRecord = { id: recSnap.docs[0].id, ...(recSnap.docs[0].data() as any) };
+          }
+        } catch (recLookupErr) {
+          console.warn("Record lookup warning:", recLookupErr);
         }
       }
 
@@ -414,8 +463,9 @@ function ScanPage() {
           session_date: day,
           check_in_at: at,
           status: singleScanMode ? "PRESENT" : "IN_PROGRESS",
-          scanned_by: currentUid ?? null,
-          owner_id: sess.owner_id || currentUid,
+          scanned_by: authUid,
+          owner_id: sess.owner_id || authUid,
+          created_by: authUid,
           created_at: at,
         });
 
@@ -483,7 +533,7 @@ function ScanPage() {
       }
 
       // Instantly refresh attendance table
-      qc.invalidateQueries({ queryKey: ["records", activeSession, currentUid] });
+      qc.invalidateQueries({ queryKey: ["records", activeSession] });
       return true;
     } catch (err: any) {
       console.error("Scan processing error:", err);
@@ -736,12 +786,33 @@ function ScanPage() {
               )}
             </div>
 
-            <div className="text-xs text-center text-muted-foreground min-h-[1.25rem]">
-              <span
-                className={scanning ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}
-              >
-                {status}
-              </span>
+            <div className="text-xs text-center min-h-[1.75rem] flex items-center justify-center">
+              {status.startsWith("Error:") ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 font-medium">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  <span className="truncate max-w-[280px]">{status.replace(/^Error:\s*/, "")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setStatus(scanning ? "Scanning for passes…" : "Ready")}
+                    className="ml-1 text-[11px] underline opacity-80 hover:opacity-100"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ) : (
+                <span
+                  className={
+                    scanning
+                      ? "inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {scanning && (
+                    <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  )}
+                  {status}
+                </span>
+              )}
             </div>
 
             {/* Last Scan Confirmation Banner */}

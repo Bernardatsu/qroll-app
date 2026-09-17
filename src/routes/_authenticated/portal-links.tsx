@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import qrollLogo from "@/assets/qroll-logo.png";
 
 export const Route = createFileRoute("/_authenticated/portal-links")({
   head: () => ({ meta: [{ title: "Student QR Portal — QRoll" }] }),
@@ -133,92 +134,163 @@ export function PortalLinksPage() {
     toast.success("New portal link generated successfully!");
   };
 
-  const downloadQr = () => {
+  const downloadQr = async () => {
     if (!qrDataUrl) return;
-    const a = document.createElement("a");
-    a.href = qrDataUrl;
-    a.download = `qroll-student-portal-qr.png`;
-    a.click();
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 540;
+      canvas.height = 680;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 540, 680);
+
+      // Top brand header
+      ctx.fillStyle = "#1e3a8a";
+      ctx.fillRect(0, 0, 540, 84);
+
+      // Draw QRoll logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise((resolve) => {
+        logoImg.onload = () => {
+          try {
+            ctx.drawImage(logoImg, 24, 18, 48, 48);
+          } catch {
+            // ignore
+          }
+          resolve(true);
+        };
+        logoImg.onerror = () => resolve(true);
+        logoImg.src = qrollLogo;
+      });
+
+      // Header text
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText("QRoll Student Portal QR", 84, 42);
+      ctx.font = "12px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillText("Scan to access course registration & attendance", 84, 62);
+
+      // Draw QR Code
+      const qrImg = new Image();
+      await new Promise((resolve) => {
+        qrImg.onload = () => {
+          ctx.drawImage(qrImg, 70, 110, 400, 400);
+          resolve(true);
+        };
+        qrImg.onerror = () => resolve(true);
+        qrImg.src = qrDataUrl;
+      });
+
+      // Footer info
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Scan with your phone camera to open portal", 270, 540);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px monospace";
+      ctx.fillText(url, 270, 570);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("Powered by QRoll Attendance System", 270, 635);
+
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `qroll-student-portal-qr.png`;
+      a.click();
+    } catch {
+      const a = document.createElement("a");
+      a.href = qrDataUrl;
+      a.download = `qroll-student-portal-qr.png`;
+      a.click();
+    }
   };
 
   return (
     <AppShell>
-      <div className="max-w-4xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-              <Share2 className="size-6 text-primary" /> Student QR Portal
+      <div className="max-w-xl mx-auto space-y-6 w-full px-1 sm:px-2">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+              <Share2 className="size-5 text-primary shrink-0" /> Student QR Portal
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Share this permanent link or display the QR code in class so students can retrieve
-              their personal QR passes.
-            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRegenerate}
+              disabled={loading || regenerating}
+              className="text-xs shrink-0"
+            >
+              <RefreshCw className={`size-3.5 mr-1.5 ${regenerating ? "animate-spin" : ""}`} />
+              Regenerate
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRegenerate}
-            disabled={loading || regenerating}
-            className="self-start sm:self-auto text-xs"
-          >
-            <RefreshCw className={`size-3.5 mr-1.5 ${regenerating ? "animate-spin" : ""}`} />
-            Regenerate Link
-          </Button>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            Share this link or project the QR code in class so students can look up their records
+            and retrieve their personal QR passes.
+          </p>
         </div>
 
-        {/* Main Link & QR Card */}
-        <div className="grid gap-6 md:grid-cols-5">
-          <Card className="md:col-span-3 border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Your Active Student QR Portal Link</CardTitle>
-              <CardDescription>
-                Students use this link to look up their record by index number and download their
-                badge.
+        {/* Main Stacked Cards - Vertical layout for mobile compatibility */}
+        <div className="flex flex-col gap-5 w-full">
+          {/* Active Link Card */}
+          <Card className="border-border shadow-xs w-full overflow-hidden">
+            <CardHeader className="p-4 sm:p-5 pb-3">
+              <CardTitle className="text-sm sm:text-base">Active Student Portal Link</CardTitle>
+              <CardDescription className="text-xs">
+                Students use this link to find their record and download their attendance pass.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-4 pt-0 sm:p-5 sm:pt-0 space-y-3.5">
               {url ? (
                 <>
-                  <div className="p-3.5 rounded-lg border bg-muted/40 font-mono text-sm break-all select-all flex items-center justify-between gap-2">
-                    <span className="truncate">{url}</span>
+                  {/* Shortened, wrapped link container */}
+                  <div className="p-3 rounded-lg border bg-muted/40 font-mono text-xs break-all select-all flex flex-col gap-1 w-full max-w-full overflow-hidden">
+                    <span className="text-[10px] uppercase font-sans font-bold text-muted-foreground tracking-wider">
+                      Direct Link
+                    </span>
+                    <span className="text-primary font-medium break-all">{url}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={copy} className="flex-1 sm:flex-initial">
+
+                  {/* Vertical stack of actions - NOT side-by-side on mobile */}
+                  <div className="flex flex-col gap-2 w-full">
+                    <Button onClick={copy} className="w-full h-10 font-medium">
                       {copied ? (
-                        <Check className="size-4 mr-1.5 text-emerald-300" />
+                        <Check className="size-4 mr-2 text-emerald-300" />
                       ) : (
-                        <Copy className="size-4 mr-1.5" />
+                        <Copy className="size-4 mr-2" />
                       )}
-                      {copied ? "Copied!" : "Copy Link"}
+                      {copied ? "Copied to Clipboard!" : "Copy Portal Link"}
                     </Button>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 sm:flex-initial"
-                    >
-                      <Button variant="outline" className="w-full">
-                        <ExternalLink className="size-4 mr-1.5" /> Test Portal
+                    <a href={url} target="_blank" rel="noreferrer" className="w-full">
+                      <Button variant="outline" className="w-full h-10 font-medium">
+                        <ExternalLink className="size-4 mr-2" /> Open Test Portal
                       </Button>
                     </a>
                   </div>
 
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-xs space-y-2 text-foreground">
-                    <div className="font-semibold text-primary flex items-center gap-1.5">
-                      <ShieldCheck className="size-4" /> Portal Protection & Scope
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3.5 text-xs space-y-1.5 text-foreground">
+                    <div className="font-semibold text-primary flex items-center gap-1.5 text-xs">
+                      <ShieldCheck className="size-3.5" /> Portal Protection & Scope
                     </div>
-                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground leading-relaxed">
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground text-[11px] leading-relaxed">
                       <li>
                         <b>Multi-Course Support:</b> This link stays active indefinitely for all
-                        courses you create.
+                        your courses.
                       </li>
                       <li>
                         <b>Privacy Guaranteed:</b> Only students uploaded to your courses can look
                         themselves up.
                       </li>
                       <li>
-                        <b>Token Identifier:</b>{" "}
-                        <code className="font-mono bg-background px-1 py-0.5 rounded border">
+                        <b>Token:</b>{" "}
+                        <code className="font-mono bg-background px-1 py-0.5 rounded border text-[10px]">
                           {token}
                         </code>
                       </li>
@@ -228,7 +300,7 @@ export function PortalLinksPage() {
               ) : (
                 <div className="py-8 text-center space-y-3">
                   <RefreshCw className="size-6 mx-auto animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Preparing your secure student portal link...
                   </p>
                 </div>
@@ -237,32 +309,39 @@ export function PortalLinksPage() {
           </Card>
 
           {/* QR Code Card for Class Projection */}
-          <Card className="md:col-span-2 border-border shadow-sm flex flex-col justify-between">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-base flex items-center justify-center gap-1.5">
+          <Card className="border-border shadow-xs flex flex-col items-center w-full">
+            <CardHeader className="text-center p-4 sm:p-5 pb-2 w-full">
+              <CardTitle className="text-sm sm:text-base flex items-center justify-center gap-1.5">
                 <QrCode className="size-4 text-primary" /> Project In Class
               </CardTitle>
               <CardDescription className="text-xs">
-                Students can scan this directly from your screen.
+                Display on screen so students can scan directly with their phone camera.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center space-y-3 pb-6">
+            <CardContent className="flex flex-col items-center justify-center space-y-3 p-4 pt-0 sm:p-5 sm:pt-0 pb-5 w-full">
               {qrDataUrl ? (
                 <>
                   <div className="p-3 bg-white rounded-xl shadow-inner border border-slate-200">
                     <img
                       src={qrDataUrl}
                       alt="Student Portal QR Code"
-                      className="size-48 object-contain"
+                      className="size-44 sm:size-48 object-contain"
                       referrerPolicy="no-referrer"
                     />
                   </div>
-                  <Button variant="outline" size="sm" onClick={downloadQr} className="text-xs">
-                    <Download className="size-3.5 mr-1.5" /> Download QR Code
-                  </Button>
+                  <div className="flex flex-col gap-2 w-full">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadQr}
+                      className="w-full h-10 text-xs font-medium"
+                    >
+                      <Download className="size-3.5 mr-2" /> Download Branded QR Code
+                    </Button>
+                  </div>
                 </>
               ) : (
-                <div className="h-48 grid place-items-center text-xs text-muted-foreground">
+                <div className="h-44 grid place-items-center text-xs text-muted-foreground">
                   Generating QR Code...
                 </div>
               )}
@@ -271,20 +350,18 @@ export function PortalLinksPage() {
         </div>
 
         {/* Student Hub Info Banner */}
-        <div className="p-4 rounded-xl border bg-card text-foreground flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-3.5 rounded-xl border bg-card text-foreground flex flex-col gap-2.5">
           <div className="space-y-0.5">
-            <h4 className="font-semibold text-sm">
-              Have students enrolled with multiple lecturers?
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              Direct them to the <b>Central Student Portal</b> (
-              <code className="font-mono">/student</code>) where they can track coursework,
-              assignments, and attendance across all their lecturers.
+            <h4 className="font-semibold text-xs sm:text-sm">Enrolled with multiple lecturers?</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Direct students to the <b>Central Student Portal</b> (
+              <code className="font-mono">/student</code>) to track attendance, assignments, and
+              academic standings across all courses.
             </p>
           </div>
-          <a href="/student" target="_blank" rel="noreferrer" className="shrink-0">
-            <Button variant="outline" size="sm" className="text-xs">
-              Open Student Portal <ExternalLink className="size-3.5 ml-1.5" />
+          <a href="/student" target="_blank" rel="noreferrer" className="w-full">
+            <Button variant="outline" size="sm" className="w-full h-9 text-xs">
+              Open Central Student Portal <ExternalLink className="size-3.5 ml-1.5" />
             </Button>
           </a>
         </div>

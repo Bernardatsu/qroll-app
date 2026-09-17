@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
 import { useAuth } from "@/lib/auth";
+import qrollLogo from "@/assets/qroll-logo.png";
 import {
   collection,
   getDocs,
@@ -302,7 +303,7 @@ function SessionsPage() {
     const w = window.open("", "_blank");
     if (!w) return toast.error("Allow popups to project in a new window");
     w.document.write(
-      `<html><head><title>Project Check-in QR</title><meta name="viewport" content="width=device-width,initial-scale=1" /><style>body{margin:0;background:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;color:#12294a;padding:24px;box-sizing:border-box}h1{margin:8px 0;font-size:28px}p{color:#555;margin:4px 0 16px;font-size:18px;text-align:center}img{max-width:80vmin;max-height:65vmin;box-shadow:0 4px 20px rgba(0,0,0,0.08);border-radius:12px;padding:8px}button{margin-top:20px;background:#12294a;color:#fff;border:0;padding:12px 24px;font-size:16px;border-radius:8px;cursor:pointer}button.close-x{position:fixed;top:12px;right:12px;background:#c00;padding:8px 14px;margin:0;font-weight:bold}</style></head><body><button class="close-x" onclick="window.close()">✕ Close</button><h1>${projecting.code} — Scan to Check In</h1><p>Point your phone camera, tap the link, allow location, and enter your index number.</p><img src="${projecting.dataUrl}" /><p style="margin-top:16px;font-size:14px;word-break:break-all;color:#777">${projecting.url}</p><button onclick="window.close()">Close Window</button></body></html>`,
+      `<html><head><title>Project Check-in QR — QRoll</title><meta name="viewport" content="width=device-width,initial-scale=1" /><style>body{margin:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;color:#12294a;padding:24px;box-sizing:border-box}.logo{height:44px;object-fit:contain;margin-bottom:12px}h1{margin:4px 0 8px;font-size:28px}p{color:#475569;margin:4px 0 16px;font-size:16px;text-align:center;max-width:500px}img.qr{max-width:80vmin;max-height:65vmin;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.08);border-radius:16px;padding:12px;border:1px solid #e2e8f0}button{margin-top:20px;background:#12294a;color:#fff;border:0;padding:12px 24px;font-size:16px;border-radius:8px;cursor:pointer;font-weight:600}button.close-x{position:fixed;top:12px;right:12px;background:#dc2626;padding:8px 14px;margin:0;font-weight:bold;color:#fff;border-radius:6px}</style></head><body><button class="close-x" onclick="window.close()">✕ Close</button><img src="${qrollLogo}" class="logo" alt="QRoll Logo" /><h1>${projecting.code} — Scan to Check In</h1><p>Point your phone camera, tap the link, allow GPS location, and enter your index number.</p><img class="qr" src="${projecting.dataUrl}" /><p style="margin-top:16px;font-size:14px;word-break:break-all;color:#64748b">${projecting.url}</p><button onclick="window.close()">Close Window</button></body></html>`,
     );
     w.document.close();
   };
@@ -515,7 +516,12 @@ function SessionsPage() {
       {/* Parent QR Code Classroom Projector Dialog */}
       <Dialog open={!!projecting} onOpenChange={(v) => !v && setProjecting(null)}>
         <DialogContent className="max-w-lg text-center">
-          <DialogHeader>
+          <DialogHeader className="flex flex-col items-center">
+            <img
+              src={qrollLogo}
+              alt="QRoll Logo"
+              className="h-10 w-auto object-contain mx-auto mb-2"
+            />
             <DialogTitle className="text-xl font-bold">
               {projecting?.code} — Projector Check-In QR
             </DialogTitle>
