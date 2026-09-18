@@ -693,6 +693,36 @@ export const Route = createFileRoute("/api/public/student-auth")({
                 return dueA - dueB;
               });
 
+            // Fetch notifications history for this student
+            let studentNotifications: any[] = [];
+            try {
+              const allNotifs = await queryCollectionRest("notifications");
+              studentNotifications = allNotifs
+                .filter(
+                  (n: any) =>
+                    n.userId === studentId ||
+                    allStudentIds.includes(n.userId) ||
+                    n.userId === cleanIndex ||
+                    n.userId === "all_students",
+                )
+                .map((n: any) => ({
+                  id: n.id,
+                  type: n.type || "GENERAL",
+                  title: n.title,
+                  body: n.body,
+                  url: n.url,
+                  is_read: Boolean(n.isRead),
+                  created_at: n.createdAt || n.created_at || "",
+                }))
+                .sort(
+                  (a: any, b: any) =>
+                    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+                )
+                .slice(0, 50);
+            } catch {
+              studentNotifications = [];
+            }
+
             return Response.json({
               student: {
                 id: studentId,
@@ -708,6 +738,7 @@ export const Route = createFileRoute("/api/public/student-auth")({
               announcements: notices,
               assignments,
               history,
+              notifications: studentNotifications,
             });
           }
 

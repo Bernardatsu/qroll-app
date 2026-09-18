@@ -38,6 +38,9 @@ import {
   School,
   BookCheck,
   Printer,
+  Smartphone,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
@@ -45,6 +48,12 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { calculateAttendanceGrade } from "@/lib/grading";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationSettingsSection } from "@/components/NotificationSettingsSection";
+import {
+  requestAndRegisterPushToken,
+  setupForegroundNotificationListener,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "@/lib/fcm-client";
 import qrollLogo from "@/assets/qroll-logo.png";
 import studentsBanner from "@/assets/students-banner-fast.webp";
 
@@ -141,26 +150,85 @@ interface AssignmentItem {
   created_at: string;
 }
 
+interface PortalNotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  url?: string;
+  isRead?: boolean;
+  is_read?: boolean;
+  createdAt?: string;
+  created_at?: string;
+}
+
 type AuthStep = "index" | "create" | "login" | "reset";
 
+function getInitialStoredSession() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(STORE) || localStorage.getItem(STORE);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // Ignore invalid JSON
+  }
+  return null;
+}
+
+function persistStudentSession(data: any) {
+  if (typeof window === "undefined") return;
+  try {
+    const serialized = JSON.stringify(data);
+    sessionStorage.setItem(STORE, serialized);
+    localStorage.setItem(STORE, serialized);
+  } catch (e) {
+    console.warn("Session persist warning:", e);
+  }
+}
+
+function clearStudentSession() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(STORE);
+    localStorage.removeItem(STORE);
+  } catch (e) {
+    console.warn("Session clear warning:", e);
+  }
+}
+
 function StudentPortalPage() {
-  const [step, setStep] = useState<AuthStep>("index");
-  const [index, setIndex] = useState("");
+  const [initialSession] = useState(getInitialStoredSession);
+  const [step, setStep] = useState<AuthStep>(() => (initialSession?.student ? "login" : "index"));
+  const [index, setIndex] = useState(() => initialSession?.i || "");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(() => initialSession?.p || "");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [hasEmail, setHasEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Authenticated State
-  const [me, setMe] = useState<StudentMe | null>(null);
+  // Authenticated State (preserved until browser tab is closed)
+  const [me, setMe] = useState<StudentMe | null>(() => initialSession?.student || null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const [courses, setCourses] = useState<CourseAttendanceRow[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [announcements, setAnnouncements] = useState<NoticeItem[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [courses, setCourses] = useState<CourseAttendanceRow[]>(
+    () => initialSession?.courses || [],
+  );
+  const [history, setHistory] = useState<HistoryItem[]>(() => initialSession?.history || []);
+  const [announcements, setAnnouncements] = useState<NoticeItem[]>(
+    () => initialSession?.announcements || [],
+  );
+  const [assignments, setAssignments] = useState<AssignmentItem[]>(
+    () => initialSession?.assignments || [],
+  );
+  const [notifications, setNotifications] = useState<PortalNotificationItem[]>(
+    () => initialSession?.notifications || [],
+  );
   const [activeTab, setActiveTab] = useState<string>("attendance");
+  const [notifCategoryFilter, setNotifCategoryFilter] = useState<string>("ALL");
+  const [pushPermission, setPushPermission] = useState<string>(() =>
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default",
+  );
+  const [enablingPush, setEnablingPush] = useState(false);
 
   // Account Settings state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -285,17 +353,37 @@ function StudentPortalPage() {
     }
   };
 
+  // Auto-register device push token whenever user has granted permission
+  useEffect(() => {
+    if (me && typeof window !== "undefined" && "Notification" in window) {
+      setPushPermission(Notification.permission);
+      if (Notification.permission === "granted") {
+        requestAndRegisterPushToken({
+          id: me.id,
+          role: "student",
+          indexNumber: me.index_number,
+          email: me.email,
+        }).catch((err) => {
+          console.warn("[StudentPortal] Auto push token update:", err);
+        });
+      }
+    }
+  }, [me]);
+
   // Session auto-restore on page load
   useEffect(() => {
-    const raw = sessionStorage.getItem(STORE);
+    const raw =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem(STORE) || localStorage.getItem(STORE)
+        : null;
     if (!raw) return;
     try {
-      const { i, p } = JSON.parse(raw);
-      if (i && p) {
-        void executeSignIn(i, p, true);
+      const parsed = JSON.parse(raw);
+      if (parsed.i && parsed.p) {
+        void executeSignIn(parsed.i, parsed.p, true);
       }
     } catch {
-      sessionStorage.removeItem(STORE);
+      clearStudentSession();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -322,15 +410,29 @@ function StudentPortalPage() {
       setHistory(data.history || []);
       setAnnouncements(data.announcements || []);
       setAssignments(data.assignments || []);
+      if (Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+      }
+
+      // Persist full snapshot so student stays logged in across reloads
+      persistStudentSession({
+        i: indexNum,
+        p: pass,
+        student: data.student,
+        courses: data.courses || [],
+        history: data.history || [],
+        announcements: data.announcements || [],
+        assignments: data.assignments || [],
+        notifications: data.notifications || [],
+      });
     } catch (err: any) {
       console.error("Failed to load student data:", err);
-      toast.error(err?.message || "Failed to load portal data");
     }
   };
 
   const executeSignIn = async (indexNum: string, pass: string, silent = false) => {
     try {
-      setBusy(true);
+      if (!silent) setBusy(true);
       const data = await callApi({ action: "login", index: indexNum, password: pass });
       if (!data.ok || !data.student) {
         if (data.needs_password_setup) {
@@ -345,7 +447,11 @@ function StudentPortalPage() {
         return false;
       }
 
-      sessionStorage.setItem(STORE, JSON.stringify({ i: indexNum, p: pass }));
+      persistStudentSession({
+        i: indexNum,
+        p: pass,
+        student: data.student,
+      });
       setIndex(indexNum);
       setPassword(pass);
       setMe(data.student);
@@ -364,6 +470,117 @@ function StudentPortalPage() {
       return false;
     }
   };
+
+  // Real-time listener for incoming push notifications and periodic background refresh
+  useEffect(() => {
+    if (!me || !index || !password) return;
+
+    // Refresh inbox on incoming foreground push
+    const cleanup = setupForegroundNotificationListener(() => {
+      void fetchStudentData(index, password);
+    });
+
+    // Background interval to keep announcements, assignments, and notifications fresh
+    const interval = setInterval(() => {
+      void fetchStudentData(index, password);
+    }, 30000);
+
+    return () => {
+      cleanup();
+      clearInterval(interval);
+    };
+  }, [me, index, password]);
+
+  // Handle service worker notification click communication
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "QROLL_NOTIFICATION_CLICK") {
+        const notifData = event.data.data || {};
+        if (notifData.type === "ANNOUNCEMENT") {
+          setActiveTab("announcements");
+        } else if (notifData.type === "ASSIGNMENT") {
+          setActiveTab("assignments");
+        } else if (notifData.type === "ATTENDANCE") {
+          setActiveTab("attendance");
+        } else {
+          setActiveTab("notifications");
+        }
+        if (index && password) {
+          void fetchStudentData(index, password);
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, [index, password]);
+
+  // Request & register browser push notification permission
+  const handleEnablePush = async () => {
+    if (!me) return;
+    setEnablingPush(true);
+    try {
+      const res = await requestAndRegisterPushToken({
+        id: me.id,
+        role: "student",
+        indexNumber: me.index_number,
+        email: me.email,
+      });
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setPushPermission(Notification.permission);
+      }
+      if (res.permission === "granted") {
+        toast.success(
+          "Phone notifications enabled! You'll now receive alerts directly on your device.",
+        );
+      } else if (res.permission === "denied") {
+        toast.error(
+          "Notifications are blocked in your browser settings. Please allow notifications for QRoll.",
+        );
+      } else {
+        toast.info("Notification prompt dismissed. You can enable them anytime.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to enable notifications");
+    } finally {
+      setEnablingPush(false);
+    }
+  };
+
+  const unreadNotifCount = useMemo(() => {
+    return notifications.filter((n) => !n.isRead && !n.is_read).length;
+  }, [notifications]);
+
+  const handleMarkNotifRead = async (notifId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, isRead: true, is_read: true } : n)),
+    );
+    try {
+      await markNotificationAsRead(notifId);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMarkAllNotifsRead = async () => {
+    if (!me) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, is_read: true })));
+    try {
+      await markAllNotificationsAsRead(me.id);
+      toast.success("All notifications marked as read");
+    } catch {
+      toast.error("Could not mark all as read");
+    }
+  };
+
+  const filteredNotifications = useMemo(() => {
+    if (notifCategoryFilter === "ALL") return notifications;
+    return notifications.filter(
+      (n) => (n.type || "GENERAL").toUpperCase() === notifCategoryFilter.toUpperCase(),
+    );
+  }, [notifications, notifCategoryFilter]);
 
   const handleDirectRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -596,8 +813,17 @@ function StudentPortalPage() {
       }
 
       toast.success("Password changed successfully!");
-      // Update session storage with new password
-      sessionStorage.setItem(STORE, JSON.stringify({ i: index.trim(), p: newPassword }));
+      // Update session storage with new password and preserve student data
+      persistStudentSession({
+        i: index.trim(),
+        p: newPassword,
+        student: me,
+        courses,
+        history,
+        announcements,
+        assignments,
+        notifications,
+      });
       setPassword(newPassword);
       setCurrentPassword("");
       setNewPassword("");
@@ -609,7 +835,7 @@ function StudentPortalPage() {
   };
 
   const handleSignOut = () => {
-    sessionStorage.removeItem(STORE);
+    clearStudentSession();
     setMe(null);
     setPassword("");
     setConfirmPassword("");
@@ -618,6 +844,7 @@ function StudentPortalPage() {
     setHistory([]);
     setAnnouncements([]);
     setAssignments([]);
+    setNotifications([]);
     toast.info("Signed out from student portal");
   };
 
@@ -1381,10 +1608,41 @@ function StudentPortalPage() {
               </div>
             )}
 
+            {/* Push Notification Screen Alert Prompt Banner */}
+            {pushPermission !== "granted" && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in">
+                <div className="flex items-start gap-3">
+                  <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <BellRing className="size-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-foreground block">
+                      Enable Phone Lockscreen Notifications
+                    </span>
+                    <span className="text-muted-foreground text-xs leading-relaxed">
+                      Receive attendance check-in calls, lecturer announcements, and assignment
+                      deadlines directly on your phone screen even when this webapp is closed.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={handleEnablePush}
+                    disabled={enablingPush}
+                    className="text-xs h-8 gap-1.5 font-semibold bg-primary text-primary-foreground shadow-xs cursor-pointer"
+                  >
+                    <Smartphone className="size-3.5" />
+                    {enablingPush ? "Enabling..." : "Turn On Alerts"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Navigation Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
               <div className="overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 sm:overflow-visible">
-                <TabsList className="inline-flex sm:grid sm:grid-cols-4 lg:grid-cols-7 h-auto p-1 bg-muted/60 rounded-xl gap-1 min-w-max sm:min-w-full">
+                <TabsList className="inline-flex sm:grid sm:grid-cols-4 lg:grid-cols-8 h-auto p-1 bg-muted/60 rounded-xl gap-1 min-w-max sm:min-w-full">
                   <TabsTrigger
                     value="attendance"
                     className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap"
@@ -1424,6 +1682,27 @@ function StudentPortalPage() {
                     Assignments
                     {assignments.length > 0 && (
                       <span className="size-2 rounded-full bg-primary ml-0.5" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="notifications"
+                    className="text-xs py-2 data-[state=active]:bg-card data-[state=active]:shadow-xs gap-1.5 whitespace-nowrap relative"
+                  >
+                    <BellRing className="size-3.5" />
+                    Notifications
+                    {unreadNotifCount > 0 ? (
+                      <Badge
+                        variant="destructive"
+                        className="h-4 px-1.5 text-[10px] ml-0.5 rounded-full font-bold"
+                      >
+                        {unreadNotifCount}
+                      </Badge>
+                    ) : (
+                      notifications.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground ml-0.5">
+                          ({notifications.length})
+                        </span>
+                      )
                     )}
                   </TabsTrigger>
                   <TabsTrigger
@@ -2256,7 +2535,272 @@ function StudentPortalPage() {
               </TabsContent>
 
               {/* ------------------------------------------------------------- */}
-              {/* TAB 7: PASSWORD & ACCOUNT SETTINGS                            */}
+              {/* TAB 7: NOTIFICATION HISTORY & MOBILE SCREEN ALERTS            */}
+              {/* ------------------------------------------------------------- */}
+              <TabsContent value="notifications" className="space-y-4">
+                <Card className="border shadow-xs">
+                  <CardHeader className="pb-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                          <BellRing className="size-4 text-primary" />
+                          Student Notifications & Mobile Alerts
+                        </CardTitle>
+                        {unreadNotifCount > 0 && (
+                          <Badge variant="destructive" className="h-5 px-2 text-xs font-semibold">
+                            {unreadNotifCount} unread
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription className="text-xs mt-0.5">
+                        Official notices, attendance session calls, assignments and urgent class
+                        alerts.
+                      </CardDescription>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (index && password) void fetchStudentData(index, password);
+                        }}
+                        className="text-xs h-8 gap-1.5 cursor-pointer"
+                      >
+                        <RefreshCw className="size-3.5" />
+                        Refresh
+                      </Button>
+                      {unreadNotifCount > 0 && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleMarkAllNotifsRead}
+                          className="text-xs h-8 gap-1.5 font-medium cursor-pointer"
+                        >
+                          <Check className="size-3.5" />
+                          Mark All Read
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-4 sm:p-6 space-y-4">
+                    {/* Device Push Notification Screen Card */}
+                    <div className="p-4 rounded-xl border bg-muted/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            pushPermission === "granted"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400"
+                          }`}
+                        >
+                          <Smartphone className="size-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-foreground">
+                              Mobile Lockscreen & Screen Notifications
+                            </span>
+                            <Badge
+                              variant={pushPermission === "granted" ? "default" : "outline"}
+                              className="text-[10px] h-4.5 px-2"
+                            >
+                              {pushPermission === "granted" ? "Active on Phone" : "Not Enabled"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 max-w-xl leading-relaxed">
+                            {pushPermission === "granted"
+                              ? "Your device is registered. You will receive notifications directly on your phone screen even when QRoll is closed, provided you have an internet connection."
+                              : "Turn on notifications to receive class attendance calls, announcements, and assignment updates directly on your phone screen when the webapp is closed."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {pushPermission !== "granted" ? (
+                          <Button
+                            size="sm"
+                            onClick={handleEnablePush}
+                            disabled={enablingPush}
+                            className="text-xs h-8 gap-1.5 font-semibold bg-primary text-primary-foreground cursor-pointer"
+                          >
+                            <BellRing className="size-3.5" />
+                            {enablingPush ? "Enabling..." : "Enable Phone Alerts"}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleEnablePush}
+                            disabled={enablingPush}
+                            className="text-xs h-8 gap-1.5 cursor-pointer"
+                          >
+                            <RefreshCw className="size-3.5" />
+                            Sync Device Token
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Filter category tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-2">
+                      <span className="text-xs text-muted-foreground mr-1">Filter:</span>
+                      {[
+                        { id: "ALL", label: `All (${notifications.length})` },
+                        {
+                          id: "ANNOUNCEMENT",
+                          label: `Announcements (${notifications.filter((n) => (n.type || "").toUpperCase() === "ANNOUNCEMENT").length})`,
+                        },
+                        {
+                          id: "ASSIGNMENT",
+                          label: `Assignments (${notifications.filter((n) => (n.type || "").toUpperCase() === "ASSIGNMENT").length})`,
+                        },
+                        {
+                          id: "ATTENDANCE",
+                          label: `Attendance (${notifications.filter((n) => (n.type || "").toUpperCase() === "ATTENDANCE").length})`,
+                        },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setNotifCategoryFilter(tab.id)}
+                          className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                            notifCategoryFilter === tab.id
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Notifications List */}
+                    {filteredNotifications.length === 0 ? (
+                      <div className="py-12 text-center text-muted-foreground">
+                        <BellRing className="size-8 mx-auto mb-2 opacity-30" />
+                        <p className="font-semibold text-sm">No notifications found</p>
+                        <p className="text-xs mt-1 max-w-sm mx-auto">
+                          {notifCategoryFilter === "ALL"
+                            ? "You're all caught up! New announcements, assignments, and attendance calls will show up here."
+                            : "No notifications match this category filter."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {filteredNotifications.map((notif) => {
+                          const isUnread = !notif.isRead && !notif.is_read;
+                          const nType = (notif.type || "GENERAL").toUpperCase();
+                          return (
+                            <div
+                              key={notif.id}
+                              className={`p-3.5 rounded-xl border transition flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
+                                isUnread
+                                  ? "bg-primary/[0.03] border-primary/30"
+                                  : "bg-card border-border/80"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                                    nType === "ATTENDANCE"
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                                      : nType === "ANNOUNCEMENT"
+                                        ? "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400"
+                                        : nType === "ASSIGNMENT"
+                                          ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400"
+                                          : "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400"
+                                  }`}
+                                >
+                                  {nType === "ATTENDANCE" ? (
+                                    <CheckCircle2 className="size-4" />
+                                  ) : nType === "ANNOUNCEMENT" ? (
+                                    <Megaphone className="size-4" />
+                                  ) : nType === "ASSIGNMENT" ? (
+                                    <ClipboardList className="size-4" />
+                                  ) : (
+                                    <BellRing className="size-4" />
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-sm text-foreground">
+                                      {notif.title}
+                                    </span>
+                                    {isUnread && (
+                                      <span className="size-2 rounded-full bg-primary inline-block" />
+                                    )}
+                                    <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                                      {nType}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground leading-relaxed">
+                                    {notif.body}
+                                  </p>
+                                  <div className="text-[11px] text-muted-foreground/70 flex items-center gap-1.5 pt-0.5">
+                                    <Clock className="size-3" />
+                                    {notif.createdAt || notif.created_at
+                                      ? new Date(
+                                          notif.createdAt || notif.created_at!,
+                                        ).toLocaleString()
+                                      : "Recent"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                {isUnread && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMarkNotifRead(notif.id)}
+                                    className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+                                  >
+                                    Mark Read
+                                  </Button>
+                                )}
+                                {notif.url && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => {
+                                      handleMarkNotifRead(notif.id);
+                                      if (notif.url?.includes("tab=announcements")) {
+                                        setActiveTab("announcements");
+                                      } else if (notif.url?.includes("tab=assignments")) {
+                                        setActiveTab("assignments");
+                                      } else if (
+                                        notif.url?.includes("attendance") ||
+                                        notif.url?.includes("check-in")
+                                      ) {
+                                        if (notif.url.startsWith("/")) {
+                                          window.location.href = notif.url;
+                                        } else {
+                                          setActiveTab("attendance");
+                                        }
+                                      } else {
+                                        window.location.href = notif.url || "/student";
+                                      }
+                                    }}
+                                    className="text-xs h-7 px-2.5 gap-1 font-medium cursor-pointer"
+                                  >
+                                    <ExternalLink className="size-3" />
+                                    View
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* ------------------------------------------------------------- */}
+              {/* TAB 8: PASSWORD & ACCOUNT SETTINGS                            */}
               {/* ------------------------------------------------------------- */}
               <TabsContent value="settings" className="space-y-4">
                 <div className="grid gap-6 sm:grid-cols-2">

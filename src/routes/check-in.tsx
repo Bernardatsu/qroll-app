@@ -38,10 +38,24 @@ function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 }
 
 function CheckInPage() {
-  const { session } = Route.useSearch();
+  const { session: querySession } = Route.useSearch();
+  // Safe fallback to window location search if router param is not yet hydrated
+  const session =
+    querySession ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("session") || ""
+      : "");
+
   const [index, setIndex] = useState("");
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState<{ name: string; index: string; distance: number } | null>(null);
+  const [stepMessage, setStepMessage] = useState("");
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [done, setDone] = useState<{
+    name: string;
+    index: string;
+    distance: number;
+    alreadyPresent?: boolean;
+  } | null>(null);
 
   if (!session) {
     return (
@@ -62,32 +76,35 @@ function CheckInPage() {
 
   const getPos = () =>
     new Promise<GeolocationPosition>((res, rej) => {
-      if (!navigator.geolocation)
-        return rej(new Error("Geolocation is not supported on this device."));
+      if (!navigator.geolocation) {
+        return rej(new Error("Geolocation is not supported by your browser."));
+      }
+
+      // Fast acquisition: try standard accuracy first for quick indoor response
       navigator.geolocation.getCurrentPosition(
         res,
         (err) => {
-          // If high accuracy times out (common in concrete university lecture halls), retry with standard accuracy
-          if (err.code === err.TIMEOUT) {
-            navigator.geolocation.getCurrentPosition(res, rej, {
-              enableHighAccuracy: false,
-              timeout: 10000,
-              maximumAge: 15000,
-            });
-          } else if (err.code === err.PERMISSION_DENIED) {
+          if (err.code === err.PERMISSION_DENIED) {
             rej(
               new Error(
-                "Location access was denied. Please allow location permissions in your mobile browser to verify you are in class.",
+                "Location access was denied. Please allow location access in your browser or phone settings to check in.",
               ),
             );
+          } else if (err.code === err.TIMEOUT) {
+            // Retry with low accuracy and cached position fallback
+            navigator.geolocation.getCurrentPosition(res, rej, {
+              enableHighAccuracy: false,
+              timeout: 8000,
+              maximumAge: 60000,
+            });
           } else {
             rej(err);
           }
         },
         {
           enableHighAccuracy: true,
-          timeout: 12000,
-          maximumAge: 10000,
+          timeout: 7000,
+          maximumAge: 20000,
         },
       );
     });
@@ -95,125 +112,190 @@ function CheckInPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanIndex = index.trim().toUpperCase();
-    if (!cleanIndex) return toast.error("Please enter your student index number");
+    if (!cleanIndex) {
+      toast.error("Please enter your student index number");
+      return;
+    }
+
+    setLocationError(null);
     setLoading(true);
+    setStepMessage("Verifying classroom session...");
 
     try {
-      // 1. Verify session
+      // 1. Verify session exists and is OPEN
       const sessionDocRef = doc(firestoreDb, "attendance_sessions", session);
       const sessSnap = await getDoc(sessionDocRef);
       if (!sessSnap.exists()) {
         throw new Error("Class attendance session was not found or has expired.");
       }
       const sessData = sessSnap.data() as any;
-      if (!sessData.is_active) {
-        throw new Error("This attendance session has already been closed by your lecturer.");
+      const isClosed = sessData.status === "CLOSED" || sessData.is_active === false;
+      if (isClosed) {
+        throw new Error("This attendance session has been closed by your lecturer.");
       }
 
-      // 2. Geolocation verification against lecturer's configured radius
-      const pos = await getPos();
-      const userLat = pos.coords.latitude;
-      const userLng = pos.coords.longitude;
+      // 2. Location verification (Always requested per requirement)
+      setStepMessage("Requesting device location...");
+      let userLat: number | null = null;
+      let userLng: number | null = null;
+      let accuracyM: number | null = null;
       let distanceM = 0;
 
-      if (typeof sessData.latitude === "number" && typeof sessData.longitude === "number") {
-        distanceM = haversineDistanceMeters(
-          sessData.latitude,
-          sessData.longitude,
-          userLat,
-          userLng,
-        );
-        const allowedRadius = sessData.radius_m || 80;
+      try {
+        const pos = await getPos();
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        accuracyM = pos.coords.accuracy || null;
+      } catch (geoErr: any) {
+        const msg =
+          geoErr?.message ||
+          "Could not verify your location. Please allow location permissions in your browser.";
+        setLocationError(msg);
+        throw new Error(msg);
+      }
+
+      // Verify against lecturer coordinates if set
+      const lecturerLat =
+        typeof sessData.latitude === "number" ? sessData.latitude : parseFloat(sessData.latitude);
+      const lecturerLng =
+        typeof sessData.longitude === "number"
+          ? sessData.longitude
+          : parseFloat(sessData.longitude);
+
+      if (!isNaN(lecturerLat) && !isNaN(lecturerLng) && userLat !== null && userLng !== null) {
+        distanceM = haversineDistanceMeters(lecturerLat, lecturerLng, userLat, userLng);
+        const allowedRadius = parseFloat(sessData.radius_m) || 100;
         if (distanceM > allowedRadius) {
-          throw new Error(
-            `You are too far from the classroom (${Math.round(distanceM)}m away). You must be within ${allowedRadius}m of the lecture hall coordinates.`,
-          );
+          const err = `You are too far from the classroom (${Math.round(distanceM)}m away). You must be within ${allowedRadius}m of the lecture hall coordinates.`;
+          setLocationError(err);
+          throw new Error(err);
         }
       }
 
-      // 3. Resolve student record
+      setStepMessage("Checking student register & records...");
+
+      // 3. Resolve student record (search by cleanIndex)
       let studentId = "";
-      let studentName = `Student ${cleanIndex}`;
+      let studentName = `Student (${cleanIndex})`;
 
-      // First look up student under lecturer's roster
-      let studSnap = sessData.owner_id
-        ? await getDocs(
-            query(
-              collection(firestoreDb, "students"),
-              where("owner_id", "==", sessData.owner_id),
-              where("index_number", "==", cleanIndex),
-            ),
-          )
-        : await getDocs(
-            query(collection(firestoreDb, "students"), where("index_number", "==", cleanIndex)),
-          );
-
-      // Fallback: look up in general students directory if not found under owner
-      if (studSnap.empty) {
-        studSnap = await getDocs(
+      try {
+        const studSnap = await getDocs(
           query(collection(firestoreDb, "students"), where("index_number", "==", cleanIndex)),
         );
+
+        if (!studSnap.empty) {
+          const docSnap = studSnap.docs[0];
+          studentId = docSnap.id;
+          const sdata = docSnap.data();
+          studentName = sdata.full_name || studentName;
+        } else {
+          // Auto-register student so attendance is stored with their verified index number
+          const newStudRef = await addDoc(collection(firestoreDb, "students"), {
+            full_name: `Student (${cleanIndex})`,
+            index_number: cleanIndex,
+            owner_id: sessData.owner_id || null,
+            level: "100",
+            created_at: new Date().toISOString(),
+          });
+          studentId = newStudRef.id;
+        }
+      } catch (studErr) {
+        console.warn("Student resolve warning:", studErr);
+        studentId = `idx_${cleanIndex}`;
       }
 
-      if (!studSnap.empty) {
-        const docSnap = studSnap.docs[0];
-        studentId = docSnap.id;
-        const sdata = docSnap.data();
-        studentName = sdata.full_name || studentName;
-      } else {
-        // Auto-register student so their presence is accurately preserved with their index number
-        const newStudRef = await addDoc(collection(firestoreDb, "students"), {
-          full_name: `Student (${cleanIndex})`,
-          index_number: cleanIndex,
-          owner_id: sessData.owner_id || null,
-          level: "100",
-          created_at: new Date().toISOString(),
+      // 4. Duplicate prevention across both individual scanning and projected QR check-in
+      const todayDate = new Date().toISOString().slice(0, 10);
+      let alreadyRecorded = false;
+
+      try {
+        // Check this specific session
+        const sessRecsSnap = await getDocs(
+          query(collection(firestoreDb, "attendance_records"), where("session_id", "==", session)),
+        );
+
+        for (const doc of sessRecsSnap.docs) {
+          const d = doc.data() as any;
+          const matchId = studentId && d.student_id === studentId;
+          const matchIdx =
+            d.student_index && String(d.student_index).trim().toUpperCase() === cleanIndex;
+          if (matchId || matchIdx) {
+            alreadyRecorded = true;
+            break;
+          }
+        }
+
+        // Also check if marked for this course on today's date (individual scan method)
+        if (!alreadyRecorded && sessData.course_id) {
+          const dayRecsSnap = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_records"),
+              where("course_id", "==", sessData.course_id),
+              where("session_date", "==", todayDate),
+            ),
+          );
+
+          for (const doc of dayRecsSnap.docs) {
+            const d = doc.data() as any;
+            const matchId = studentId && d.student_id === studentId;
+            const matchIdx =
+              d.student_index && String(d.student_index).trim().toUpperCase() === cleanIndex;
+            if (matchId || matchIdx) {
+              alreadyRecorded = true;
+              break;
+            }
+          }
+        }
+      } catch (dupErr) {
+        console.warn("Duplicate record check warning:", dupErr);
+      }
+
+      if (alreadyRecorded) {
+        setDone({
+          name: studentName,
+          index: cleanIndex,
+          distance: Math.round(distanceM),
+          alreadyPresent: true,
         });
-        studentId = newStudRef.id;
-        studentName = `Student (${cleanIndex})`;
-      }
-
-      // 4. Check if already recorded as present in this session
-      const recQuery = await getDocs(
-        query(
-          collection(firestoreDb, "attendance_records"),
-          where("session_id", "==", session),
-          where("student_id", "==", studentId),
-        ),
-      );
-
-      if (!recQuery.empty) {
-        setDone({ name: studentName, index: cleanIndex, distance: Math.round(distanceM) });
         toast.info("You are already recorded as present for this session.");
         return;
       }
 
-      // 5. Record student as PRESENT with verified index number
+      // 5. Record student as PRESENT with full schema compatibility
+      setStepMessage("Recording attendance...");
       const now = new Date();
       await addDoc(collection(firestoreDb, "attendance_records"), {
         session_id: session,
+        course_id: sessData.course_id || null,
         student_id: studentId,
         student_index: cleanIndex,
         student_name: studentName,
-        course_id: sessData.course_id || null,
-        owner_id: sessData.owner_id || null,
-        session_date: now.toISOString().slice(0, 10),
+        session_date: todayDate,
         check_in_at: now.toISOString(),
-        status: "present",
+        status: "PRESENT",
+        scanned_by: sessData.owner_id || "projected_qr",
+        owner_id: sessData.owner_id || null,
+        created_by: sessData.owner_id || "projected_qr",
         source: "projected_qr",
         geo_lat: userLat,
         geo_lng: userLng,
-        geo_accuracy_m: pos.coords.accuracy || null,
+        geo_accuracy_m: accuracyM,
         distance_m: Math.round(distanceM),
         created_at: now.toISOString(),
       });
 
-      setDone({ name: studentName, index: cleanIndex, distance: Math.round(distanceM) });
-      toast.success(`Checked in successfully! Marked present: ${cleanIndex}`);
+      setDone({
+        name: studentName,
+        index: cleanIndex,
+        distance: Math.round(distanceM),
+        alreadyPresent: false,
+      });
+      toast.success(`Marked present! Attendance recorded for ${cleanIndex}`);
     } catch (err: any) {
       toast.error(err.message ?? "Check-in failed");
     } finally {
       setLoading(false);
+      setStepMessage("");
     }
   };
 
@@ -258,6 +340,17 @@ function CheckInPage() {
                   />
                 </div>
 
+                {locationError && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive space-y-1">
+                    <p className="font-semibold">Location Access Needed</p>
+                    <p>{locationError}</p>
+                    <p className="text-[11px] opacity-80 pt-1">
+                      Tip: Tap the lock/settings icon in your browser address bar to set Location to
+                      &quot;Allow&quot;, then tap check in again.
+                    </p>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1 border">
                   <div className="flex items-center gap-1.5 font-semibold text-foreground">
                     <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
@@ -275,7 +368,9 @@ function CheckInPage() {
                   disabled={loading}
                 >
                   <MapPin className="size-4 mr-2" />
-                  {loading ? "Verifying GPS radius & recording..." : "Verify Location & Check In"}
+                  {loading
+                    ? stepMessage || "Verifying location & checking in..."
+                    : "Verify Location & Check In"}
                 </Button>
               </form>
             </CardContent>

@@ -169,11 +169,13 @@ async function dispatchToSubscriptions(
 
   const now = new Date().toISOString();
 
-  // Prepare FCM HTTP v1 messages — DATA-ONLY!
-  // No "notification" object in the payload so the browser will not auto-display it,
-  // allowing firebase-messaging-sw.js to construct and display the notification with our click action.
+  // Prepare FCM HTTP v1 messages with native notification for background display
   const messages: Message[] = subs.map((sub) => ({
     token: sub.fcmToken,
+    notification: {
+      title: String(payload.title),
+      body: String(payload.body),
+    },
     data: {
       type: String(payload.type),
       title: String(payload.title),
@@ -185,7 +187,13 @@ async function dispatchToSubscriptions(
     },
     webpush: {
       headers: {
-        Urgency: payload.type === "ATTENDANCE" || payload.type === "DEADLINE" ? "high" : "normal",
+        Urgency: "high",
+      },
+      notification: {
+        title: String(payload.title),
+        body: String(payload.body),
+        icon: "/favicon.png",
+        badge: "/favicon.png",
       },
       fcmOptions: {
         link: payload.url,
@@ -294,20 +302,67 @@ export async function sendToUsers(
       return { attempts: 0, successes: 0, failures: 0, deactivatedTokens: 0 };
     }
 
-    // 3. Query active subscriptions
-    const allSubs: NotificationSubscriptionDoc[] = [];
+    // 3. Query active subscriptions by userId and studentIndex
+    const allSubsMap = new Map<string, NotificationSubscriptionDoc>();
+    const studentIndexes = new Set<string>();
+
     for (let i = 0; i < eligibleUserIds.length; i += 30) {
       const chunk = eligibleUserIds.slice(i, i + 30);
-      const snap = await firestoreAdmin
-        .collection("notification_subscriptions")
-        .where("userId", "in", chunk)
-        .where("isActive", "==", true)
-        .get();
 
-      snap.forEach((doc) => {
-        allSubs.push({ id: doc.id, ...(doc.data() as any) });
-      });
+      // Query by userId
+      try {
+        const snap = await firestoreAdmin
+          .collection("notification_subscriptions")
+          .where("userId", "in", chunk)
+          .where("isActive", "==", true)
+          .get();
+
+        snap.forEach((doc) => {
+          allSubsMap.set(doc.id, { id: doc.id, ...(doc.data() as any) });
+        });
+      } catch (err) {
+        console.warn("[FCM] Subscription query by userId error:", err);
+      }
+
+      // Resolve student index numbers
+      try {
+        for (const uid of chunk) {
+          const sDoc = await firestoreAdmin.collection("students").doc(uid).get();
+          if (sDoc.exists) {
+            const idx = sDoc.data()?.index_number;
+            if (idx) studentIndexes.add(String(idx).trim().toUpperCase());
+          }
+        }
+      } catch {
+        // Continue
+      }
     }
+
+    // Query subscriptions registered with studentIndex
+    if (studentIndexes.size > 0) {
+      const idxList = Array.from(studentIndexes);
+      for (let i = 0; i < idxList.length; i += 30) {
+        const chunk = idxList.slice(i, i + 30);
+        try {
+          const snap = await firestoreAdmin
+            .collection("notification_subscriptions")
+            .where("studentIndex", "in", chunk)
+            .where("isActive", "==", true)
+            .get();
+
+          snap.forEach((doc) => {
+            allSubsMap.set(doc.id, { id: doc.id, ...(doc.data() as any) });
+          });
+        } catch (err) {
+          console.warn("[FCM] Subscription query by studentIndex error:", err);
+        }
+      }
+
+      // Also record in-app notifications for index numbers
+      await recordInAppNotifications(Array.from(studentIndexes), payload);
+    }
+
+    const allSubs = Array.from(allSubsMap.values());
 
     // 4. Dispatch FCM push
     return await dispatchToSubscriptions(allSubs, payload);
@@ -368,21 +423,34 @@ export async function sendToCourseMembers(
       if (d.student_id) studentIds.add(d.student_id);
     });
 
-    // Also fetch students who may match level of course created by the lecturer
+    // Also fetch students who match the level of the course or have attended this course
     const courseDoc = await firestoreAdmin.collection("courses").doc(courseId).get();
     if (courseDoc.exists) {
       const course = courseDoc.data();
-      if (course?.owner_id && course?.level) {
+      if (course?.level) {
         const studentSnap = await firestoreAdmin
           .collection("students")
-          .where("owner_id", "==", course.owner_id)
-          .where("level", "==", course.level)
+          .where("level", "==", String(course.level))
           .get();
 
         studentSnap.forEach((doc) => {
           studentIds.add(doc.id);
         });
       }
+    }
+
+    try {
+      const attSnap = await firestoreAdmin
+        .collection("attendance_records")
+        .where("course_id", "==", courseId)
+        .limit(200)
+        .get();
+      attSnap.forEach((doc) => {
+        const d = doc.data();
+        if (d.student_id) studentIds.add(d.student_id);
+      });
+    } catch {
+      // Ignore
     }
 
     if (options?.excludeUserId) {
@@ -467,7 +535,7 @@ export async function sendAnnouncementPush(opts: {
  */
 export async function sendAssignmentPush(opts: {
   assignmentId: string;
-  courseId: string;
+  courseId?: string;
   courseCode?: string;
   title: string;
   dueAt?: string;
@@ -491,7 +559,13 @@ export async function sendAssignmentPush(opts: {
     entityType: "assignment",
   };
 
-  sendToCourseMembers(opts.courseId, payload, { excludeUserId: opts.authorId }).catch((err) => {
-    console.warn("[FCM] Background assignment push error:", err);
-  });
+  if (opts.courseId && opts.courseId !== "all") {
+    sendToCourseMembers(opts.courseId, payload, { excludeUserId: opts.authorId }).catch((err) => {
+      console.warn("[FCM] Background assignment push error:", err);
+    });
+  } else {
+    sendToRole("student", payload).catch((err) => {
+      console.warn("[FCM] Background broadcast assignment push error:", err);
+    });
+  }
 }

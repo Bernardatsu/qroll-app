@@ -17,9 +17,10 @@ import {
   Tablet,
   Trash2,
   RefreshCw,
-  Devices as DevicesIcon,
+  MonitorSmartphone,
   Loader2,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationSettingsSection } from "@/components/NotificationSettingsSection";
@@ -55,6 +56,18 @@ function SettingsPage() {
         ?.getIdToken()
         .then(setIdToken)
         .catch(() => {});
+    }
+
+    // Scroll to hash target if present
+    if (typeof window !== "undefined" && window.location.hash) {
+      setTimeout(() => {
+        const hash = window.location.hash.replace("#", "");
+        const elem =
+          document.getElementById(hash) || document.getElementById("notification-preferences");
+        if (elem) {
+          elem.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 200);
     }
   }, [user?.id]);
 

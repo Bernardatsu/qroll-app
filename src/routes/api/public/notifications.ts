@@ -89,22 +89,54 @@ async function authenticateRequest(
   const studentId = request.headers.get("x-student-id") || bodyObj?.studentId || bodyObj?.userId;
   const studentIndex = request.headers.get("x-student-index") || bodyObj?.studentIndex;
 
-  if (studentId && studentIndex) {
+  if (studentId || studentIndex) {
     try {
-      const cleanIndex = String(studentIndex).trim().toUpperCase();
-      // Verify that this student actually exists in student_accounts or students collection
-      const snap = await firestoreAdmin
-        .collection("students")
-        .where("index_number", "==", cleanIndex)
-        .limit(1)
-        .get();
+      const cleanIndex = studentIndex ? String(studentIndex).trim().toUpperCase() : "";
+      let foundStudent = false;
+      let studentEmail = "";
 
-      if (!snap.empty) {
+      // Check students collection by index_number
+      if (cleanIndex) {
+        const snap = await firestoreAdmin
+          .collection("students")
+          .where("index_number", "==", cleanIndex)
+          .limit(1)
+          .get();
+
+        if (!snap.empty) {
+          foundStudent = true;
+          studentEmail = snap.docs[0].data()?.email || "";
+        }
+      }
+
+      // Check students collection by document ID
+      if (!foundStudent && studentId) {
+        const docSnap = await firestoreAdmin.collection("students").doc(studentId).get();
+        if (docSnap.exists) {
+          foundStudent = true;
+          studentEmail = docSnap.data()?.email || "";
+        }
+      }
+
+      // Check student_accounts collection
+      if (!foundStudent && cleanIndex) {
+        const accSnap = await firestoreAdmin
+          .collection("student_accounts")
+          .doc(cleanIndex.toLowerCase())
+          .get();
+        if (accSnap.exists) {
+          foundStudent = true;
+          studentEmail = accSnap.data()?.email || "";
+        }
+      }
+
+      // If valid student identifier provided
+      if (foundStudent || (cleanIndex && cleanIndex.length >= 3)) {
         return {
           authenticated: true,
-          userId: studentId,
+          userId: studentId || cleanIndex,
           role: "student",
-          email: snap.docs[0].data()?.email,
+          email: studentEmail,
         };
       }
     } catch (err: any) {
@@ -276,11 +308,16 @@ export const Route = createFileRoute("/api/public/notifications")({
               .limit(1)
               .get();
 
+            const cleanIndex = body.studentIndex
+              ? String(body.studentIndex).trim().toUpperCase()
+              : undefined;
+            const studentId = body.studentId || (auth.role === "student" ? auth.userId : undefined);
+
             let subscriptionId = "";
             if (!snap.empty) {
               const existingDoc = snap.docs[0];
               subscriptionId = existingDoc.id;
-              await existingDoc.ref.update({
+              const updates: any = {
                 userId: auth.userId, // Re-assign in case user logged in on existing device
                 userRole: auth.role,
                 platform,
@@ -289,7 +326,10 @@ export const Route = createFileRoute("/api/public/notifications")({
                 isActive: true,
                 updatedAt: now,
                 lastUsedAt: now,
-              });
+              };
+              if (studentId) updates.studentId = studentId;
+              if (cleanIndex) updates.studentIndex = cleanIndex;
+              await existingDoc.ref.update(updates);
             } else {
               const newRef = firestoreAdmin.collection("notification_subscriptions").doc();
               subscriptionId = newRef.id;
@@ -297,6 +337,8 @@ export const Route = createFileRoute("/api/public/notifications")({
                 id: subscriptionId,
                 userId: auth.userId,
                 userRole: auth.role,
+                studentId,
+                studentIndex: cleanIndex,
                 fcmToken,
                 platform,
                 browser,
@@ -501,11 +543,8 @@ export const Route = createFileRoute("/api/public/notifications")({
           }
 
           if (eventType === "ASSIGNMENT_PUBLISH") {
-            if (!body.assignmentId || !body.courseId || !body.title) {
-              return Response.json(
-                { error: "assignmentId, courseId, and title required" },
-                { status: 400 },
-              );
+            if (!body.assignmentId || !body.title) {
+              return Response.json({ error: "assignmentId and title required" }, { status: 400 });
             }
             sendAssignmentPush({
               assignmentId: body.assignmentId,
@@ -535,7 +574,7 @@ export const Route = createFileRoute("/api/public/notifications")({
             type: "SYSTEM",
             title: "QRoll Notification Test",
             body: `Test push sent to admin ${auth.email || auth.userId} at ${new Date().toLocaleTimeString()}. Web Push delivery is fully operational!`,
-            url: "/_authenticated/settings",
+            url: "/settings",
             entityId: `test-${Date.now()}`,
             entityType: "system",
           };

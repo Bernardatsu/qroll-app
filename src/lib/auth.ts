@@ -76,8 +76,12 @@ export function useAuth() {
         if (mounted) setLoading(false);
       } else {
         if (mounted) {
-          clearUserAppCache();
-          setUser(null);
+          setUser((prev) => {
+            if (prev) {
+              clearUserAppCache();
+            }
+            return null;
+          });
           setRoles([]);
           setLoading(false);
         }

@@ -27,8 +27,12 @@ export const queryClient = new QueryClient({
 export function clearUserAppCache() {
   try {
     queryClient.clear();
-    // Also clear session-level storage if any
+    // Preserve student session so student remains logged in until webapp is closed
+    const studentSession = sessionStorage.getItem("qroll.student.session.v2");
     sessionStorage.clear();
+    if (studentSession) {
+      sessionStorage.setItem("qroll.student.session.v2", studentSession);
+    }
   } catch (err) {
     console.error("Failed to clear app cache:", err);
   }

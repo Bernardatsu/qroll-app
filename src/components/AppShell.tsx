@@ -259,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 userId={user.id}
                 role={role}
                 authToken={idToken}
-                settingsUrl="/_authenticated/settings"
+                settingsUrl="/settings"
               />
             )}
             <Link to={"/dashboard" as string} aria-label="Dashboard">

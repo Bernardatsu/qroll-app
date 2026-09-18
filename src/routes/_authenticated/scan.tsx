@@ -459,7 +459,10 @@ function ScanPage() {
         // Record new attendance directly
         await addDoc(collection(firestoreDb, "attendance_records"), {
           session_id: sess.id,
+          course_id: sess.course_id || null,
           student_id: student.id,
+          student_index: student.index_number || "",
+          student_name: student.full_name || "",
           session_date: day,
           check_in_at: at,
           status: singleScanMode ? "PRESENT" : "IN_PROGRESS",

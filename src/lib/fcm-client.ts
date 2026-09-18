@@ -219,26 +219,40 @@ export async function requestAndRegisterPushToken(user: {
 
     const swReg = await registerPushServiceWorker();
 
-    // 3. Obtain FCM Token with VAPID Key
-    const vapidKey =
-      (import.meta.env.VITE_FIREBASE_VAPID_KEY as string) ||
-      "BNo5531d044qK-U1jR2Jc_FvF4QO038kL6wX5-c3G20rG0s3E6R5K_A3M1Q0Z8V";
+    // 3. Obtain FCM Token
+    const configuredVapidKey = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string)?.trim();
 
     let token = "";
     try {
-      token = await getToken(messagingInstance, {
-        vapidKey: vapidKey || undefined,
-        serviceWorkerRegistration: swReg,
-      });
+      if (configuredVapidKey) {
+        token = await getToken(messagingInstance, {
+          vapidKey: configuredVapidKey,
+          serviceWorkerRegistration: swReg,
+        });
+      } else {
+        token = await getToken(messagingInstance, {
+          serviceWorkerRegistration: swReg,
+        });
+      }
     } catch (err: any) {
-      console.error("[FCM Client] getToken error:", err);
-      return {
-        success: false,
-        permission: "granted",
-        error:
-          "Could not obtain FCM Web Push token. Ensure the VAPID key is configured in project settings: " +
-          (err?.message || ""),
-      };
+      console.warn(
+        "[FCM Client] Primary getToken attempt failed, trying default registration:",
+        err,
+      );
+      try {
+        token = await getToken(messagingInstance, {
+          serviceWorkerRegistration: swReg,
+        });
+      } catch (fallbackErr: any) {
+        console.error("[FCM Client] Both getToken attempts failed:", fallbackErr);
+        return {
+          success: false,
+          permission: "granted",
+          error:
+            "Could not obtain FCM Web Push token. Please ensure push notifications are allowed: " +
+            (fallbackErr?.message || err?.message || ""),
+        };
+      }
     }
 
     if (!token) {

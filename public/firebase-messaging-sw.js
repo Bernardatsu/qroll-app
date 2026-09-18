@@ -89,22 +89,23 @@ if (messaging) {
   });
 }
 
-// Fallback native push event listener (ensures notifications show even if raw push frame arrives)
+// Robust push event listener (ensures notifications pop up on mobile screen when app is closed)
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
   try {
     const raw = event.data.json();
-    // Only handle if it has data and was not already processed as an FCM notification frame
-    if (raw && raw.data && !raw.notification) {
-      const data = raw.data;
-      const title = data.title || "QRoll";
-      const options = buildNotificationOptions(data);
+    const data = raw.data || {};
+    const notif = raw.notification || {};
+    const title = notif.title || data.title || "QRoll Update";
+    const body = notif.body || data.body || "New update available on QRoll.";
 
-      event.waitUntil(self.registration.showNotification(title, options));
-    }
+    const options = buildNotificationOptions(data);
+    options.body = body;
+
+    event.waitUntil(self.registration.showNotification(title, options));
   } catch (e) {
-    // Malformed JSON fallback
+    // Malformed JSON or plaintext fallback
     try {
       const text = event.data.text();
       if (text) {
@@ -112,7 +113,8 @@ self.addEventListener("push", (event) => {
           self.registration.showNotification("QRoll Notification", {
             body: text,
             icon: "/favicon.png",
-            data: { url: "/" },
+            badge: "/favicon.png",
+            data: { url: "/student" },
           }),
         );
       }

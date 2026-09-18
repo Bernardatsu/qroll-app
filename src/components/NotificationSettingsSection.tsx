@@ -132,7 +132,7 @@ export function NotificationSettingsSection({
   };
 
   return (
-    <div className="space-y-6">
+    <div id="notification-preferences" className="space-y-6 scroll-mt-6">
       {/* Device Push Status Card */}
       <Card>
         <CardHeader>

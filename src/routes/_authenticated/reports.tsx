@@ -106,28 +106,65 @@ function ReportsPage() {
       if (!uid || !courseId) return { sessions: [], regs: [], records: [] };
 
       try {
-        const [sessSnap, regsSnap, allStudSnap, deptsSnap] = await Promise.all([
-          getDocs(
+        // 1. Fetch sessions for this course both by course_id and by owner_id
+        const courseSessionsList: any[] = [];
+        try {
+          const sessByCourseSnap = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_sessions"),
+              where("course_id", "==", courseId),
+            ),
+          );
+          sessByCourseSnap.docs.forEach((d) => {
+            courseSessionsList.push({ id: d.id, ...d.data() });
+          });
+        } catch (sessCourseErr) {
+          console.warn("Sessions by course_id query:", sessCourseErr);
+        }
+
+        try {
+          const sessByOwnerSnap = await getDocs(
             query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", uid)),
-          ),
+          );
+          sessByOwnerSnap.docs.forEach((d) => {
+            const data = d.data() as any;
+            if (data.course_id === courseId && !courseSessionsList.some((s) => s.id === d.id)) {
+              courseSessionsList.push({ id: d.id, ...data });
+            }
+          });
+        } catch (sessOwnerErr) {
+          console.warn("Sessions by owner_id query:", sessOwnerErr);
+        }
+
+        const sessions = courseSessionsList.map((s) => ({
+          id: s.id,
+          title: s.title || "Class Session",
+          starts_at: s.starts_at || s.created_at,
+        }));
+        const sessionIds = new Set(sessions.map((s) => s.id));
+
+        const [regsSnap, allStudSnap, deptsSnap] = await Promise.all([
           getDocs(
             query(
               collection(firestoreDb, "course_registrations"),
-              where("owner_id", "==", uid),
               where("course_id", "==", courseId),
             ),
+          ).catch(() => ({ docs: [] }) as any),
+          getDocs(query(collection(firestoreDb, "students"))).catch(() =>
+            getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", uid))),
           ),
-          getDocs(query(collection(firestoreDb, "students"), where("owner_id", "==", uid))),
-          getDocs(query(collection(firestoreDb, "departments"), where("owner_id", "==", uid))),
+          getDocs(query(collection(firestoreDb, "departments"))).catch(() =>
+            getDocs(query(collection(firestoreDb, "departments"), where("owner_id", "==", uid))),
+          ),
         ]);
 
         const deptMap = new Map<string, string>();
-        deptsSnap.docs.forEach((d) => {
+        deptsSnap.docs.forEach((d: any) => {
           deptMap.set(d.id, (d.data() as any).name || "");
         });
 
         const studentMap = new Map<string, any>();
-        allStudSnap.docs.forEach((d) => {
+        allStudSnap.docs.forEach((d: any) => {
           const s = d.data() as any;
           studentMap.set(d.id, {
             id: d.id,
@@ -139,17 +176,7 @@ function ReportsPage() {
           });
         });
 
-        // Filter sessions for this course
-        const sessions = sessSnap.docs
-          .filter((d) => (d.data() as any).course_id === courseId)
-          .map((d) => ({
-            id: d.id,
-            title: (d.data() as any).title,
-            starts_at: (d.data() as any).starts_at,
-          }));
-        const sessionIds = new Set(sessions.map((s) => s.id));
-
-        const regs = regsSnap.docs.map((d) => {
+        const regs = regsSnap.docs.map((d: any) => {
           const rData = d.data() as any;
           return {
             id: d.id,
@@ -158,30 +185,127 @@ function ReportsPage() {
           };
         });
 
-        let records: any[] = [];
+        const recordsMap = new Map<string, any>();
+
+        // Query 1: Records explicitly tagged with course_id
+        try {
+          const recCourseSnap = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_records"),
+              where("course_id", "==", courseId),
+            ),
+          );
+          recCourseSnap.docs.forEach((d) => {
+            recordsMap.set(d.id, { id: d.id, ...d.data() });
+          });
+        } catch (e) {
+          console.warn("Records by course_id query:", e);
+        }
+
+        // Query 2: Records matching sessions for this course
         if (sessionIds.size > 0) {
-          try {
-            const recSnap = await getDocs(
-              query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", uid)),
-            );
-            records = recSnap.docs
-              .filter((d) => sessionIds.has((d.data() as any).session_id))
-              .map((d) => {
-                const data = d.data() as any;
-                return {
-                  id: d.id,
-                  student_id: data.student_id,
-                  session_id: data.session_id,
-                  session_date: data.session_date,
-                  check_in_at: data.check_in_at,
-                  status: data.status || "PRESENT",
-                  students: studentMap.get(data.student_id) || null,
-                };
+          const sessList = Array.from(sessionIds);
+          for (let i = 0; i < sessList.length; i += 30) {
+            const chunk = sessList.slice(i, i + 30);
+            try {
+              const recSessSnap = await getDocs(
+                query(
+                  collection(firestoreDb, "attendance_records"),
+                  where("session_id", "in", chunk),
+                ),
+              );
+              recSessSnap.docs.forEach((d) => {
+                recordsMap.set(d.id, { id: d.id, ...d.data() });
               });
-          } catch (recErr) {
-            console.warn("Could not query records by owner_id, trying fallback:", recErr);
+            } catch (sessRecErr) {
+              console.warn("Records by session chunk query:", sessRecErr);
+            }
           }
         }
+
+        // Query 3: Records created by this owner that match the course or sessions
+        try {
+          const recOwnerSnap = await getDocs(
+            query(collection(firestoreDb, "attendance_records"), where("owner_id", "==", uid)),
+          );
+          recOwnerSnap.docs.forEach((d) => {
+            const rData = d.data() as any;
+            if (
+              rData.course_id === courseId ||
+              (rData.session_id && sessionIds.has(rData.session_id))
+            ) {
+              recordsMap.set(d.id, { id: d.id, ...rData });
+            }
+          });
+        } catch (ownerRecErr) {
+          console.warn("Records by owner_id query:", ownerRecErr);
+        }
+
+        const rawRecordsList = Array.from(recordsMap.values());
+
+        // Resolve any student IDs present in records that are missing from studentMap
+        const missingStudentIds = Array.from(
+          new Set(
+            rawRecordsList
+              .map((r) => r.student_id)
+              .filter((sid) => Boolean(sid) && !studentMap.has(sid)),
+          ),
+        );
+
+        if (missingStudentIds.length > 0) {
+          await Promise.all(
+            missingStudentIds.map(async (sid) => {
+              try {
+                const sDoc = await getDoc(doc(firestoreDb, "students", sid));
+                if (sDoc.exists()) {
+                  const s = sDoc.data() as any;
+                  studentMap.set(sid, {
+                    id: sDoc.id,
+                    full_name: s.full_name || `Student ${s.index_number || sid.slice(0, 6)}`,
+                    index_number: s.index_number || "—",
+                    level: s.level || "—",
+                    department_id: s.department_id || null,
+                    program: s.program || null,
+                  });
+                } else {
+                  const rInfo = rawRecordsList.find((r) => r.student_id === sid);
+                  studentMap.set(sid, {
+                    id: sid,
+                    full_name:
+                      rInfo?.student_name || `Student (${rInfo?.student_index || sid.slice(0, 8)})`,
+                    index_number: rInfo?.student_index || "—",
+                    level: "—",
+                    department_id: null,
+                    program: null,
+                  });
+                }
+              } catch {
+                const rInfo = rawRecordsList.find((r) => r.student_id === sid);
+                studentMap.set(sid, {
+                  id: sid,
+                  full_name:
+                    rInfo?.student_name || `Student (${rInfo?.student_index || sid.slice(0, 8)})`,
+                  index_number: rInfo?.student_index || "—",
+                  level: "—",
+                  department_id: null,
+                  program: null,
+                });
+              }
+            }),
+          );
+        }
+
+        const records = rawRecordsList.map((data) => ({
+          id: data.id,
+          student_id: data.student_id,
+          session_id: data.session_id,
+          session_date: data.session_date,
+          check_in_at: data.check_in_at,
+          status: (data.status || "PRESENT").toUpperCase(),
+          student_name: data.student_name,
+          student_index: data.student_index,
+          students: studentMap.get(data.student_id) || null,
+        }));
 
         return {
           sessions,
@@ -241,23 +365,53 @@ function ReportsPage() {
 
     // 3. Include any student with historical records
     for (const rec of raw.records) {
-      if (rec.students && !studentMap.has(rec.students.id)) {
-        studentMap.set(rec.students.id, rec.students);
+      const normIdx = rec.student_index ? String(rec.student_index).trim().toUpperCase() : "";
+      const existingByDoc = rec.students && studentMap.get(rec.students.id);
+      const existingBySid = rec.student_id && studentMap.get(rec.student_id);
+      const existingByIdx = normIdx
+        ? Array.from(studentMap.values()).find(
+            (st: any) =>
+              st.index_number && String(st.index_number).trim().toUpperCase() === normIdx,
+          )
+        : null;
+
+      if (!existingByDoc && !existingBySid && !existingByIdx) {
+        const sid = rec.student_id || (normIdx ? `idx_${normIdx}` : `rec_${rec.id}`);
+        studentMap.set(sid, {
+          id: sid,
+          full_name:
+            rec.student_name || (normIdx ? `Student (${normIdx})` : `Student (${sid.slice(0, 8)})`),
+          index_number: normIdx || rec.student_index || "—",
+          level: "—",
+        });
       }
     }
 
-    // student -> set of days scanned
+    // student -> set of days scanned (keyed by student ID and by uppercase index number)
     const scanned = new Map<string, Set<string>>();
+    const scannedByIndex = new Map<string, Set<string>>();
+
     for (const rec of raw.records) {
       const d = rec.session_date ?? (rec.check_in_at ? dayKey(rec.check_in_at) : null);
       if (!d) continue;
-      if (!scanned.has(rec.student_id)) scanned.set(rec.student_id, new Set());
-      scanned.get(rec.student_id)!.add(d);
+
+      if (rec.student_id) {
+        if (!scanned.has(rec.student_id)) scanned.set(rec.student_id, new Set());
+        scanned.get(rec.student_id)!.add(d);
+      }
+      if (rec.student_index) {
+        const normIdx = String(rec.student_index).trim().toUpperCase();
+        if (!scannedByIndex.has(normIdx)) scannedByIndex.set(normIdx, new Set());
+        scannedByIndex.get(normIdx)!.add(d);
+      }
     }
 
     const rows = Array.from(studentMap.values())
       .map((s: any) => {
-        const cells = activeDays.map((d) => (scanned.get(s.id)?.has(d) ? 1 : 0));
+        const normIdx = s.index_number ? String(s.index_number).trim().toUpperCase() : "";
+        const studentDays = scanned.get(s.id);
+        const indexDays = normIdx ? scannedByIndex.get(normIdx) : null;
+        const cells = activeDays.map((d) => (studentDays?.has(d) || indexDays?.has(d) ? 1 : 0));
         const scans = cells.filter((v) => v === 1).length;
         const missed = cells.length - scans;
         const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;

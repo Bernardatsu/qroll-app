@@ -48,7 +48,7 @@ export function NotificationBell({
   role = "user",
   authToken,
   indexNumber,
-  settingsUrl = "/_authenticated/settings",
+  settingsUrl = "/settings",
   className = "",
 }: NotificationBellProps) {
   const navigate = useNavigate();
@@ -333,14 +333,26 @@ export function NotificationBell({
 
           {/* Popover Footer */}
           <div className="border-t border-border p-2.5 text-center bg-muted/20">
-            <a
-              href={settingsUrl}
-              onClick={() => setIsOpen(false)}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                if (settingsUrl.startsWith("/")) {
+                  void navigate({ to: settingsUrl as any });
+                } else if (settingsUrl.startsWith("#")) {
+                  const elem = document.querySelector(settingsUrl);
+                  if (elem) {
+                    elem.scrollIntoView({ behavior: "smooth" });
+                  }
+                } else {
+                  window.location.href = settingsUrl;
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors cursor-pointer"
             >
               Manage Notification Preferences
               <ExternalLink className="h-3 w-3" />
-            </a>
+            </button>
           </div>
         </PopoverContent>
       </Popover>
