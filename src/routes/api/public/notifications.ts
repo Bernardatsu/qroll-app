@@ -27,14 +27,17 @@ function checkRateLimit(key: string, limit = 20, windowMs = 60000): boolean {
   return true;
 }
 
-// Clean up stale rate limits every 5 minutes
+// Clean up stale rate limits every 5 minutes (unref prevents blocking event loop)
 if (typeof setInterval !== "undefined") {
-  setInterval(() => {
+  const timer = setInterval(() => {
     const now = Date.now();
     for (const [k, v] of rateLimitMap.entries()) {
       if (v.expiresAt < now) rateLimitMap.delete(k);
     }
   }, 300000);
+  if (timer && typeof timer === "object" && "unref" in timer) {
+    (timer as any).unref();
+  }
 }
 
 /**

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { firebaseAuth, firestoreDb } from "@/integrations/firebase/config";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, getCountFromServer, getDocs } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,71 +96,68 @@ function Dashboard() {
       return;
     }
 
-    let loadedParts = 0;
-    const markLoaded = () => {
-      loadedParts++;
-      if (loadedParts >= 2) setIsLoading(false);
-    };
+    let isMounted = true;
 
-    // Real-time listener for students
-    const unsubStudents = onSnapshot(
-      query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
-      (snap) => {
-        setStats((prev) => ({ ...prev, students: snap.size }));
-        markLoaded();
-      },
-      (err) => {
-        console.warn("Students stats listener error:", err);
-        markLoaded();
-      },
-    );
+    async function loadDashboardMetrics() {
+      setIsLoading(true);
+      try {
+        // High-efficiency aggregated count queries:
+        // getCountFromServer charges only 1 read per 1,000 documents instead of downloading all documents!
+        const [studCountRes, coursesSnap, sessCountRes, termsSnap] = await Promise.all([
+          getCountFromServer(
+            query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+          ).catch(async () => {
+            const fallback = await getDocs(
+              query(collection(firestoreDb, "students"), where("owner_id", "==", currentUid)),
+            );
+            return { data: () => ({ count: fallback.size }) };
+          }),
+          getDocs(
+            query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
+          ).catch(() => ({ docs: [] }) as any),
+          getCountFromServer(
+            query(
+              collection(firestoreDb, "attendance_sessions"),
+              where("owner_id", "==", currentUid),
+            ),
+          ).catch(async () => {
+            const fallback = await getDocs(
+              query(
+                collection(firestoreDb, "attendance_sessions"),
+                where("owner_id", "==", currentUid),
+              ),
+            );
+            return { data: () => ({ count: fallback.size }) };
+          }),
+          getDocs(
+            query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
+          ).catch(() => ({ docs: [] }) as any),
+        ]);
 
-    // Real-time listener for courses (active only)
-    const unsubCourses = onSnapshot(
-      query(collection(firestoreDb, "courses"), where("owner_id", "==", currentUid)),
-      (snap) => {
-        const active = snap.docs.filter((d) => !(d.data() as any).archived).length;
-        setStats((prev) => ({ ...prev, courses: active }));
-        markLoaded();
-      },
-      (err) => {
-        console.warn("Courses stats listener error:", err);
-        markLoaded();
-      },
-    );
+        if (!isMounted) return;
 
-    // Real-time listener for attendance sessions
-    const unsubSessions = onSnapshot(
-      query(collection(firestoreDb, "attendance_sessions"), where("owner_id", "==", currentUid)),
-      (snap) => {
-        setStats((prev) => ({ ...prev, sessions: snap.size }));
-        markLoaded();
-      },
-      (err) => {
-        console.warn("Sessions stats listener error:", err);
-        markLoaded();
-      },
-    );
+        const activeCourses = coursesSnap.docs.filter(
+          (d: any) => !(d.data() as any).archived,
+        ).length;
+        const currentTerms = termsSnap.docs.filter((d: any) => (d.data() as any).is_current).length;
 
-    // Real-time listener for academic terms (current only)
-    const unsubTerms = onSnapshot(
-      query(collection(firestoreDb, "academic_terms"), where("owner_id", "==", currentUid)),
-      (snap) => {
-        const currentTerms = snap.docs.filter((d) => (d.data() as any).is_current).length;
-        setStats((prev) => ({ ...prev, semesters: currentTerms }));
-        markLoaded();
-      },
-      (err) => {
-        console.warn("Terms stats listener error:", err);
-        markLoaded();
-      },
-    );
+        setStats({
+          students: studCountRes.data().count,
+          courses: activeCourses,
+          sessions: sessCountRes.data().count,
+          semesters: currentTerms,
+        });
+      } catch (err) {
+        console.warn("Dashboard stats load error:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    void loadDashboardMetrics();
 
     return () => {
-      unsubStudents();
-      unsubCourses();
-      unsubSessions();
-      unsubTerms();
+      isMounted = false;
     };
   }, [currentUid]);
 

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Autoplaying, control-free brand video.
  * Picks the landscape source on laptops/desktops and the portrait source on
- * phones & tablets. Plays automatically when scrolled into view (or hovered)
- * and pauses when it leaves the viewport.
+ * mobile mode and mobile devices.
+ * Uses native <source media="..."> elements to ensure 100% hydration fidelity
+ * across server-side rendering and client devices.
  */
 export function BrandVideo({
   landscape,
@@ -22,22 +23,6 @@ export function BrandVideo({
   autoStart?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const [portraitMode, setPortraitMode] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return window.matchMedia("(max-width: 1023px)").matches;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia("(max-width: 1023px)");
-    const apply = () => {
-      setPortraitMode((prev) => (prev !== mql.matches ? mql.matches : prev));
-    };
-    mql.addEventListener("change", apply);
-    return () => mql.removeEventListener("change", apply);
-  }, []);
 
   const attemptPlay = () => {
     const el = ref.current;
@@ -66,6 +51,21 @@ export function BrandVideo({
       });
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(max-width: 1023px), (orientation: portrait)");
+
+    const handleChange = () => {
+      if (ref.current) {
+        ref.current.load();
+        attemptPlay();
+      }
+    };
+
+    mql.addEventListener("change", handleChange);
+    return () => mql.removeEventListener("change", handleChange);
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
@@ -97,13 +97,12 @@ export function BrandVideo({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [autoStart, portraitMode]);
+  }, [autoStart]);
 
   return (
     <video
       ref={ref}
-      key={portraitMode ? "portrait-src" : "landscape-src"}
-      src={portraitMode ? portrait : landscape}
+      suppressHydrationWarning
       muted
       autoPlay
       loop={loop}
@@ -121,10 +120,8 @@ export function BrandVideo({
         }
       }}
       onClick={() => {
-        if (ref.current) {
-          if (ref.current.paused) {
-            attemptPlay();
-          }
+        if (ref.current && ref.current.paused) {
+          attemptPlay();
         }
       }}
       onMouseEnter={() => {
@@ -135,6 +132,21 @@ export function BrandVideo({
       controls={false}
       disablePictureInPicture
       className={className}
-    />
+    >
+      {/* Mobile devices and mobile viewports (< 1024px or portrait orientation) */}
+      <source
+        src={portrait}
+        media="(max-width: 1023px), (orientation: portrait)"
+        type="video/mp4"
+      />
+      {/* Desktops and laptops (>= 1024px wide screens) */}
+      <source
+        src={landscape}
+        media="(min-width: 1024px) and (orientation: landscape)"
+        type="video/mp4"
+      />
+      {/* Fallback default */}
+      <source src={landscape} type="video/mp4" />
+    </video>
   );
 }

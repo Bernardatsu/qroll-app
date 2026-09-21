@@ -620,19 +620,31 @@ export const Route = createFileRoute("/api/public/student-auth")({
               new Set(myRegistrations.map((r: any) => r.course_id).filter(Boolean)),
             );
 
-            // 2. Fetch all courses (utilizes 10-min in-memory cache)
-            const allCourses = await queryCollectionRest("courses");
+            // 2. Concurrently fetch catalogs, sessions, users, notices, and assignments
+            // Running in parallel prevents Vercel serverless timeouts by collapsing 6 sequential HTTP round-trips into 1
+            const [allCourses, allDepts, allSessions, allUsers, allNotices, allAssignments] =
+              await Promise.all([
+                queryCollectionRest("courses", { limit: 150 }).catch(() => []),
+                queryCollectionRest("departments", { limit: 50 }).catch(() => FALLBACK_DEPARTMENTS),
+                queryCollectionRest("attendance_sessions", { limit: 200 }).catch(() => []),
+                queryCollectionRest("users", { limit: 50 }).catch(() => []),
+                queryCollectionRest("announcements", { limit: 60 }).catch(() => []),
+                queryCollectionRest("assignments", { limit: 60 }).catch(() => []),
+              ]);
+
             const coursesMap = new Map<string, any>();
             allCourses.forEach((c) => coursesMap.set(c.id, c));
 
-            // Fetch departments for department name resolution (utilizes in-memory cache with fallback)
-            const allDepts = await queryCollectionRest("departments").catch(
-              () => FALLBACK_DEPARTMENTS,
-            );
             const deptsMap = new Map<string, any>();
             (allDepts.length > 0 ? allDepts : FALLBACK_DEPARTMENTS).forEach((d: any) =>
               deptsMap.set(d.id, d),
             );
+
+            const sessionMap = new Map<string, any>();
+            allSessions.forEach((s) => sessionMap.set(s.id, s));
+
+            const usersMap = new Map<string, any>();
+            allUsers.forEach((u: any) => usersMap.set(u.id, u));
 
             // Include courses created by the student's lecturer(s) that match the student's level
             // e.g. PETROLEUM ENGINEERING THERMODYNAMICS II (L200) -> visible to all Level 200 students under that lecturer
@@ -650,12 +662,6 @@ export const Route = createFileRoute("/api/public/student-auth")({
                 }
               }
             }
-
-            // Also if student has attendance records in courses where registration wasn't explicitly populated,
-            // we should still capture those courses!
-            const allSessions = await queryCollectionRest("attendance_sessions");
-            const sessionMap = new Map<string, any>();
-            allSessions.forEach((s) => sessionMap.set(s.id, s));
 
             // 3. Fetch attendance records TARGETED for this student only (saves thousands of reads)
             const recordPromises: Promise<any[]>[] = [];
@@ -704,12 +710,7 @@ export const Route = createFileRoute("/api/public/student-auth")({
               }
             }
 
-            // 4. Fetch users (lecturers) to associate course lecturer names
-            const allUsers = await queryCollectionRest("users").catch(() => []);
-            const usersMap = new Map<string, any>();
-            allUsers.forEach((u: any) => usersMap.set(u.id, u));
-
-            // 5. Enrich course attendance rows with Lecturer Name, Level, Department & Metrics
+            // 4. Enrich course attendance rows with Lecturer Name, Level, Department & Metrics
             const enrichedCourses = enrolledCourseIds.map((cId) => {
               const course = coursesMap.get(cId) || {
                 id: cId,
@@ -834,12 +835,11 @@ export const Route = createFileRoute("/api/public/student-auth")({
                   new Date(a.check_in_at || a.session_date).getTime(),
               );
 
-            // Fetch announcements across all lecturers
+            // Filter announcements across all lecturers for this student
             // Include announcements if:
             // 1. They belong to an enrolled course
             // 2. OR they target student's level (or no level specified = all levels)
-            const allNotices = await queryCollectionRest("announcements");
-            const notices = allNotices
+            const notices = (allNotices || [])
               .filter((n: any) => {
                 if (n.course_id && enrolledCourseIds.includes(n.course_id)) return true;
                 if (!n.course_id) {
@@ -875,9 +875,8 @@ export const Route = createFileRoute("/api/public/student-auth")({
                   new Date(a.created_at || a.starts_on || 0).getTime(),
               );
 
-            // Fetch assignments across all lecturers for enrolled courses
-            const allAssignments = await queryCollectionRest("assignments");
-            const assignments = allAssignments
+            // Filter assignments across all lecturers for enrolled courses
+            const assignments = (allAssignments || [])
               .filter((a: any) => {
                 if (a.course_id && enrolledCourseIds.includes(a.course_id)) return true;
                 if (!a.course_id) {

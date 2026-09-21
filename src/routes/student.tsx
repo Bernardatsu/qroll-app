@@ -56,7 +56,7 @@ import {
   markAllNotificationsAsRead,
 } from "@/lib/fcm-client";
 import qrollLogo from "@/assets/qroll-logo.png";
-import studentsBanner from "@/assets/students-banner-fast.webp";
+import studentsBanner from "@/assets/ghanaian-students-portal.jpg";
 
 export const Route = createFileRoute("/student")({
   ssr: false,
@@ -1095,25 +1095,25 @@ function StudentPortalPage() {
           <div className="max-w-md mx-auto py-4 sm:py-8">
             <Card className="shadow-lg border-primary/10 overflow-hidden">
               {/* Student Portal Header Banner Image */}
-              <div className="relative w-full h-36 sm:h-40 overflow-hidden bg-gradient-to-r from-blue-900 via-blue-950 to-slate-900">
+              <div className="relative w-full h-36 sm:h-40 overflow-hidden bg-slate-900">
                 <img
                   src={studentsBanner}
                   alt="Student Portal Banner"
-                  className="w-full h-full object-cover opacity-75 mix-blend-overlay"
+                  className="w-full h-full object-cover object-center"
                   loading="eager"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-4">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-950/15 to-transparent flex flex-col justify-end p-4">
                   <div className="flex items-center gap-2">
                     <img
                       src={qrollLogo}
                       alt="QRoll"
                       className="h-6 w-auto object-contain brightness-200"
                     />
-                    <span className="text-white font-bold text-base sm:text-lg tracking-tight drop-shadow-sm">
+                    <span className="text-white font-bold text-base sm:text-lg tracking-tight drop-shadow">
                       Student Access Portal
                     </span>
                   </div>
-                  <p className="text-white/80 text-xs mt-0.5 font-medium">
+                  <p className="text-white/90 text-xs mt-0.5 font-medium drop-shadow-sm">
                     Attendance records, personalized QR pass & course updates
                   </p>
                 </div>

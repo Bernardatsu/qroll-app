@@ -13,6 +13,7 @@ import {
   where,
   addDoc,
   updateDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -262,7 +263,7 @@ function ScanPage() {
   });
 
   // Real-time attendance records for today's session
-  const { data: records } = useQuery({
+  const { data: records = [] } = useQuery({
     queryKey: ["records", activeSession],
     queryFn: async () => {
       if (!activeSession) return [];
@@ -274,39 +275,65 @@ function ScanPage() {
           where("session_date", "==", today),
         ),
       );
-      const studentIds = Array.from(
-        new Set(recSnap.docs.map((d) => (d.data() as any).student_id).filter(Boolean)),
-      );
-      const studentMap = new Map<string, any>();
-      if (studentIds.length > 0) {
-        const studentDocs = await Promise.all(
-          studentIds.map(async (sid) => {
-            try {
-              const sDoc = await getDoc(doc(firestoreDb, "students", sid));
-              return sDoc.exists() ? { id: sDoc.id, ...(sDoc.data() as any) } : null;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        studentDocs.forEach((st) => {
-          if (st) studentMap.set(st.id, st);
-        });
-      }
+      const studentMap = new Map((allStudents ?? []).map((s: any) => [s.id, s]));
       const list = recSnap.docs.map((d) => {
         const data = d.data() as any;
         const st = studentMap.get(data.student_id);
         return {
           id: d.id,
           ...data,
-          students: st ? { full_name: st.full_name, index_number: st.index_number } : null,
+          students: st
+            ? { full_name: st.full_name, index_number: st.index_number }
+            : {
+                full_name: data.student_name || "Student",
+                index_number: data.student_index || "",
+              },
         };
       });
       return list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     },
     enabled: !!activeSession,
-    refetchInterval: 3000,
+    staleTime: 60 * 1000,
   });
+
+  // Real-time listener: receives instant push notifications when a student checks in
+  // Replaces aggressive 3000ms polling, saving up to 60,000 document reads per lecture hour!
+  useEffect(() => {
+    if (!activeSession) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const unsub = onSnapshot(
+      query(
+        collection(firestoreDb, "attendance_records"),
+        where("session_id", "==", activeSession),
+        where("session_date", "==", today),
+      ),
+      (snap) => {
+        const studentMap = new Map((allStudents ?? []).map((s: any) => [s.id, s]));
+        const list = snap.docs.map((d) => {
+          const data = d.data() as any;
+          const st = studentMap.get(data.student_id);
+          return {
+            id: d.id,
+            ...data,
+            students: st
+              ? { full_name: st.full_name, index_number: st.index_number }
+              : {
+                  full_name: data.student_name || "Student",
+                  index_number: data.student_index || "",
+                },
+          };
+        });
+        qc.setQueryData(
+          ["records", activeSession],
+          list.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")),
+        );
+      },
+      (err) => {
+        console.warn("Real-time scan records listener warning:", err);
+      },
+    );
+    return () => unsub();
+  }, [activeSession, allStudents, qc]);
 
   // Fast set of student IDs already scanned today for instant duplicate detection
   const scannedTodayMap = useMemo(() => {

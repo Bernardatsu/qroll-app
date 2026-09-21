@@ -376,11 +376,13 @@ export async function queryCollectionRest(
     }
   }
 
-  // Determine TTL: catalogs (departments, courses) get 10 mins; other queries get 60s
+  // Determine TTL: catalogs (departments, courses) get 10 mins; sessions/notices/assignments get 3 mins; others get 60s
   const defaultTtl =
     collectionId === "departments" || collectionId === "courses"
       ? 10 * 60 * 1000
-      : collectionId === "attendance_sessions"
+      : collectionId === "attendance_sessions" ||
+          collectionId === "announcements" ||
+          collectionId === "assignments"
         ? 3 * 60 * 1000
         : 60 * 1000;
 

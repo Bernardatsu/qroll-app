@@ -15,6 +15,8 @@ import {
   setDoc,
   getDoc,
   type Firestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
 } from "firebase/firestore";
 import firebaseConfigData from "../../../firebase-applet-config.json";
 
@@ -63,11 +65,19 @@ const databaseId =
 
 let firestoreInstance: Firestore;
 try {
+  const isBrowser = typeof window !== "undefined" && typeof indexedDB !== "undefined";
   firestoreInstance = initializeFirestore(
     app,
     {
       experimentalForceLongPolling: true,
       ignoreUndefinedProperties: true,
+      ...(isBrowser
+        ? {
+            localCache: persistentLocalCache({
+              tabManager: persistentMultipleTabManager(),
+            }),
+          }
+        : {}),
     },
     databaseId,
   );

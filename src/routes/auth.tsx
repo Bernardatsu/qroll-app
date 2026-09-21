@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import qrollLogo from "@/assets/qroll-logo.png";
-import qrollLogin from "@/assets/qroll-login.png";
+import qrollLogin from "@/assets/ghanaian-students-lecture.jpg";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — QRoll" }] }),

@@ -4,7 +4,7 @@ import { QrCode, ShieldCheck, BarChart3, CalendarCheck, PlayCircle } from "lucid
 import { useEffect } from "react";
 import { firebaseAuth } from "@/integrations/firebase/config";
 import qrollLogo from "@/assets/qroll-logo.png";
-import heroImage from "@/assets/9315935.webp";
+import heroImage from "@/assets/ghanaian-students-hero.jpg";
 import promoLandscape from "@/assets/qroll-promo-landscape.mp4";
 import promoPortrait from "@/assets/qroll-promo-portrait.mp4";
 import { BrandVideo } from "@/components/BrandVideo";
@@ -75,8 +75,8 @@ function Landing() {
             alt=""
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-primary/35" />
-          <div className="absolute inset-0 bg-linear-to-r from-primary/45 via-primary/25 to-primary/10" />
+          <div className="absolute inset-0 bg-primary/15" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/30 via-primary/15 to-transparent" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-10 items-center">

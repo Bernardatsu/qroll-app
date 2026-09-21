@@ -2,7 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { firestoreDb } from "@/integrations/firebase/config";
-import { collection, doc, getDoc, getDocs, query, where, addDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  addDoc,
+  setDoc,
+  limit,
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,7 +190,11 @@ function CheckInPage() {
 
       try {
         const studSnap = await getDocs(
-          query(collection(firestoreDb, "students"), where("index_number", "==", cleanIndex)),
+          query(
+            collection(firestoreDb, "students"),
+            where("index_number", "==", cleanIndex),
+            limit(1),
+          ),
         );
 
         if (!studSnap.empty) {
@@ -204,46 +218,59 @@ function CheckInPage() {
         studentId = `idx_${cleanIndex}`;
       }
 
-      // 4. Duplicate prevention across both individual scanning and projected QR check-in
+      // 4. Ultra-efficient O(1) duplicate prevention (protects Firebase free quota at university scale)
       const todayDate = new Date().toISOString().slice(0, 10);
+      const safeIndexKey = cleanIndex.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const deterministicRecordId = `${session}_${safeIndexKey}`;
+      const recordRef = doc(firestoreDb, "attendance_records", deterministicRecordId);
       let alreadyRecorded = false;
 
       try {
-        // Check this specific session
-        const sessRecsSnap = await getDocs(
-          query(collection(firestoreDb, "attendance_records"), where("session_id", "==", session)),
-        );
+        // Fast primary lookup: direct point read of deterministic record ID (costs exactly 1 read!)
+        const directSnap = await getDoc(recordRef);
+        if (directSnap.exists()) {
+          alreadyRecorded = true;
+        } else {
+          // Fallback query by session_id and student index or ID (strictly limited to 1 record, max 1 read!)
+          const qSnapIndex = await getDocs(
+            query(
+              collection(firestoreDb, "attendance_records"),
+              where("session_id", "==", session),
+              where("student_index", "==", cleanIndex),
+              limit(1),
+            ),
+          );
 
-        for (const doc of sessRecsSnap.docs) {
-          const d = doc.data() as any;
-          const matchId = studentId && d.student_id === studentId;
-          const matchIdx =
-            d.student_index && String(d.student_index).trim().toUpperCase() === cleanIndex;
-          if (matchId || matchIdx) {
+          if (!qSnapIndex.empty) {
             alreadyRecorded = true;
-            break;
+          } else if (studentId) {
+            const qSnapId = await getDocs(
+              query(
+                collection(firestoreDb, "attendance_records"),
+                where("session_id", "==", session),
+                where("student_id", "==", studentId),
+                limit(1),
+              ),
+            );
+            if (!qSnapId.empty) {
+              alreadyRecorded = true;
+            }
           }
         }
 
-        // Also check if marked for this course on today's date (individual scan method)
-        if (!alreadyRecorded && sessData.course_id) {
+        // Also check if marked for this course on today's date if session is recurring
+        if (!alreadyRecorded && sessData.course_id && studentId) {
           const dayRecsSnap = await getDocs(
             query(
               collection(firestoreDb, "attendance_records"),
               where("course_id", "==", sessData.course_id),
               where("session_date", "==", todayDate),
+              where("student_id", "==", studentId),
+              limit(1),
             ),
           );
-
-          for (const doc of dayRecsSnap.docs) {
-            const d = doc.data() as any;
-            const matchId = studentId && d.student_id === studentId;
-            const matchIdx =
-              d.student_index && String(d.student_index).trim().toUpperCase() === cleanIndex;
-            if (matchId || matchIdx) {
-              alreadyRecorded = true;
-              break;
-            }
+          if (!dayRecsSnap.empty) {
+            alreadyRecorded = true;
           }
         }
       } catch (dupErr) {
@@ -261,28 +288,32 @@ function CheckInPage() {
         return;
       }
 
-      // 5. Record student as PRESENT with full schema compatibility
+      // 5. Record student as PRESENT with idempotent write (prevents race-condition duplicate records)
       setStepMessage("Recording attendance...");
       const now = new Date();
-      await addDoc(collection(firestoreDb, "attendance_records"), {
-        session_id: session,
-        course_id: sessData.course_id || null,
-        student_id: studentId,
-        student_index: cleanIndex,
-        student_name: studentName,
-        session_date: todayDate,
-        check_in_at: now.toISOString(),
-        status: "PRESENT",
-        scanned_by: sessData.owner_id || "projected_qr",
-        owner_id: sessData.owner_id || null,
-        created_by: sessData.owner_id || "projected_qr",
-        source: "projected_qr",
-        geo_lat: userLat,
-        geo_lng: userLng,
-        geo_accuracy_m: accuracyM,
-        distance_m: Math.round(distanceM),
-        created_at: now.toISOString(),
-      });
+      await setDoc(
+        recordRef,
+        {
+          session_id: session,
+          course_id: sessData.course_id || null,
+          student_id: studentId,
+          student_index: cleanIndex,
+          student_name: studentName,
+          session_date: todayDate,
+          check_in_at: now.toISOString(),
+          status: "PRESENT",
+          scanned_by: sessData.owner_id || "projected_qr",
+          owner_id: sessData.owner_id || null,
+          created_by: sessData.owner_id || "projected_qr",
+          source: "projected_qr",
+          geo_lat: userLat,
+          geo_lng: userLng,
+          geo_accuracy_m: accuracyM,
+          distance_m: Math.round(distanceM),
+          created_at: now.toISOString(),
+        },
+        { merge: true },
+      );
 
       setDone({
         name: studentName,
