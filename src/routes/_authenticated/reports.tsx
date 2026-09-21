@@ -343,52 +343,161 @@ function ReportsPage() {
     return allDays;
   }, [mode, day, allDays]);
 
-  const report = useMemo(() => {
-    if (!raw || !courseId) return null;
-    const studentMap = new Map<string, any>();
+  // Build a single deduplicated list of students for this course
+  const deduplicatedStudents = useMemo(() => {
+    if (!raw || !courseId) return [];
     const currentCourse = (courses ?? []).find((c) => c.id === courseId);
     const regStudentIds = new Set(raw.regs.map((r: any) => r.student_id));
 
-    // 1. Populate all students who belong to this course by class level & department
+    interface CanonicalStudent {
+      id: string;
+      allIds: Set<string>;
+      full_name: string;
+      index_number: string;
+      normIdx: string;
+      level: string;
+    }
+
+    const studentsList: CanonicalStudent[] = [];
+    const idMap = new Map<string, CanonicalStudent>();
+    const indexMap = new Map<string, CanonicalStudent>();
+    const nameMap = new Map<string, CanonicalStudent>();
+
+    const cleanIndex = (rawIdx: any): string => {
+      if (!rawIdx) return "";
+      const str = String(rawIdx).trim().toUpperCase();
+      if (
+        !str ||
+        str === "—" ||
+        str === "-" ||
+        str === "NONE" ||
+        str === "N/A" ||
+        str === "NULL" ||
+        str === "UNDEFINED"
+      ) {
+        return "";
+      }
+      return str;
+    };
+
+    const cleanName = (rawName: any): string => {
+      if (!rawName) return "";
+      return String(rawName).trim();
+    };
+
+    const merge = (candidate: any) => {
+      if (!candidate) return;
+      const rawId = String(candidate.id || candidate.student_id || "").trim();
+      const normIdx = cleanIndex(candidate.index_number || candidate.student_index);
+      const name = cleanName(candidate.full_name || candidate.student_name);
+      const normName = name.toLowerCase();
+      const lvl = candidate.level && candidate.level !== "—" ? String(candidate.level).trim() : "";
+
+      // Look up if this student already exists in any index
+      let target: CanonicalStudent | undefined = undefined;
+
+      if (normIdx && indexMap.has(normIdx)) {
+        target = indexMap.get(normIdx);
+      } else if (rawId && idMap.has(rawId)) {
+        target = idMap.get(rawId);
+      } else if (
+        normName &&
+        !normName.startsWith("student") &&
+        normName.length >= 3 &&
+        nameMap.has(normName)
+      ) {
+        target = nameMap.get(normName);
+      }
+
+      if (target) {
+        // Merge candidate data into existing canonical entry
+        if (rawId) {
+          target.allIds.add(rawId);
+          idMap.set(rawId, target);
+        }
+        if (normIdx) {
+          if (!target.normIdx || target.index_number === "—") {
+            target.index_number = normIdx;
+            target.normIdx = normIdx;
+          }
+          indexMap.set(normIdx, target);
+        }
+        if (
+          name &&
+          (!target.full_name ||
+            target.full_name.startsWith("Student (") ||
+            (target.full_name.length < name.length && !name.startsWith("Student (")))
+        ) {
+          target.full_name = name;
+          if (normName && !normName.startsWith("student")) {
+            nameMap.set(normName, target);
+          }
+        }
+        if (lvl && (!target.level || target.level === "—")) {
+          target.level = lvl;
+        }
+      } else {
+        // Create new canonical entry
+        const fallbackName =
+          name ||
+          (normIdx ? `Student (${normIdx})` : `Student (${(rawId || "unknown").slice(0, 8)})`);
+        const fallbackIndex = normIdx || "—";
+        const newStudent: CanonicalStudent = {
+          id: rawId || (normIdx ? `idx_${normIdx}` : `stud_${Math.random().toString(36).slice(2)}`),
+          allIds: new Set(rawId ? [rawId] : []),
+          full_name: fallbackName,
+          index_number: fallbackIndex,
+          normIdx,
+          level: lvl || "—",
+        };
+
+        studentsList.push(newStudent);
+
+        if (rawId) idMap.set(rawId, newStudent);
+        if (normIdx) indexMap.set(normIdx, newStudent);
+        if (normName && !normName.startsWith("student") && normName.length >= 3) {
+          nameMap.set(normName, newStudent);
+        }
+      }
+    };
+
+    // 1. Course-eligible students by level & department
     for (const s of raw.allStudents || []) {
       if (isStudentInCourse(s, currentCourse as any, regStudentIds, raw.deptMap)) {
-        studentMap.set(s.id, s);
+        merge(s);
       }
     }
 
-    // 2. Also ensure all explicitly registered students are included
+    // 2. Explicitly registered students
     for (const r of raw.regs) {
-      if ((r as any).students && !studentMap.has((r as any).students.id)) {
-        studentMap.set((r as any).students.id, (r as any).students);
+      if ((r as any).students) {
+        merge((r as any).students);
       }
     }
 
-    // 3. Include any student with historical records
+    // 3. Any student with recorded attendance
     for (const rec of raw.records) {
-      const normIdx = rec.student_index ? String(rec.student_index).trim().toUpperCase() : "";
-      const existingByDoc = rec.students && studentMap.get(rec.students.id);
-      const existingBySid = rec.student_id && studentMap.get(rec.student_id);
-      const existingByIdx = normIdx
-        ? Array.from(studentMap.values()).find(
-            (st: any) =>
-              st.index_number && String(st.index_number).trim().toUpperCase() === normIdx,
-          )
-        : null;
-
-      if (!existingByDoc && !existingBySid && !existingByIdx) {
-        const sid = rec.student_id || (normIdx ? `idx_${normIdx}` : `rec_${rec.id}`);
-        studentMap.set(sid, {
-          id: sid,
-          full_name:
-            rec.student_name || (normIdx ? `Student (${normIdx})` : `Student (${sid.slice(0, 8)})`),
-          index_number: normIdx || rec.student_index || "—",
-          level: "—",
+      if (rec.students) {
+        merge(rec.students);
+      } else {
+        merge({
+          id: rec.student_id,
+          student_id: rec.student_id,
+          student_name: rec.student_name,
+          index_number: rec.student_index,
+          student_index: rec.student_index,
         });
       }
     }
 
-    // student -> set of days scanned (keyed by student ID and by uppercase index number)
-    const scanned = new Map<string, Set<string>>();
+    return studentsList.sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [raw, courseId, courses]);
+
+  const report = useMemo(() => {
+    if (!raw || !courseId) return null;
+
+    // Map of student_id -> days attended AND normIdx -> days attended
+    const scannedById = new Map<string, Set<string>>();
     const scannedByIndex = new Map<string, Set<string>>();
 
     for (const rec of raw.records) {
@@ -396,8 +505,8 @@ function ReportsPage() {
       if (!d) continue;
 
       if (rec.student_id) {
-        if (!scanned.has(rec.student_id)) scanned.set(rec.student_id, new Set());
-        scanned.get(rec.student_id)!.add(d);
+        if (!scannedById.has(rec.student_id)) scannedById.set(rec.student_id, new Set());
+        scannedById.get(rec.student_id)!.add(d);
       }
       if (rec.student_index) {
         const normIdx = String(rec.student_index).trim().toUpperCase();
@@ -406,35 +515,43 @@ function ReportsPage() {
       }
     }
 
-    const rows = Array.from(studentMap.values())
-      .map((s: any) => {
-        const normIdx = s.index_number ? String(s.index_number).trim().toUpperCase() : "";
-        const studentDays = scanned.get(s.id);
-        const indexDays = normIdx ? scannedByIndex.get(normIdx) : null;
-        const cells = activeDays.map((d) => (studentDays?.has(d) || indexDays?.has(d) ? 1 : 0));
-        const scans = cells.filter((v) => v === 1).length;
-        const missed = cells.length - scans;
-        const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
-        const gradeInfo = calculateAttendanceGrade(pct);
-        return {
-          id: s.id,
-          full_name: s.full_name,
-          index_number: s.index_number,
-          level: s.level,
-          cells,
-          scans,
-          missed,
-          pct,
-          score: Math.round((pct / 100) * gradeWeight * 100) / 100,
-          attendanceMarks: gradeInfo.marks,
-          attendanceGradeLabel: gradeInfo.label,
-          atRisk: missed > maxMisses,
-        };
-      })
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    const rows = deduplicatedStudents.map((s) => {
+      const cells = activeDays.map((d) => {
+        let attended = false;
+        for (const sid of s.allIds) {
+          if (scannedById.get(sid)?.has(d)) {
+            attended = true;
+            break;
+          }
+        }
+        if (!attended && s.normIdx && scannedByIndex.get(s.normIdx)?.has(d)) {
+          attended = true;
+        }
+        return attended ? 1 : 0;
+      });
+
+      const scans = cells.filter((v) => v === 1).length;
+      const missed = cells.length - scans;
+      const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
+      const gradeInfo = calculateAttendanceGrade(pct);
+      return {
+        id: s.id,
+        full_name: s.full_name,
+        index_number: s.index_number,
+        level: s.level,
+        cells,
+        scans,
+        missed,
+        pct,
+        score: Math.round((pct / 100) * gradeWeight * 100) / 100,
+        attendanceMarks: gradeInfo.marks,
+        attendanceGradeLabel: gradeInfo.label,
+        atRisk: missed > maxMisses,
+      };
+    });
 
     return { rows, days: activeDays };
-  }, [raw, courseId, activeDays, maxMisses, gradeWeight]);
+  }, [raw, courseId, activeDays, maxMisses, gradeWeight, deduplicatedStudents]);
 
   const visibleRows = useMemo(() => {
     if (!report) return [];
@@ -469,17 +586,22 @@ function ReportsPage() {
       toast.error("No course sessions found to compile");
       return;
     }
-    const studentMap = new Map<string, any>();
-    for (const r of raw.regs)
-      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
-    for (const rec of raw.records) if (rec.students) studentMap.set(rec.students.id, rec.students);
 
-    const scanned = new Map<string, Set<string>>();
+    const scannedById = new Map<string, Set<string>>();
+    const scannedByIndex = new Map<string, Set<string>>();
+
     for (const rec of raw.records) {
       const d = rec.session_date ?? (rec.check_in_at ? dayKey(rec.check_in_at) : null);
       if (!d) continue;
-      if (!scanned.has(rec.student_id)) scanned.set(rec.student_id, new Set());
-      scanned.get(rec.student_id)!.add(d);
+      if (rec.student_id) {
+        if (!scannedById.has(rec.student_id)) scannedById.set(rec.student_id, new Set());
+        scannedById.get(rec.student_id)!.add(d);
+      }
+      if (rec.student_index) {
+        const normIdx = String(rec.student_index).trim().toUpperCase();
+        if (!scannedByIndex.has(normIdx)) scannedByIndex.set(normIdx, new Set());
+        scannedByIndex.get(normIdx)!.add(d);
+      }
     }
 
     const dayHeaders = allDays.map((d) => `W${weekOfDay(d)} · ${prettyDay(d)}`);
@@ -496,8 +618,21 @@ function ReportsPage() {
       "Status",
     ];
 
-    let studentsList = Array.from(studentMap.values()).map((s: any) => {
-      const cells = allDays.map((d) => (scanned.get(s.id)?.has(d) ? 1 : 0));
+    let studentsList = deduplicatedStudents.map((s) => {
+      const cells = allDays.map((d) => {
+        let attended = false;
+        for (const sid of s.allIds) {
+          if (scannedById.get(sid)?.has(d)) {
+            attended = true;
+            break;
+          }
+        }
+        if (!attended && s.normIdx && scannedByIndex.get(s.normIdx)?.has(d)) {
+          attended = true;
+        }
+        return attended ? 1 : 0;
+      });
+
       const scans = cells.filter((v) => v === 1).length;
       const missed = cells.length - scans;
       const pct = cells.length ? Math.round((scans / cells.length) * 100) : 0;
@@ -559,21 +694,21 @@ function ReportsPage() {
       toast.error("Please pick a session day to export");
       return;
     }
-    const studentMap = new Map<string, any>();
-    for (const r of raw?.regs ?? [])
-      if ((r as any).students) studentMap.set((r as any).students.id, (r as any).students);
-    for (const rec of raw?.records ?? [])
-      if (rec.students) studentMap.set(rec.students.id, rec.students);
 
-    // Map student_id -> check_in timestamp for this target day
-    const checkInMap = new Map<string, string>();
+    // Map student_id -> check_in timestamp AND normIdx -> check_in timestamp
+    const checkInMapById = new Map<string, string>();
+    const checkInMapByIdx = new Map<string, string>();
+
     for (const rec of raw?.records ?? []) {
       const d = rec.session_date ?? (rec.check_in_at ? dayKey(rec.check_in_at) : null);
       if (d === target) {
-        checkInMap.set(
-          rec.student_id,
-          rec.check_in_at ? new Date(rec.check_in_at).toLocaleTimeString() : "Checked In",
-        );
+        const timeStr = rec.check_in_at
+          ? new Date(rec.check_in_at).toLocaleTimeString()
+          : "Checked In";
+        if (rec.student_id) checkInMapById.set(rec.student_id, timeStr);
+        if (rec.student_index) {
+          checkInMapByIdx.set(String(rec.student_index).trim().toUpperCase(), timeStr);
+        }
       }
     }
 
@@ -585,15 +720,29 @@ function ReportsPage() {
       "Presence Status",
       "Check-in Time",
     ];
-    let list = Array.from(studentMap.values()).map((s: any) => {
-      const isPresent = checkInMap.has(s.id);
+    let list = deduplicatedStudents.map((s) => {
+      let isPresent = false;
+      let checkInTime = "—";
+
+      for (const sid of s.allIds) {
+        if (checkInMapById.has(sid)) {
+          isPresent = true;
+          checkInTime = checkInMapById.get(sid)!;
+          break;
+        }
+      }
+      if (!isPresent && s.normIdx && checkInMapByIdx.has(s.normIdx)) {
+        isPresent = true;
+        checkInTime = checkInMapByIdx.get(s.normIdx)!;
+      }
+
       return {
         full_name: s.full_name,
         index_number: s.index_number,
         level: s.level ?? "",
         session_date: prettyDay(target),
         status: isPresent ? "PRESENT" : "ABSENT",
-        time: checkInMap.get(s.id) ?? "—",
+        time: checkInTime,
         isPresent,
       };
     });

@@ -152,15 +152,15 @@ export function NotificationBell({
   const getIcon = (type: string) => {
     switch (type) {
       case "ATTENDANCE":
-        return <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
+        return <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
       case "ANNOUNCEMENT":
         return <Megaphone className="h-4 w-4 text-sky-600 dark:text-sky-400" />;
       case "ASSIGNMENT":
-        return <BookOpen className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
+        return <BookOpen className="h-4 w-4 text-blue-500 dark:text-blue-300" />;
       case "DEADLINE":
-        return <Clock className="h-4 w-4 text-rose-600 dark:text-rose-400" />;
+        return <Clock className="h-4 w-4 text-blue-700 dark:text-blue-300" />;
       default:
-        return <Shield className="h-4 w-4 text-primary" />;
+        return <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
     }
   };
 

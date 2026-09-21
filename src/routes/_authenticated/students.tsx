@@ -1139,7 +1139,7 @@ function QrButton({ student }: { student: any }) {
       const url = await QRCode.toDataURL(qrValue, {
         width: 320,
         margin: 2,
-        color: { dark: "#1e3a8a", light: "#ffffff" },
+        color: { dark: "#064e3b", light: "#ffffff" },
       });
       setDataUrl(url);
     } catch (err) {

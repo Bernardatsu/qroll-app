@@ -276,7 +276,7 @@ function RegisterPage() {
         await QRCode.toDataURL(row.qr_uuid, {
           width: 360,
           margin: 2,
-          color: { dark: "#1e3a8a", light: "#ffffff" },
+          color: { dark: "#064e3b", light: "#ffffff" },
         }),
       );
       toast.success(
@@ -305,7 +305,7 @@ function RegisterPage() {
       ctx.fillRect(0, 0, 600, 760);
 
       // Top brand header
-      ctx.fillStyle = "#1e3a8a";
+      ctx.fillStyle = "#064e3b";
       ctx.fillRect(0, 0, 600, 90);
 
       // Draw QRoll logo
@@ -338,7 +338,7 @@ function RegisterPage() {
       ctx.textAlign = "center";
       ctx.fillText(created.full_name, 300, 140);
 
-      ctx.fillStyle = "#1e3a8a";
+      ctx.fillStyle = "#064e3b";
       ctx.font = "bold 18px monospace";
       ctx.fillText(`INDEX: ${created.index_number}`, 300, 175);
 

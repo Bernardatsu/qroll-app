@@ -391,6 +391,10 @@ export async function sendToRole(role: string, payload: NotificationPayload): Pr
       if (data.userId) userIds.add(data.userId);
     });
 
+    if (role === "student") {
+      userIds.add("all_students");
+    }
+
     if (userIds.size > 0) {
       await recordInAppNotifications(Array.from(userIds), payload);
     }
@@ -459,13 +463,17 @@ export async function sendToCourseMembers(
 
     const recipientIds = Array.from(studentIds);
     if (recipientIds.length === 0) {
-      return { attempts: 0, successes: 0, failures: 0, deactivatedTokens: 0 };
+      // Fallback to all student subscriptions so alerts are never missed
+      return await sendToRole("student", payload);
     }
+
+    // Ensure all_students is included in history for course broadcasts
+    await recordInAppNotifications(["all_students"], payload);
 
     return await sendToUsers(recipientIds, payload);
   } catch (err) {
     console.error("[FCM] sendToCourseMembers error:", err);
-    return { attempts: 0, successes: 0, failures: 0, deactivatedTokens: 0 };
+    return await sendToRole("student", payload);
   }
 }
 

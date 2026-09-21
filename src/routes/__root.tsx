@@ -141,6 +141,19 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js", { scope: "/" })
+        .then((reg) => {
+          console.log("[QRoll] Root push service worker registered:", reg.scope);
+        })
+        .catch((err) => {
+          console.warn("[QRoll] Service worker registration notice:", err);
+        });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SplashScreen />

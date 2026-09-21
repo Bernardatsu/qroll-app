@@ -4,58 +4,51 @@ import introLandscape from "@/assets/qroll-intro-landscape.mp4";
 import introPortrait from "@/assets/qroll-intro-video---portrait.mp4";
 
 /**
- * QRoll launch screen — plays the branded intro video once per browser
- * session so the web app feels like a native app when opened.
- *
- * The overlay is rendered on the very first paint (server + client) so the
- * landing page never flashes before the intro. If the intro was already shown
- * this session it is removed synchronously on mount.
+ * QRoll launch screen — plays the branded intro video automatically on app load.
+ * Fades out smoothly upon video completion.
  */
 export function SplashScreen() {
   const [show, setShow] = useState(true);
-  const [ready, setReady] = useState(false);
   const [fading, setFading] = useState(false);
+
+  const finish = () => {
+    setFading(true);
+    setTimeout(() => {
+      setShow(false);
+      setFading(false);
+    }, 500);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (sessionStorage.getItem("qroll_splash_seen")) {
-      setShow(false);
-      return;
-    }
-    sessionStorage.setItem("qroll_splash_seen", "1");
-    setReady(true);
-    const t1 = setTimeout(() => setFading(true), 5000);
-    const t2 = setTimeout(() => setShow(false), 5600);
+
+    // Fallback timer in case video media fails to decode or load
+    const fallbackTimer = setTimeout(() => {
+      finish();
+    }, 8000);
+
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      clearTimeout(fallbackTimer);
     };
   }, []);
 
   if (!show) return null;
 
-  const finish = () => {
-    setFading(true);
-    setTimeout(() => setShow(false), 600);
-  };
-
   return (
     <div
-      className={`fixed inset-0 z-100 bg-[#0f2544] transition-opacity duration-500 ${
-        fading ? "opacity-0" : "opacity-100"
+      className={`fixed inset-0 z-100 bg-[#071326] transition-opacity duration-500 overflow-hidden select-none ${
+        fading ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
-      aria-hidden="true"
+      aria-hidden={!show}
     >
-      {ready && (
-        <BrandVideo
-          landscape={introLandscape}
-          portrait={introPortrait}
-          autoStart
-          loop={false}
-          onEnded={finish}
-          className="h-full w-full object-cover object-center"
-        />
-      )}
+      <BrandVideo
+        landscape={introLandscape}
+        portrait={introPortrait}
+        autoStart
+        loop={false}
+        onEnded={finish}
+        className="h-full w-full object-cover object-center"
+      />
     </div>
   );
 }

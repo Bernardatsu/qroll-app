@@ -30,6 +30,7 @@ import {
   RefreshCw,
   ShieldCheck,
   User,
+  UserPlus,
   AlertCircle,
   ExternalLink,
   Filter,
@@ -80,7 +81,7 @@ export const Route = createFileRoute("/student")({
 });
 
 const STORE = "qroll.student.session.v2";
-const BRAND_BLUE = "#1e3a8a";
+const BRAND_QR_COLOR = "#0f172a";
 
 interface StudentMe {
   id: string;
@@ -162,12 +163,12 @@ interface PortalNotificationItem {
   created_at?: string;
 }
 
-type AuthStep = "index" | "create" | "login" | "reset";
+type AuthStep = "login" | "register" | "reset" | "index" | "create";
 
 function getInitialStoredSession() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(STORE) || localStorage.getItem(STORE);
+    const raw = sessionStorage.getItem(STORE);
     if (raw) return JSON.parse(raw);
   } catch {
     // Ignore invalid JSON
@@ -180,7 +181,6 @@ function persistStudentSession(data: any) {
   try {
     const serialized = JSON.stringify(data);
     sessionStorage.setItem(STORE, serialized);
-    localStorage.setItem(STORE, serialized);
   } catch (e) {
     console.warn("Session persist warning:", e);
   }
@@ -198,7 +198,7 @@ function clearStudentSession() {
 
 function StudentPortalPage() {
   const [initialSession] = useState(getInitialStoredSession);
-  const [step, setStep] = useState<AuthStep>(() => (initialSession?.student ? "login" : "index"));
+  const [step, setStep] = useState<AuthStep>(() => (initialSession?.student ? "login" : "login"));
   const [index, setIndex] = useState(() => initialSession?.i || "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => initialSession?.p || "");
@@ -207,7 +207,17 @@ function StudentPortalPage() {
   const [hasEmail, setHasEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Authenticated State (preserved until browser tab is closed)
+  // New Student Registration Dedicated State
+  const [regFullName, setRegFullName] = useState("");
+  const [regIndex, setRegIndex] = useState("");
+  const [regLevel, setRegLevel] = useState("100");
+  const [regProgram, setRegProgram] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+
+  // Authenticated State (preserved until webapp is closed)
   const [me, setMe] = useState<StudentMe | null>(() => initialSession?.student || null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [courses, setCourses] = useState<CourseAttendanceRow[]>(
@@ -236,7 +246,7 @@ function StudentPortalPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // QR Code generator matching QRoll brand blue
+  // QR Code generator matching QRoll brand green
   useEffect(() => {
     if (me) {
       const qrPayload = me.qr_uuid || me.index_number;
@@ -244,7 +254,7 @@ function StudentPortalPage() {
         width: 380,
         margin: 2,
         color: {
-          dark: BRAND_BLUE,
+          dark: BRAND_QR_COLOR,
           light: "#ffffff",
         },
       })
@@ -263,7 +273,7 @@ function StudentPortalPage() {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(
-      `<html><head><title>${me.index_number} - Universal QR Pass</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:40px;color:#0f172a}.badge{display:inline-block;border:2px solid #0f172a;border-radius:16px;padding:24px 32px;max-width:340px}.logo-img{width:48px;height:48px;margin-bottom:6px;object-fit:contain}img.qr{width:240px;height:240px}h2{margin:0 0 8px;color:#1e3a8a}h3{margin:12px 0 4px;font-size:20px}p{margin:4px 0;color:#475569;font-size:13px}.tag{display:inline-block;background:#e0e7ff;color:#3730a3;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:12px}</style></head><body><div class="badge"><img src="${qrollLogo}" class="logo-img" alt="QRoll" /><div class="tag">UNIVERSAL STUDENT ATTENDANCE PASS</div><h2>QRoll Pass</h2><img class="qr" src="${qrUrl}" /><h3>${me.full_name}</h3><p><strong>${me.index_number}</strong> · Level ${me.level || "100"}</p><p>${me.program || "Undergraduate Degree"}</p><p style="font-size:11px;color:#64748b;margin-top:12px">One unique QR code valid for all courses & lecturers · Powered by QRoll</p></div></body></html>`,
+      `<html><head><title>${me.index_number} - Universal QR Pass</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:40px;color:#0f172a}.badge{display:inline-block;border:2px solid #0f172a;border-radius:16px;padding:24px 32px;max-width:340px}.logo-img{width:48px;height:48px;margin-bottom:6px;object-fit:contain}img.qr{width:240px;height:240px}h2{margin:0 0 8px;color:#064e3b}h3{margin:12px 0 4px;font-size:20px}p{margin:4px 0;color:#475569;font-size:13px}.tag{display:inline-block;background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:12px}</style></head><body><div class="badge"><img src="${qrollLogo}" class="logo-img" alt="QRoll" /><div class="tag">UNIVERSAL STUDENT ATTENDANCE PASS</div><h2>QRoll Pass</h2><img class="qr" src="${qrUrl}" /><h3>${me.full_name}</h3><p><strong>${me.index_number}</strong> · Level ${me.level || "100"}</p><p>${me.program || "Undergraduate Degree"}</p><p style="font-size:11px;color:#64748b;margin-top:12px">One unique QR code valid for all courses & lecturers · Powered by QRoll</p></div></body></html>`,
     );
     w.document.close();
     setTimeout(() => w.print(), 400);
@@ -283,7 +293,7 @@ function StudentPortalPage() {
       ctx.fillRect(0, 0, 600, 760);
 
       // Top brand header
-      ctx.fillStyle = "#1e3a8a";
+      ctx.fillStyle = "#064e3b";
       ctx.fillRect(0, 0, 600, 90);
 
       // Draw QRoll logo
@@ -316,7 +326,7 @@ function StudentPortalPage() {
       ctx.textAlign = "center";
       ctx.fillText(me.full_name, 300, 140);
 
-      ctx.fillStyle = "#1e3a8a";
+      ctx.fillStyle = "#064e3b";
       ctx.font = "bold 18px monospace";
       ctx.fillText(`INDEX: ${me.index_number}`, 300, 175);
 
@@ -370,7 +380,7 @@ function StudentPortalPage() {
     }
   }, [me]);
 
-  // Session auto-restore on page load
+  // Session auto-restore on page load with instant offline hydration
   useEffect(() => {
     const raw =
       typeof window !== "undefined"
@@ -379,7 +389,18 @@ function StudentPortalPage() {
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
+      // Immediately hydrate cached state so QR pass & records are viewable offline
+      if (parsed.student) {
+        setMe(parsed.student);
+        if (Array.isArray(parsed.courses)) setCourses(parsed.courses);
+        if (Array.isArray(parsed.history)) setHistory(parsed.history);
+        if (Array.isArray(parsed.announcements)) setAnnouncements(parsed.announcements);
+        if (Array.isArray(parsed.assignments)) setAssignments(parsed.assignments);
+        if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
+      }
       if (parsed.i && parsed.p) {
+        setIndex(parsed.i);
+        setPassword(parsed.p);
         void executeSignIn(parsed.i, parsed.p, true);
       }
     } catch {
@@ -426,7 +447,16 @@ function StudentPortalPage() {
         notifications: data.notifications || [],
       });
     } catch (err: any) {
-      console.error("Failed to load student data:", err);
+      const msg = err?.message || "";
+      if (
+        msg.toLowerCase().includes("quota") ||
+        msg.includes("429") ||
+        msg.includes("RESOURCE_EXHAUSTED")
+      ) {
+        console.warn("Firestore daily quota reached; preserving offline student state:", err);
+      } else {
+        console.error("Failed to load student data:", err);
+      }
     }
   };
 
@@ -464,6 +494,20 @@ function StudentPortalPage() {
       if (msg.includes("No password") || msg.includes("not set yet")) {
         toast.info("No password set yet. Please set your password first.");
         setStep("create");
+      } else if (
+        msg.toLowerCase().includes("quota") ||
+        msg.includes("429") ||
+        msg.includes("RESOURCE_EXHAUSTED")
+      ) {
+        if (me) {
+          toast.info(
+            "Offline Pass Mode: Database quota reached. Your saved universal pass is active for scanning.",
+          );
+          return true;
+        }
+        toast.error(
+          "Firestore free daily read quota reached. Resets at 00:00 UTC or upon project plan upgrade.",
+        );
       } else if (!silent) {
         toast.error(msg || "Invalid index number or password");
       }
@@ -471,7 +515,7 @@ function StudentPortalPage() {
     }
   };
 
-  // Real-time listener for incoming push notifications and periodic background refresh
+  // Real-time listener for incoming push notifications and periodic background refresh (5 mins, active tab only)
   useEffect(() => {
     if (!me || !index || !password) return;
 
@@ -480,10 +524,14 @@ function StudentPortalPage() {
       void fetchStudentData(index, password);
     });
 
-    // Background interval to keep announcements, assignments, and notifications fresh
-    const interval = setInterval(() => {
-      void fetchStudentData(index, password);
-    }, 30000);
+    // Background interval to keep data fresh without consuming excessive quota (5 minutes, active tab only)
+    const interval = setInterval(
+      () => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        void fetchStudentData(index, password);
+      },
+      5 * 60 * 1000,
+    );
 
     return () => {
       cleanup();
@@ -581,6 +629,88 @@ function StudentPortalPage() {
       (n) => (n.type || "GENERAL").toUpperCase() === notifCategoryFilter.toUpperCase(),
     );
   }, [notifications, notifCategoryFilter]);
+
+  const handleNewStudentRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = regFullName.trim();
+    const cleanIndex = regIndex.trim().toUpperCase();
+    const cleanEmail = regEmail.trim();
+
+    if (!cleanName) {
+      toast.error("Please enter your full legal name");
+      return;
+    }
+    if (!cleanIndex) {
+      toast.error("Please enter your student index number");
+      return;
+    }
+    if (!cleanEmail) {
+      toast.error("Please enter your email address");
+      return;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await callApi({
+        action: "register",
+        full_name: cleanName,
+        index: cleanIndex,
+        email: cleanEmail,
+        level: regLevel || "100",
+        program: regProgram.trim() || "General",
+        password: regPassword,
+      });
+
+      if (!res.ok) {
+        throw new Error(res.error || "Registration failed");
+      }
+
+      toast.success(res.message || "Registration successful! Welcome to QRoll.");
+      setIndex(cleanIndex);
+      setPassword(regPassword);
+      setMe(res.student);
+
+      persistStudentSession({
+        i: cleanIndex,
+        p: regPassword,
+        student: res.student,
+      });
+
+      await fetchStudentData(cleanIndex, regPassword);
+
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        void requestAndRegisterPushToken({
+          id: res.student.id,
+          role: "student",
+          indexNumber: cleanIndex,
+          email: cleanEmail,
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || "Registration failed";
+      if (msg.includes("already exists") || msg.includes("already set")) {
+        toast.info(msg);
+        setIndex(cleanIndex);
+        setStep("login");
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleDirectRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -965,14 +1095,14 @@ function StudentPortalPage() {
           <div className="max-w-md mx-auto py-4 sm:py-8">
             <Card className="shadow-lg border-primary/10 overflow-hidden">
               {/* Student Portal Header Banner Image */}
-              <div className="relative w-full h-36 sm:h-40 overflow-hidden bg-gradient-to-r from-blue-950 to-indigo-900">
+              <div className="relative w-full h-36 sm:h-40 overflow-hidden bg-gradient-to-r from-blue-900 via-blue-950 to-slate-900">
                 <img
                   src={studentsBanner}
                   alt="Student Portal Banner"
-                  className="w-full h-full object-cover opacity-85"
+                  className="w-full h-full object-cover opacity-75 mix-blend-overlay"
                   loading="eager"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-4">
                   <div className="flex items-center gap-2">
                     <img
                       src={qrollLogo}
@@ -990,154 +1120,239 @@ function StudentPortalPage() {
               </div>
 
               {/* Mode Selector Tabs */}
-              <div className="p-2 bg-muted/60 border-b grid grid-cols-3 gap-1 text-xs">
+              <div className="p-1.5 bg-black/5 dark:bg-white/5 border-b border-border/60 grid grid-cols-3 gap-1 text-xs">
                 <button
                   type="button"
+                  id="tab-student-signin"
                   onClick={() => {
                     setStep("login");
                     setPassword("");
                     setConfirmPassword("");
                   }}
-                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
+                  className={`py-2 px-2 rounded-lg font-semibold transition text-center flex items-center justify-center gap-1.5 ${
                     step === "login"
-                      ? "bg-background text-foreground shadow-xs border"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  Sign In
+                  <Lock className="size-3.5" />
+                  <span>Sign In</span>
                 </button>
                 <button
                   type="button"
+                  id="tab-new-student-registration"
                   onClick={() => {
-                    setStep("index");
+                    setStep("register");
                     setPassword("");
                     setConfirmPassword("");
                   }}
-                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
-                    step === "index" || step === "create"
-                      ? "bg-background text-foreground shadow-xs border"
-                      : "text-muted-foreground hover:text-foreground"
+                  className={`py-2 px-1.5 rounded-lg font-bold transition text-center flex items-center justify-center gap-1.5 ${
+                    step === "register" || step === "index" || step === "create"
+                      ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/50"
+                      : "text-foreground font-semibold hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  Sign Up
+                  <UserPlus className="size-3.5 text-blue-600 dark:text-blue-400" />
+                  <span className="truncate">New Register</span>
                 </button>
                 <button
                   type="button"
+                  id="tab-student-reset"
                   onClick={() => {
                     setStep("reset");
                     setPassword("");
                     setConfirmPassword("");
                   }}
-                  className={`py-2 px-2 rounded-md font-semibold transition text-center ${
+                  className={`py-2 px-2 rounded-lg font-semibold transition text-center flex items-center justify-center gap-1.5 ${
                     step === "reset"
-                      ? "bg-background text-foreground shadow-xs border"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  Reset Password
+                  <RefreshCw className="size-3.5" />
+                  <span>Reset</span>
                 </button>
               </div>
 
-              {step === "index" && (
+              {(step === "register" || step === "index") && (
                 <>
                   <CardHeader className="text-center pb-3 pt-5">
-                    <div className="mx-auto size-12 rounded-full bg-primary/10 text-primary grid place-items-center mb-2">
-                      <GraduationCap className="size-6" />
+                    <div className="mx-auto size-12 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 grid place-items-center mb-2 border border-blue-500/20">
+                      <UserPlus className="size-6" />
                     </div>
-                    <CardTitle className="text-xl font-bold">Student Sign Up</CardTitle>
+                    <CardTitle className="text-xl font-bold text-foreground">
+                      New Student Registration
+                    </CardTitle>
                     <CardDescription className="text-xs max-w-sm mx-auto">
-                      Enter your university index number and registered email to create your
-                      password and activate your student portal.
+                      Fill in your student details to create your official attendance profile,
+                      generate your unique QR pass, and access your portal.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <form onSubmit={handleDirectRegister} className="space-y-3.5">
+                    <form onSubmit={handleNewStudentRegister} className="space-y-3.5">
                       <div className="space-y-1.5">
-                        <Label htmlFor="index-num" className="text-xs font-semibold">
-                          Index Number
+                        <Label
+                          htmlFor="reg-fullname"
+                          className="text-xs font-semibold text-foreground"
+                        >
+                          Full Legal Name
                         </Label>
                         <Input
-                          id="index-num"
-                          placeholder="e.g. 1029485"
-                          value={index}
-                          onChange={(e) => setIndex(e.target.value)}
-                          autoFocus
-                          required
-                          className="h-10 font-mono text-sm tracking-wide uppercase"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="student-email" className="text-xs font-semibold">
-                          Registered Email Address
-                        </Label>
-                        <Input
-                          id="student-email"
-                          type="email"
-                          placeholder="e.g. student@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          id="reg-fullname"
+                          placeholder="e.g. Kwame Mensah"
+                          value={regFullName}
+                          onChange={(e) => setRegFullName(e.target.value)}
                           required
                           className="h-10 text-sm"
                         />
-                        <p className="text-[11px] text-muted-foreground">
-                          Matches the email recorded in the system by your instructor.
-                        </p>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold">Create Password</Label>
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="reg-index"
+                            className="text-xs font-semibold text-foreground"
                           >
-                            {showPassword ? (
-                              <EyeOff className="size-3" />
-                            ) : (
-                              <Eye className="size-3" />
-                            )}
-                            {showPassword ? "Hide" : "Show"}
-                          </button>
+                            Index / Student ID
+                          </Label>
+                          <Input
+                            id="reg-index"
+                            placeholder="e.g. 1029485"
+                            value={regIndex}
+                            onChange={(e) => setRegIndex(e.target.value)}
+                            required
+                            className="h-10 font-mono text-sm uppercase tracking-wide"
+                          />
                         </div>
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="At least 6 characters"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          minLength={6}
-                          required
-                          className="h-10"
-                        />
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="reg-level"
+                            className="text-xs font-semibold text-foreground"
+                          >
+                            Academic Level
+                          </Label>
+                          <select
+                            id="reg-level"
+                            value={regLevel}
+                            onChange={(e) => setRegLevel(e.target.value)}
+                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-600"
+                          >
+                            <option value="100">Level 100 (First Year)</option>
+                            <option value="200">Level 200 (Second Year)</option>
+                            <option value="300">Level 300 (Third Year)</option>
+                            <option value="400">Level 400 (Final Year)</option>
+                            <option value="500">Level 500 (Fifth Year)</option>
+                            <option value="Postgraduate">Postgraduate / Masters</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">Confirm Password</Label>
+                        <Label
+                          htmlFor="reg-program"
+                          className="text-xs font-semibold text-foreground"
+                        >
+                          Program of Study / Department
+                        </Label>
                         <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Re-enter password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          minLength={6}
-                          required
-                          className="h-10"
+                          id="reg-program"
+                          list="departments-list"
+                          placeholder="e.g. B.Sc. Computer Science"
+                          value={regProgram}
+                          onChange={(e) => setRegProgram(e.target.value)}
+                          className="h-10 text-sm"
                         />
+                        <datalist id="departments-list">
+                          <option value="Computer Science" />
+                          <option value="Electrical & Electronic Engineering" />
+                          <option value="Mechanical Engineering" />
+                          <option value="Civil Engineering" />
+                          <option value="Chemical Engineering" />
+                          <option value="Petroleum Engineering" />
+                          <option value="Mathematics & Statistics" />
+                          <option value="Medicine & Surgery" />
+                          <option value="Nursing" />
+                          <option value="Pharmacy" />
+                          <option value="Business Administration" />
+                          <option value="Accounting & Finance" />
+                          <option value="Faculty of Law" />
+                          <option value="Architecture" />
+                          <option value="Agricultural Engineering" />
+                          <option value="Physics" />
+                        </datalist>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="reg-email"
+                          className="text-xs font-semibold text-foreground"
+                        >
+                          Student Email Address
+                        </Label>
+                        <Input
+                          id="reg-email"
+                          type="email"
+                          placeholder="e.g. student@st.ug.edu.gh"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          required
+                          className="h-10 text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-foreground">
+                              Password
+                            </Label>
+                            <button
+                              type="button"
+                              onClick={() => setShowRegPassword(!showRegPassword)}
+                              className="text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              {showRegPassword ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                          <Input
+                            type={showRegPassword ? "text" : "password"}
+                            placeholder="Min 6 characters"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            minLength={6}
+                            required
+                            className="h-10"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-foreground">Confirm</Label>
+                          <Input
+                            type={showRegPassword ? "text" : "password"}
+                            placeholder="Re-enter"
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            minLength={6}
+                            required
+                            className="h-10"
+                          />
+                        </div>
                       </div>
 
                       <Button
                         type="submit"
-                        id="student-verify-continue-btn"
-                        className="w-full h-11 rounded-lg bg-[#1e3a8a] hover:bg-[#172554] text-white font-semibold text-sm tracking-wide shadow-sm hover:shadow-md active:scale-[0.99] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
+                        id="student-register-submit-btn"
+                        className="w-full h-11 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm tracking-wide shadow-sm hover:shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
                         disabled={busy}
                       >
                         {busy ? (
                           <span className="flex items-center gap-2">
-                            <RefreshCw className="size-4 animate-spin" /> Verifying & Saving...
+                            <RefreshCw className="size-4 animate-spin" /> Registering & Generating
+                            Pass...
                           </span>
                         ) : (
                           <span className="flex items-center gap-2">
-                            <KeyRound className="size-4" /> Sign Up & Enter Portal
+                            <UserPlus className="size-4" /> Register & Generate Official QR Pass
                           </span>
                         )}
                       </Button>
@@ -1145,11 +1360,11 @@ function StudentPortalPage() {
 
                     <div className="pt-2 text-center space-y-1.5">
                       <p className="text-xs text-muted-foreground">
-                        Already set your password?{" "}
+                        Already have an account?{" "}
                         <button
                           type="button"
                           onClick={() => setStep("login")}
-                          className="text-primary font-semibold hover:underline"
+                          className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                         >
                           Sign In with Password
                         </button>
@@ -1162,7 +1377,7 @@ function StudentPortalPage() {
               {step === "create" && (
                 <>
                   <CardHeader className="text-center pb-3">
-                    <div className="mx-auto size-12 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center mb-2">
+                    <div className="mx-auto size-12 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 grid place-items-center mb-2">
                       <KeyRound className="size-6" />
                     </div>
                     <CardTitle className="text-xl font-bold">Create Your Password</CardTitle>
@@ -1173,10 +1388,12 @@ function StudentPortalPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-3 bg-muted/50 rounded-lg border border-border/60 text-xs space-y-1.5">
-                      {me?.full_name && (
+                      {(me as any)?.full_name && (
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Student:</span>
-                          <span className="font-semibold text-foreground">{me.full_name}</span>
+                          <span className="font-semibold text-foreground">
+                            {(me as any).full_name}
+                          </span>
                         </div>
                       )}
                       <div className="flex items-center justify-between">
@@ -1185,7 +1402,7 @@ function StudentPortalPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Verified Email:</span>
-                        <span className="font-medium text-emerald-600 flex items-center gap-1">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1">
                           <CheckCircle2 className="size-3.5" /> {email}
                         </span>
                       </div>
@@ -1364,7 +1581,7 @@ function StudentPortalPage() {
               {step === "reset" && (
                 <>
                   <CardHeader className="text-center pb-4">
-                    <div className="mx-auto size-12 rounded-full bg-amber-100 text-amber-800 grid place-items-center mb-2">
+                    <div className="mx-auto size-12 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-500/20 grid place-items-center mb-2">
                       <RefreshCw className="size-6" />
                     </div>
                     <CardTitle className="text-xl font-bold">Reset Student Password</CardTitle>
@@ -1477,14 +1694,14 @@ function StudentPortalPage() {
           <div className="space-y-6">
             {/* Student Header Card */}
             <Card className="border shadow-xs overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-950 via-blue-900 to-blue-700 p-4 sm:p-6 text-white">
+              <div className="bg-gradient-to-r from-black via-blue-950 to-blue-900 p-4 sm:p-6 text-white">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge className="bg-white/20 text-white hover:bg-white/30 border-none text-[11px] font-mono">
                         {me.index_number}
                       </Badge>
-                      <Badge className="bg-emerald-500/90 text-white border-none text-[11px]">
+                      <Badge className="bg-blue-600 text-white border-none text-[11px]">
                         Verified Student
                       </Badge>
                     </div>
@@ -1546,11 +1763,13 @@ function StudentPortalPage() {
             )}
 
             {warningCourses.length > 0 && atRiskCourses.length === 0 && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 sm:p-5 flex items-start gap-3.5 text-amber-900 animate-in fade-in">
-                <AlertCircle className="size-5 shrink-0 mt-0.5 text-amber-600" />
+              <div className="rounded-xl border border-blue-300 bg-blue-50/80 dark:bg-blue-950/40 dark:border-blue-800 p-4 sm:p-5 flex items-start gap-3.5 text-blue-950 dark:text-blue-200 animate-in fade-in">
+                <AlertCircle className="size-5 shrink-0 mt-0.5 text-blue-700 dark:text-blue-400" />
                 <div className="space-y-1 text-xs sm:text-sm">
-                  <div className="font-bold text-amber-900">Attendance Caution</div>
-                  <p className="text-amber-800 leading-relaxed">
+                  <div className="font-bold text-blue-950 dark:text-blue-100">
+                    Attendance Caution
+                  </div>
+                  <p className="text-blue-900/90 dark:text-blue-200/90 leading-relaxed">
                     You have missed 3 or more sessions in:{" "}
                     <b>{warningCourses.map((c) => `${c.code} (${c.missed} missed)`).join(", ")}</b>.
                     Maintain regular attendance to keep your standing safe.
@@ -1797,7 +2016,9 @@ function StudentPortalPage() {
                               <div className="text-right shrink-0">
                                 <div
                                   className={`text-2xl font-black ${
-                                    isPassing ? "text-emerald-600" : "text-destructive"
+                                    isPassing
+                                      ? "text-blue-600 dark:text-blue-400"
+                                      : "text-destructive"
                                   }`}
                                 >
                                   {course.percentage}%
@@ -1820,21 +2041,27 @@ function StudentPortalPage() {
 
                             {/* Attended, Missed, Late metrics */}
                             <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-                              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-100">
-                                <div className="text-xs text-emerald-800 font-medium">Attended</div>
-                                <div className="text-lg font-bold text-emerald-700">
+                              <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 dark:bg-blue-950/40 dark:border-blue-900">
+                                <div className="text-xs text-blue-800 dark:text-blue-300 font-medium">
+                                  Attended
+                                </div>
+                                <div className="text-lg font-bold text-blue-700 dark:text-blue-400">
                                   {course.attended}
                                 </div>
                               </div>
-                              <div className="p-2 rounded-lg bg-rose-50 border border-rose-100">
-                                <div className="text-xs text-rose-800 font-medium">Missed</div>
-                                <div className="text-lg font-bold text-rose-700">
+                              <div className="p-2 rounded-lg bg-black/5 border border-black/10 dark:bg-white/5 dark:border-white/10">
+                                <div className="text-xs text-muted-foreground font-medium">
+                                  Missed
+                                </div>
+                                <div className="text-lg font-bold text-foreground">
                                   {course.missed}
                                 </div>
                               </div>
-                              <div className="p-2 rounded-lg bg-amber-50 border border-amber-100">
-                                <div className="text-xs text-amber-800 font-medium">Late</div>
-                                <div className="text-lg font-bold text-amber-700">
+                              <div className="p-2 rounded-lg bg-blue-100/60 border border-blue-200 dark:bg-blue-950/60 dark:border-blue-800">
+                                <div className="text-xs text-blue-900 dark:text-blue-200 font-medium">
+                                  Late
+                                </div>
+                                <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
                                   {course.late}
                                 </div>
                               </div>
@@ -1909,9 +2136,9 @@ function StudentPortalPage() {
                                 variant={isPresent ? "default" : isLate ? "secondary" : "outline"}
                                 className={`text-[11px] font-mono shrink-0 ${
                                   isPresent
-                                    ? "bg-emerald-600 text-white"
+                                    ? "bg-blue-600 text-white"
                                     : isLate
-                                      ? "bg-amber-100 text-amber-800"
+                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
                                       : ""
                                 }`}
                               >
@@ -1964,7 +2191,7 @@ function StudentPortalPage() {
                     <span className="text-xs text-muted-foreground font-medium">
                       Overall Attendance
                     </span>
-                    <div className="text-lg font-bold text-emerald-600">
+                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                       {overallPercentage}% Average
                     </div>
                     <span className="text-[11px] text-muted-foreground">
@@ -2052,7 +2279,9 @@ function StudentPortalPage() {
                                   <td className="px-4 py-3 text-center">
                                     <div
                                       className={`font-extrabold text-sm ${
-                                        isPassing ? "text-emerald-600" : "text-destructive"
+                                        isPassing
+                                          ? "text-blue-600 dark:text-blue-400"
+                                          : "text-destructive"
                                       }`}
                                     >
                                       {c.percentage}%
@@ -2465,7 +2694,7 @@ function StudentPortalPage() {
                       <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold">
                         Universal Student Pass
                       </Badge>
-                      <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 text-xs font-semibold">
+                      <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 text-xs font-semibold">
                         One Code for All Courses
                       </Badge>
                     </div>
@@ -2504,7 +2733,7 @@ function StudentPortalPage() {
 
                     <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground max-w-md mx-auto text-left space-y-1.5 border">
                       <div className="font-semibold text-foreground flex items-center gap-1.5">
-                        <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                        <ShieldCheck className="size-4 text-blue-600 dark:text-blue-400 shrink-0" />
                         Universal QR Code Guarantee
                       </div>
                       <p>
@@ -2591,8 +2820,8 @@ function StudentPortalPage() {
                         <div
                           className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${
                             pushPermission === "granted"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400"
+                              : "bg-black/10 text-foreground dark:bg-white/10 dark:text-white"
                           }`}
                         >
                           <Smartphone className="size-5" />
@@ -2705,12 +2934,12 @@ function StudentPortalPage() {
                                 <div
                                   className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
                                     nType === "ATTENDANCE"
-                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
                                       : nType === "ANNOUNCEMENT"
-                                        ? "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400"
+                                        ? "bg-blue-200/70 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200"
                                         : nType === "ASSIGNMENT"
-                                          ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400"
-                                          : "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400"
+                                          ? "bg-blue-50 text-blue-800 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
+                                          : "bg-black/5 text-foreground dark:bg-white/10 dark:text-white"
                                   }`}
                                 >
                                   {nType === "ATTENDANCE" ? (
@@ -2908,7 +3137,7 @@ function StudentPortalPage() {
                       </div>
 
                       <div className="pt-3 border-t text-xs text-muted-foreground flex items-center gap-2">
-                        <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                        <ShieldCheck className="size-4 text-blue-600 dark:text-blue-400 shrink-0" />
                         <span>
                           Protected by student-only authenticated access and PBKDF2 encryption.
                         </span>

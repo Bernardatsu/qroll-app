@@ -701,10 +701,10 @@ function ScanPage() {
               Live Scanner
             </CardTitle>
             {scanning && (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <span className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                 </span>
                 Active
               </span>
@@ -779,11 +779,11 @@ function ScanPage() {
               {scanning && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   {/* Subtle viewfinder reticle corners */}
-                  <div className="relative w-3/4 h-3/4 border-2 border-emerald-500/40 rounded-2xl">
-                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-emerald-400 rounded-tl"></div>
-                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-emerald-400 rounded-tr"></div>
-                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-emerald-400 rounded-bl"></div>
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-emerald-400 rounded-br"></div>
+                  <div className="relative w-3/4 h-3/4 border-2 border-blue-500/40 rounded-2xl">
+                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-blue-400 rounded-tl"></div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-blue-400 rounded-tr"></div>
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-blue-400 rounded-bl"></div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-blue-400 rounded-br"></div>
                   </div>
                 </div>
               )}
@@ -806,13 +806,11 @@ function ScanPage() {
                 <span
                   className={
                     scanning
-                      ? "inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium"
+                      ? "inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium"
                       : "text-muted-foreground"
                   }
                 >
-                  {scanning && (
-                    <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  )}
+                  {scanning && <span className="size-1.5 rounded-full bg-blue-500 animate-ping" />}
                   {status}
                 </span>
               )}
@@ -823,12 +821,12 @@ function ScanPage() {
               <div
                 className={`rounded-lg border p-3 text-sm transition-all animate-in fade-in-50 duration-200 ${
                   lastScan.type === "success"
-                    ? "border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200"
+                    ? "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200"
                     : lastScan.type === "warning"
-                      ? "border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200"
+                      ? "border-blue-400/40 bg-blue-100/50 dark:bg-blue-900/40 text-blue-950 dark:text-blue-200"
                       : lastScan.type === "info"
-                        ? "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20 text-blue-900 dark:text-blue-200"
-                        : "border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200"
+                        ? "border-black/20 bg-black/5 dark:bg-white/5 dark:border-white/20 text-foreground"
+                        : "border-black/30 bg-black/10 dark:bg-white/10 dark:border-white/30 text-foreground"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -840,12 +838,12 @@ function ScanPage() {
                     variant="outline"
                     className={`text-[10px] uppercase font-bold tracking-wider ${
                       lastScan.type === "success"
-                        ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                        ? "border-blue-500/40 text-blue-700 dark:text-blue-300"
                         : lastScan.type === "warning"
-                          ? "border-amber-500/40 text-amber-700 dark:text-amber-300"
+                          ? "border-blue-600/40 text-blue-800 dark:text-blue-300"
                           : lastScan.type === "info"
-                            ? "border-blue-500/40 text-blue-700 dark:text-blue-300"
-                            : "border-rose-500/40 text-rose-700 dark:text-rose-300"
+                            ? "border-black/30 text-foreground dark:border-white/30"
+                            : "border-black/40 text-foreground dark:border-white/40"
                     }`}
                   >
                     {lastScan.status}
@@ -957,13 +955,13 @@ function ScanPage() {
                   </div>
                   <div className="text-right">
                     {r.status === "PRESENT" && (
-                      <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                      <span className="inline-flex items-center text-blue-600 dark:text-blue-400 text-xs font-semibold">
                         <CheckCircle2 className="size-3.5 mr-1" />
                         SCANNED{r.duration_minutes ? ` · ${r.duration_minutes}m` : ""}
                       </span>
                     )}
                     {r.status === "IN_PROGRESS" && (
-                      <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
                         SIGNED IN
                       </span>
                     )}

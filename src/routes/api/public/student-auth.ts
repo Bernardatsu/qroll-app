@@ -3,6 +3,7 @@ import {
   getDocRest,
   setDocRest,
   queryCollectionRest,
+  FALLBACK_DEPARTMENTS,
 } from "@/integrations/firebase/firestore-rest";
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 
@@ -77,11 +78,42 @@ async function checkRateLimit(
 export const Route = createFileRoute("/api/public/student-auth")({
   server: {
     handlers: {
+      GET: async () => {
+        try {
+          const depts = await queryCollectionRest("departments").catch(() => FALLBACK_DEPARTMENTS);
+          return Response.json({ departments: depts.length > 0 ? depts : FALLBACK_DEPARTMENTS });
+        } catch {
+          return Response.json({ departments: FALLBACK_DEPARTMENTS });
+        }
+      },
       POST: async ({ request }) => {
         try {
           const body = await request.json();
-          const { action, index, email, password, new_password } = body;
+          const {
+            action,
+            index,
+            email,
+            password,
+            new_password,
+            full_name,
+            level: inputLevel,
+            program: inputProgram,
+          } = body;
           const cleanIndex = (index || "").trim();
+
+          // Department catalog request
+          if (action === "departments") {
+            try {
+              const depts = await queryCollectionRest("departments").catch(
+                () => FALLBACK_DEPARTMENTS,
+              );
+              return Response.json({
+                departments: depts.length > 0 ? depts : FALLBACK_DEPARTMENTS,
+              });
+            } catch {
+              return Response.json({ departments: FALLBACK_DEPARTMENTS });
+            }
+          }
 
           if (!cleanIndex) {
             return Response.json({ error: "Index number is required" }, { status: 400 });
@@ -91,7 +123,8 @@ export const Route = createFileRoute("/api/public/student-auth")({
           if (
             action === "set_password" ||
             action === "reset_password" ||
-            action === "change_password"
+            action === "change_password" ||
+            action === "register"
           ) {
             const clientIp =
               request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -102,7 +135,7 @@ export const Route = createFileRoute("/api/public/student-auth")({
             if (!rateCheck.allowed) {
               return Response.json(
                 {
-                  error: `Too many password attempts. Please wait ${rateCheck.retryAfterMinutes} minute(s) before trying again.`,
+                  error: `Too many attempts. Please wait ${rateCheck.retryAfterMinutes} minute(s) before trying again.`,
                 },
                 { status: 429 },
               );
@@ -121,11 +154,149 @@ export const Route = createFileRoute("/api/public/student-auth")({
             });
           }
 
+          // ACTION: New Student Registration
+          if (action === "register") {
+            const studentName = (full_name || "").trim();
+            const cleanEmail = (email || "").trim().toLowerCase();
+            const studentLvl = (inputLevel || "100").trim();
+            const studentProg = (inputProgram || "General").trim();
+
+            if (!password || password.length < 6) {
+              return Response.json(
+                { error: "Password must be at least 6 characters." },
+                { status: 400 },
+              );
+            }
+
+            if (matchingStudents.length > 0) {
+              // Student already exists in roster
+              const allStudentIds = Array.from(new Set(matchingStudents.map((s: any) => s.id)));
+              const primaryStudent = matchingStudents[0];
+              const studentId = primaryStudent.id;
+
+              // Check if password already set
+              let existingAccount = null;
+              for (const sid of allStudentIds) {
+                existingAccount = await getDocRest("student_accounts", sid);
+                if (existingAccount?.password_hash) break;
+              }
+              if (!existingAccount?.password_hash) {
+                existingAccount = await getDocRest("student_accounts", sanitizeDocId(cleanIndex));
+              }
+
+              if (existingAccount?.password_hash) {
+                return Response.json(
+                  {
+                    error: `An account for student index ${cleanIndex} is already registered. Please sign in with your password, or use Reset Password if forgotten.`,
+                  },
+                  { status: 409 },
+                );
+              }
+
+              // Update primary student record with name/email if provided
+              const updatedDoc: any = {
+                index_number: cleanIndex,
+                full_name: studentName || primaryStudent.full_name || `Student (${cleanIndex})`,
+                level: studentLvl || primaryStudent.level || "100",
+                program: studentProg || primaryStudent.program || "General",
+                updated_at: new Date().toISOString(),
+              };
+              if (cleanEmail) updatedDoc.email = cleanEmail;
+              let qrUuid = primaryStudent.qr_uuid;
+              if (!qrUuid) {
+                qrUuid =
+                  typeof crypto !== "undefined" && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : Math.random().toString(36).substring(2, 18);
+                updatedDoc.qr_uuid = qrUuid;
+              }
+
+              await setDocRest("students", studentId, updatedDoc);
+
+              const salt = randomBytes(16).toString("hex");
+              const hash = hashPassword(password, salt);
+              const accountPayload = {
+                student_id: studentId,
+                index_number: cleanIndex,
+                email: cleanEmail || primaryStudent.email || "",
+                password_salt: salt,
+                password_hash: hash,
+                updated_at: new Date().toISOString(),
+              };
+
+              await setDocRest("student_accounts", studentId, accountPayload);
+              await setDocRest("student_accounts", sanitizeDocId(cleanIndex), accountPayload);
+
+              return Response.json({
+                ok: true,
+                is_new: false,
+                student: {
+                  id: studentId,
+                  full_name: updatedDoc.full_name,
+                  index_number: cleanIndex,
+                  level: String(updatedDoc.level),
+                  program: updatedDoc.program,
+                  email: updatedDoc.email || "",
+                  qr_uuid: qrUuid,
+                  lecturers_count: allStudentIds.length,
+                },
+              });
+            } else {
+              // Completely new student registration
+              const newStudentId = "stud_" + sanitizeDocId(cleanIndex);
+              const generatedQr =
+                typeof crypto !== "undefined" && crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : Math.random().toString(36).substring(2, 18);
+
+              const newStudentData = {
+                index_number: cleanIndex,
+                full_name: studentName || `Student (${cleanIndex})`,
+                email: cleanEmail,
+                level: studentLvl || "100",
+                program: studentProg || "General",
+                qr_uuid: generatedQr,
+                created_at: new Date().toISOString(),
+              };
+
+              await setDocRest("students", newStudentId, newStudentData);
+
+              const salt = randomBytes(16).toString("hex");
+              const hash = hashPassword(password, salt);
+              const accountPayload = {
+                student_id: newStudentId,
+                index_number: cleanIndex,
+                email: cleanEmail,
+                password_salt: salt,
+                password_hash: hash,
+                updated_at: new Date().toISOString(),
+              };
+
+              await setDocRest("student_accounts", newStudentId, accountPayload);
+              await setDocRest("student_accounts", sanitizeDocId(cleanIndex), accountPayload);
+
+              return Response.json({
+                ok: true,
+                is_new: true,
+                student: {
+                  id: newStudentId,
+                  full_name: newStudentData.full_name,
+                  index_number: cleanIndex,
+                  level: String(newStudentData.level),
+                  program: newStudentData.program,
+                  email: cleanEmail,
+                  qr_uuid: generatedQr,
+                  lecturers_count: 0,
+                },
+              });
+            }
+          }
+
           if (matchingStudents.length === 0) {
             return Response.json(
               {
                 error:
-                  "This index number is not registered by any lecturer or department yet. Please check your index number or contact your course lecturer.",
+                  "This index number is not found. If you are a new student, please click 'New Student Registration' below to create your account.",
               },
               { status: 404 },
             );
@@ -414,28 +585,54 @@ export const Route = createFileRoute("/api/public/student-auth")({
               return Response.json({ error: "Unauthorized" }, { status: 401 });
             }
 
-            // 1. Query course registrations across ALL student doc IDs belonging to this student
-            const allRegistrations = await queryCollectionRest("course_registrations");
-            const myRegistrations = allRegistrations.filter((r: any) => {
-              if (allStudentIds.includes(r.student_id)) return true;
-              if (r.index_number && r.index_number.toUpperCase() === cleanIndex.toUpperCase())
-                return true;
-              return false;
+            // 1. Query course registrations TARGETED for this student only
+            const regPromises: Promise<any[]>[] = [];
+            for (const sid of allStudentIds) {
+              regPromises.push(
+                queryCollectionRest("course_registrations", {
+                  where: [{ field: "student_id", op: "EQUAL", value: sid }],
+                }).catch(() => []),
+              );
+            }
+            regPromises.push(
+              queryCollectionRest("course_registrations", {
+                where: [{ field: "index_number", op: "EQUAL", value: cleanIndex }],
+              }).catch(() => []),
+            );
+            if (cleanIndex !== cleanIndex.toUpperCase()) {
+              regPromises.push(
+                queryCollectionRest("course_registrations", {
+                  where: [{ field: "index_number", op: "EQUAL", value: cleanIndex.toUpperCase() }],
+                }).catch(() => []),
+              );
+            }
+
+            const regArrays = await Promise.all(regPromises);
+            const myRegistrationsMap = new Map<string, any>();
+            regArrays.flat().forEach((r: any) => {
+              if (r && (r.id || r.course_id)) {
+                myRegistrationsMap.set(r.id || `${r.course_id}_${r.student_id}`, r);
+              }
             });
+            const myRegistrations = Array.from(myRegistrationsMap.values());
 
             const enrolledCourseIds = Array.from(
               new Set(myRegistrations.map((r: any) => r.course_id).filter(Boolean)),
             );
 
-            // 2. Fetch all courses
+            // 2. Fetch all courses (utilizes 10-min in-memory cache)
             const allCourses = await queryCollectionRest("courses");
             const coursesMap = new Map<string, any>();
             allCourses.forEach((c) => coursesMap.set(c.id, c));
 
-            // Fetch departments for department name resolution
-            const allDepts = await queryCollectionRest("departments").catch(() => []);
+            // Fetch departments for department name resolution (utilizes in-memory cache with fallback)
+            const allDepts = await queryCollectionRest("departments").catch(
+              () => FALLBACK_DEPARTMENTS,
+            );
             const deptsMap = new Map<string, any>();
-            allDepts.forEach((d: any) => deptsMap.set(d.id, d));
+            (allDepts.length > 0 ? allDepts : FALLBACK_DEPARTMENTS).forEach((d: any) =>
+              deptsMap.set(d.id, d),
+            );
 
             // Include courses created by the student's lecturer(s) that match the student's level
             // e.g. PETROLEUM ENGINEERING THERMODYNAMICS II (L200) -> visible to all Level 200 students under that lecturer
@@ -460,14 +657,44 @@ export const Route = createFileRoute("/api/public/student-auth")({
             const sessionMap = new Map<string, any>();
             allSessions.forEach((s) => sessionMap.set(s.id, s));
 
-            // 3. Fetch attendance records across ALL student IDs for this student
-            const allRecords = await queryCollectionRest("attendance_records");
-            const myRecords = allRecords.filter((r: any) => {
-              if (allStudentIds.includes(r.student_id)) return true;
-              if (r.index_number && r.index_number.toUpperCase() === cleanIndex.toUpperCase())
-                return true;
-              return false;
+            // 3. Fetch attendance records TARGETED for this student only (saves thousands of reads)
+            const recordPromises: Promise<any[]>[] = [];
+            for (const sid of allStudentIds) {
+              recordPromises.push(
+                queryCollectionRest("attendance_records", {
+                  where: [{ field: "student_id", op: "EQUAL", value: sid }],
+                }).catch(() => []),
+              );
+            }
+            recordPromises.push(
+              queryCollectionRest("attendance_records", {
+                where: [{ field: "student_index", op: "EQUAL", value: cleanIndex }],
+              }).catch(() => []),
+            );
+            recordPromises.push(
+              queryCollectionRest("attendance_records", {
+                where: [{ field: "index_number", op: "EQUAL", value: cleanIndex }],
+              }).catch(() => []),
+            );
+            if (cleanIndex !== cleanIndex.toUpperCase()) {
+              recordPromises.push(
+                queryCollectionRest("attendance_records", {
+                  where: [{ field: "student_index", op: "EQUAL", value: cleanIndex.toUpperCase() }],
+                }).catch(() => []),
+              );
+              recordPromises.push(
+                queryCollectionRest("attendance_records", {
+                  where: [{ field: "index_number", op: "EQUAL", value: cleanIndex.toUpperCase() }],
+                }).catch(() => []),
+              );
+            }
+
+            const recordArrays = await Promise.all(recordPromises);
+            const recordsMap = new Map<string, any>();
+            recordArrays.flat().forEach((rec: any) => {
+              if (rec && rec.id) recordsMap.set(rec.id, rec);
             });
+            const myRecords = Array.from(recordsMap.values());
 
             // Include courses from attendance sessions as well
             for (const r of myRecords) {
@@ -693,18 +920,29 @@ export const Route = createFileRoute("/api/public/student-auth")({
                 return dueA - dueB;
               });
 
-            // Fetch notifications history for this student
+            // Fetch notifications history targeted for this student
             let studentNotifications: any[] = [];
             try {
-              const allNotifs = await queryCollectionRest("notifications");
-              studentNotifications = allNotifs
-                .filter(
-                  (n: any) =>
-                    n.userId === studentId ||
-                    allStudentIds.includes(n.userId) ||
-                    n.userId === cleanIndex ||
-                    n.userId === "all_students",
-                )
+              const notifPromises: Promise<any[]>[] = [
+                queryCollectionRest("notifications", {
+                  where: [{ field: "userId", op: "EQUAL", value: cleanIndex }],
+                  limit: 30,
+                }).catch(() => []),
+                queryCollectionRest("notifications", {
+                  where: [{ field: "userId", op: "EQUAL", value: studentId }],
+                  limit: 30,
+                }).catch(() => []),
+                queryCollectionRest("notifications", {
+                  where: [{ field: "userId", op: "EQUAL", value: "all_students" }],
+                  limit: 30,
+                }).catch(() => []),
+              ];
+              const notifArrays = await Promise.all(notifPromises);
+              const notifMap = new Map<string, any>();
+              notifArrays.flat().forEach((n: any) => {
+                if (n && n.id) notifMap.set(n.id, n);
+              });
+              studentNotifications = Array.from(notifMap.values())
                 .map((n: any) => ({
                   id: n.id,
                   type: n.type || "GENERAL",

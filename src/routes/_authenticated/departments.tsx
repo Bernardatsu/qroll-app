@@ -334,7 +334,7 @@ function DeptPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 text-emerald-600 hover:text-emerald-700"
+                            className="size-8 text-blue-600 hover:text-blue-700"
                             onClick={saveEdit}
                           >
                             <Check className="size-4" />
@@ -446,7 +446,7 @@ function DeptPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 text-emerald-600 hover:text-emerald-700"
+                            className="size-8 text-blue-600 hover:text-blue-700"
                             onClick={saveYear}
                           >
                             <Check className="size-4" />

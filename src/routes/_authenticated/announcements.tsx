@@ -474,11 +474,11 @@ export function AnnouncementsAndAssignmentsPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           {item.type === "announcement" ? (
-                            <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] gap-1">
+                            <Badge className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] gap-1">
                               <Megaphone className="size-3" /> Announcement
                             </Badge>
                           ) : (
-                            <Badge className="bg-amber-600 hover:bg-amber-700 text-white text-[11px] gap-1">
+                            <Badge className="bg-emerald-950 text-emerald-100 hover:bg-emerald-900 text-[11px] gap-1">
                               <ClipboardList className="size-3" /> Assignment
                             </Badge>
                           )}
@@ -565,7 +565,7 @@ export function AnnouncementsAndAssignmentsPage() {
                       className="w-full justify-start text-xs h-10"
                       onClick={() => setActiveTab("announcements")}
                     >
-                      <Megaphone className="size-4 mr-2 text-blue-300" />
+                      <Megaphone className="size-4 mr-2 text-emerald-300" />
                       Post New Announcement
                     </Button>
                     <Button

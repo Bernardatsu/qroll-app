@@ -284,7 +284,7 @@ function SessionsPage() {
       const dataUrl = await QRCode.toDataURL(url, {
         width: 800,
         margin: 2,
-        color: { dark: "#1e3a8a", light: "#ffffff" },
+        color: { dark: "#064e3b", light: "#ffffff" },
       });
       setProjecting({
         id: s.id,

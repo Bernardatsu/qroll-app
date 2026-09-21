@@ -40,6 +40,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const navigate = useNavigate();
+
   useEffect(() => {
     if (firebaseAuth.currentUser) {
       navigate({ to: "/dashboard" });

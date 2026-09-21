@@ -147,7 +147,7 @@ export function NotificationSettingsSection({
                     Device Push Notifications
                   </CardTitle>
                   {isTokenActive && permissionStatus === "granted" ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400 border border-blue-500/20">
                       <CheckCircle2 className="h-3 w-3" /> Active
                     </span>
                   ) : permissionStatus === "denied" ? (
@@ -218,7 +218,7 @@ export function NotificationSettingsSection({
               <span className="font-semibold text-foreground">{permissionStatus}</span>
             </div>
             {isTokenActive && (
-              <div className="text-emerald-600 dark:text-emerald-400 font-medium">
+              <div className="text-blue-600 dark:text-blue-400 font-medium">
                 ✓ FCM Token registered on server
               </div>
             )}
@@ -232,8 +232,8 @@ export function NotificationSettingsSection({
           )}
 
           {isIosPwa && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">
-              <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400 mb-1">
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-foreground">
+              <div className="flex items-center gap-2 font-semibold text-blue-600 dark:text-blue-400 mb-1">
                 <Smartphone className="h-4 w-4" />
                 iPhone / iPad Setup Required
               </div>
@@ -395,8 +395,8 @@ export function NotificationSettingsSection({
               </Button>
 
               {!isTokenActive && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                  ⚠️ Enable push on this device above first to register a token for testing.
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  Notice: Enable push on this device above first to register a token for testing.
                 </span>
               )}
             </div>

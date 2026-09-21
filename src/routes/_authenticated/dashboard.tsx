@@ -10,12 +10,15 @@ import {
   BookOpen,
   CalendarClock,
   Clock,
-  QrCode,
-  FileSpreadsheet,
   ArrowRight,
   GraduationCap,
   HelpCircle,
   CheckCircle2,
+  FolderKanban,
+  Settings,
+  Building2,
+  QrCode,
+  Compass,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -74,13 +77,6 @@ function Stat({
     </Card>
   );
 }
-
-const QUICK_ACTIONS = [
-  { to: "/scan", label: "Open scanner", desc: "Scan student QR codes", icon: QrCode },
-  { to: "/sessions", label: "Sessions", desc: "Open or reuse a session", icon: CalendarClock },
-  { to: "/students", label: "Students", desc: "Add, import, print QRs", icon: Users },
-  { to: "/reports", label: "Reports", desc: "Export Excel & PDF", icon: FileSpreadsheet },
-] as const;
 
 function Dashboard() {
   const { user, roles } = useAuth();
@@ -193,20 +189,20 @@ function Dashboard() {
             <Link to={"/manual" as string} className="w-full sm:w-auto flex-1 sm:flex-initial">
               <Button
                 variant="outline"
-                className="w-full sm:w-auto justify-center bg-white/10 hover:bg-white/20 text-white border-white/20 font-medium h-10 sm:h-9 text-xs sm:text-sm"
+                className="w-full sm:w-auto justify-center bg-white/15 hover:bg-white/25 text-white border-white/30 font-medium h-10 sm:h-9 text-xs sm:text-sm"
               >
-                <HelpCircle className="size-4 mr-1.5" /> User Manual
+                <HelpCircle className="size-4 mr-1.5 text-blue-200" /> User Manual
               </Button>
             </Link>
             <Link
-              to={"/scan" as string}
+              to={"/account" as string}
               className="w-full sm:w-auto flex-1 sm:flex-initial shrink-0"
             >
               <Button
-                variant="secondary"
-                className="w-full sm:w-auto justify-center shadow-sm font-medium h-10 sm:h-9 text-xs sm:text-sm"
+                variant="default"
+                className="w-full sm:w-auto justify-center bg-white hover:bg-blue-50 text-blue-900 font-bold h-10 sm:h-9 text-xs sm:text-sm shadow-md"
               >
-                <QrCode className="size-4 mr-1.5" /> Open Scanner
+                <FolderKanban className="size-4 mr-1.5" /> My Account
               </Button>
             </Link>
           </div>
@@ -219,150 +215,367 @@ function Dashboard() {
           icon={Users}
           label="Total Students"
           value={data?.students ?? 0}
-          tint="bg-primary/10 text-primary"
+          tint="bg-blue-500/15 text-blue-600 dark:text-blue-400"
           delay={0}
         />
         <Stat
           icon={BookOpen}
           label="Active Courses"
           value={data?.courses ?? 0}
-          tint="bg-gold/20 text-gold"
+          tint="bg-blue-600/20 text-blue-700 dark:text-blue-300"
           delay={80}
         />
         <Stat
           icon={CalendarClock}
           label="Total Sessions"
           value={data?.sessions ?? 0}
-          tint="bg-accent text-accent-foreground"
+          tint="bg-blue-500/10 text-blue-600 dark:text-blue-400"
           delay={160}
         />
         <Stat
           icon={Clock}
           label="Active Semesters"
           value={data?.semesters ?? 1}
-          tint="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          tint="bg-blue-500/20 text-blue-700 dark:text-blue-300"
           delay={240}
         />
       </div>
 
-      {/* Quick actions */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {QUICK_ACTIONS.map((a, i) => (
-          <Link
-            key={a.to}
-            to={a.to as string}
-            className="group rounded-xl border bg-card p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg animate-in fade-in slide-in-from-bottom-3"
-            style={{ animationDelay: `${360 + i * 70}ms`, animationFillMode: "backwards" }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <a.icon className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate font-semibold">{a.label}</div>
-                <div className="truncate text-xs text-muted-foreground">{a.desc}</div>
-              </div>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <Card className="mt-8 border-primary/20 bg-card shadow-sm animate-in fade-in duration-700">
-        <CardHeader className="pb-3 border-b flex flex-row items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <CheckCircle2 className="size-5 text-primary" />
-              Quick 4-Step QRoll Workflow Guide
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Follow these simple steps to manage your classroom attendance from start to finish.
-            </p>
-          </div>
-          <Link to={"/manual" as string}>
-            <Button variant="outline" size="sm" className="text-xs shrink-0">
-              <HelpCircle className="size-3.5 mr-1" /> Full Manual
+      {/* Quick Access Action Bar: Students, Courses, Departments, Sessions, Scan */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border border-blue-200/80 dark:border-blue-900/40 bg-white dark:bg-card shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="size-2.5 rounded-full bg-blue-600 animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-blue-300">
+            Quick Access:
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={"/students" as string} id="quick-btn-students">
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs gap-1.5 h-8.5 shadow-xs"
+            >
+              <Users className="size-3.5" />
+              <span>Students</span>
             </Button>
           </Link>
-        </CardHeader>
-        <CardContent className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-          <div className="rounded-lg border bg-muted/30 p-3.5 space-y-1.5">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                1
-              </span>
-              Courses & Terms
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Define your academic departments and course codes under <b>Courses</b>. Set up the
-              current semester.
-            </p>
-            <Link
-              to={"/courses" as string}
-              className="text-xs text-primary hover:underline font-medium inline-block pt-1"
+          <Link to={"/courses" as string} id="quick-btn-courses">
+            <Button
+              size="sm"
+              className="bg-blue-700 hover:bg-blue-800 text-white font-semibold text-xs gap-1.5 h-8.5 shadow-xs"
             >
-              Go to Courses &rarr;
-            </Link>
+              <BookOpen className="size-3.5" />
+              <span>Courses</span>
+            </Button>
+          </Link>
+          <Link to={"/departments" as string} id="quick-btn-departments">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-blue-200 dark:border-blue-800/80 text-blue-900 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-xs gap-1.5 h-8.5"
+            >
+              <Building2 className="size-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Departments</span>
+            </Button>
+          </Link>
+          <Link to={"/sessions" as string} id="quick-btn-sessions">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-blue-200 dark:border-blue-800/80 text-blue-900 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-xs gap-1.5 h-8.5"
+            >
+              <CalendarClock className="size-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Sessions</span>
+            </Button>
+          </Link>
+          <Link to={"/scan" as string} id="quick-btn-scan">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-100 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-xs font-semibold gap-1.5 h-8.5"
+            >
+              <QrCode className="size-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Scan & Verify</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Primary Dashboard Hub Cards: Students, Courses, My Account, Settings */}
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Students Card */}
+        <Link
+          to={"/students" as string}
+          id="dashboard-students-card"
+          className="group relative overflow-hidden rounded-2xl border border-blue-200/80 dark:border-blue-900/50 bg-white dark:bg-card text-slate-900 dark:text-foreground p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg shadow-sm flex flex-col justify-between"
+        >
+          <div className="pointer-events-none absolute -right-10 -bottom-10 size-32 rounded-full bg-blue-600/5 blur-xl transition-transform group-hover:scale-125" />
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="size-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xs">
+                <Users className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-blue-600 dark:text-blue-400 transition-transform group-hover:translate-x-1" />
+            </div>
+            <div className="mt-3.5">
+              <div className="text-base font-bold text-slate-900 dark:text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                Students
+              </div>
+              <p className="text-xs text-slate-500 dark:text-blue-200/60 mt-1 line-clamp-2">
+                Manage student rosters, generate QR cards, and monitor enrollment.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Enrolled</span>
+            <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/70 px-2 py-0.5 rounded border border-blue-200/60 dark:border-blue-800">
+              {data?.students ?? 0} Students
+            </span>
+          </div>
+        </Link>
+
+        {/* Courses Card */}
+        <Link
+          to={"/courses" as string}
+          id="dashboard-courses-card"
+          className="group relative overflow-hidden rounded-2xl border border-blue-200/80 dark:border-blue-900/50 bg-white dark:bg-card text-slate-900 dark:text-foreground p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg shadow-sm flex flex-col justify-between"
+        >
+          <div className="pointer-events-none absolute -right-10 -bottom-10 size-32 rounded-full bg-blue-600/5 blur-xl transition-transform group-hover:scale-125" />
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="size-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xs">
+                <BookOpen className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-blue-600 dark:text-blue-400 transition-transform group-hover:translate-x-1" />
+            </div>
+            <div className="mt-3.5">
+              <div className="text-base font-bold text-slate-900 dark:text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                Courses
+              </div>
+              <p className="text-xs text-slate-500 dark:text-blue-200/60 mt-1 line-clamp-2">
+                Manage curriculum, assign lecturers, and organize academic departments.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Active</span>
+            <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/70 px-2 py-0.5 rounded border border-blue-200/60 dark:border-blue-800">
+              {data?.courses ?? 0} Courses
+            </span>
+          </div>
+        </Link>
+
+        {/* My Account Card */}
+        <Link
+          to={"/account" as string}
+          id="dashboard-my-account-card"
+          className="group relative overflow-hidden rounded-2xl border border-blue-200/80 dark:border-blue-900/50 bg-white dark:bg-card text-slate-900 dark:text-foreground p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg shadow-sm flex flex-col justify-between"
+        >
+          <div className="pointer-events-none absolute -right-10 -bottom-10 size-32 rounded-full bg-blue-600/5 blur-xl transition-transform group-hover:scale-125" />
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="size-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xs">
+                <FolderKanban className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-blue-600 dark:text-blue-400 transition-transform group-hover:translate-x-1" />
+            </div>
+            <div className="mt-3.5">
+              <div className="text-base font-bold text-slate-900 dark:text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                My Account
+              </div>
+              <p className="text-xs text-slate-500 dark:text-blue-200/60 mt-1 line-clamp-2">
+                Access Semesters, Departments, History, and Organization profile.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Directory</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Hub Overview</span>
+          </div>
+        </Link>
+
+        {/* Settings Card */}
+        <Link
+          to={"/settings" as string}
+          id="dashboard-settings-card"
+          className="group relative overflow-hidden rounded-2xl border border-blue-200/80 dark:border-blue-900/50 bg-white dark:bg-card text-slate-900 dark:text-foreground p-5 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg shadow-sm flex flex-col justify-between"
+        >
+          <div className="pointer-events-none absolute -right-10 -bottom-10 size-32 rounded-full bg-blue-600/5 blur-xl transition-transform group-hover:scale-125" />
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="size-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xs">
+                <Settings className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-blue-600 dark:text-blue-400 transition-transform group-hover:translate-x-1" />
+            </div>
+            <div className="mt-3.5">
+              <div className="text-base font-bold text-slate-900 dark:text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                Settings
+              </div>
+              <p className="text-xs text-slate-500 dark:text-blue-200/60 mt-1 line-clamp-2">
+                Configure GPS radius, device lock tolerances, and alerts.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30 flex items-center justify-between text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Security</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">4-Device Lock</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Quick Short Steps Guide: Add Departments, Courses, Sessions and Scan */}
+      <section
+        id="dashboard-steps-guide"
+        className="mt-8 mb-4 rounded-2xl border border-blue-200/80 dark:border-blue-900/60 bg-linear-to-b from-blue-50/50 via-white to-white dark:from-blue-950/30 dark:via-card dark:to-card p-5 sm:p-6 shadow-sm"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-blue-100 dark:border-blue-900/50">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-bold uppercase tracking-wider mb-1.5">
+              <Compass className="size-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Step-by-Step Workflow</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+              Quick Steps Guide to Taking Attendance
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-blue-200/70 mt-0.5">
+              Follow these 4 short steps in sequence to set up your institution and capture verified
+              attendance:
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Step 1: Add Departments */}
+          <div className="relative flex flex-col justify-between rounded-xl border border-blue-200/70 dark:border-blue-900/50 bg-white dark:bg-card p-4 transition-all duration-200 hover:border-blue-500 hover:shadow-md">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="size-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  1
+                </span>
+                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                  Step 1
+                </span>
+              </div>
+              <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
+                <Building2 className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Add Departments</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Establish academic departments and faculty divisions first to organize all courses.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30">
+              <Link to={"/departments" as string}>
+                <Button
+                  size="sm"
+                  className="w-full justify-between bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold h-8 shadow-xs"
+                >
+                  <span>Add Departments</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          <div className="rounded-lg border bg-muted/30 p-3.5 space-y-1.5">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                2
-              </span>
-              Add Students & QRs
+          {/* Step 2: Add Courses */}
+          <div className="relative flex flex-col justify-between rounded-xl border border-blue-200/70 dark:border-blue-900/50 bg-white dark:bg-card p-4 transition-all duration-200 hover:border-blue-500 hover:shadow-md">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="size-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  2
+                </span>
+                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                  Step 2
+                </span>
+              </div>
+              <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
+                <BookOpen className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Add Courses</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Create course codes, titles, assigned lecturers, and enroll student rosters.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Import student rosters via Excel or add individually. Every student receives a
-              printable, scannable QR card.
-            </p>
-            <Link
-              to={"/students" as string}
-              className="text-xs text-primary hover:underline font-medium inline-block pt-1"
-            >
-              Go to Students &rarr;
-            </Link>
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30">
+              <Link to={"/courses" as string}>
+                <Button
+                  size="sm"
+                  className="w-full justify-between bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold h-8 shadow-xs"
+                >
+                  <span>Add Courses</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          <div className="rounded-lg border bg-muted/30 p-3.5 space-y-1.5">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                3
-              </span>
-              Launch & Scan
+          {/* Step 3: Create Sessions */}
+          <div className="relative flex flex-col justify-between rounded-xl border border-blue-200/70 dark:border-blue-900/50 bg-white dark:bg-card p-4 transition-all duration-200 hover:border-blue-500 hover:shadow-md">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="size-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  3
+                </span>
+                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                  Step 3
+                </span>
+              </div>
+              <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
+                <CalendarClock className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Create Sessions</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Launch a live lecture session with dynamic rotating QR and optional GPS check-in.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Open a session: Project the session QR for student check-in, or scan student ID QR
-              cards with the camera scanner.
-            </p>
-            <Link
-              to={"/sessions" as string}
-              className="text-xs text-primary hover:underline font-medium inline-block pt-1"
-            >
-              Go to Sessions &rarr;
-            </Link>
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30">
+              <Link to={"/sessions" as string}>
+                <Button
+                  size="sm"
+                  className="w-full justify-between bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold h-8 shadow-xs"
+                >
+                  <span>Create Session</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
-          <div className="rounded-lg border bg-muted/30 p-3.5 space-y-1.5">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                4
-              </span>
-              Export Reports
+          {/* Step 4: Scan */}
+          <div className="relative flex flex-col justify-between rounded-xl border border-blue-200/70 dark:border-blue-900/50 bg-white dark:bg-card p-4 transition-all duration-200 hover:border-blue-500 hover:shadow-md">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="size-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  4
+                </span>
+                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                  Step 4
+                </span>
+              </div>
+              <div className="size-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3">
+                <QrCode className="size-5" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Scan & Verify</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Scan student passes with your camera or barcode scanner with instant attendance
+                records.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              View attendance rates, 10-mark grades, and at-risk students. Download clean Excel
-              sheets or formatted PDF reports.
-            </p>
-            <Link
-              to={"/reports" as string}
-              className="text-xs text-primary hover:underline font-medium inline-block pt-1"
-            >
-              Go to Reports &rarr;
-            </Link>
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-blue-900/30">
+              <Link to={"/scan" as string}>
+                <Button
+                  size="sm"
+                  className="w-full justify-between bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold h-8 shadow-xs"
+                >
+                  <span>Open Scanner</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </AppShell>
   );
 }

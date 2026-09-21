@@ -64,7 +64,7 @@ export function DeviceLimitDialog({ open, userId, devices, onResolved }: DeviceL
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <div className="mx-auto size-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 grid place-items-center mb-2">
+          <div className="mx-auto size-12 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 grid place-items-center mb-2">
             <ShieldAlert className="size-6" />
           </div>
           <DialogTitle className="text-center text-lg font-bold">
