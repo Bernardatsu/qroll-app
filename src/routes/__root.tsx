@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#0f2544" },
+      { name: "google-site-verification", content: "google414c83e44d70de39" },
       { title: "QRoll — QR Attendance Made Easy" },
       {
         name: "description",
